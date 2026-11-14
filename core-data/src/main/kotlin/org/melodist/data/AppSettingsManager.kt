@@ -149,6 +149,7 @@ data class AppSettings(
     // 播放与歌词
     val showBilingualLyrics: Boolean = true,
     val enableWordByWordAnim: Boolean = true,
+    val keepScreenOnOnLyrics: Boolean = false,
     val lyricFontSize: LyricFontSize = LyricFontSize.Normal,
     val customLyricFontSizeSp: Int = 30,
     // OLED 屏保与显示保护
@@ -156,6 +157,7 @@ data class AppSettings(
     val screenSaverBrightness: ScreenSaverBrightness = ScreenSaverBrightness.Auto,
     val enablePixelShift: Boolean = true,
     val enableScreenSaverDuringPlayback: Boolean = true,
+    val enableScreenSaverLyrics: Boolean = true,
     // 下载与存储
     val downloadDirectory: String = "",
     val lyricSaveMode: LyricSaveMode = LyricSaveMode.Embedded,
@@ -210,12 +212,14 @@ object AppSettingsManager {
     private const val KEY_IGNORE_EMBEDDED_LYRICS = "ignore_embedded_lyrics"
     private const val KEY_BILINGUAL_TRANS = "bilingual_translation"
     private const val KEY_WORD_ANIM = "word_animation"
+    private const val KEY_KEEP_SCREEN_ON_ON_LYRICS = "keep_screen_on_on_lyrics"
     private const val KEY_LYRIC_FONT_SIZE = "lyric_font_size"
     private const val KEY_CUSTOM_LYRIC_FONT_SIZE = "custom_lyric_font_size"
     private const val KEY_SCREENSAVER_TIMEOUT = "screensaver_timeout"
     private const val KEY_SCREENSAVER_BRIGHTNESS = "screensaver_brightness"
     private const val KEY_SCREENSAVER_PIXEL_SHIFT = "screensaver_pixel_shift"
     private const val KEY_SCREENSAVER_DURING_PLAYBACK = "screensaver_during_playback"
+    private const val KEY_SCREENSAVER_LYRICS = "screensaver_lyrics"
     private const val KEY_DOWNLOAD_DIRECTORY = "download_directory"
     private const val KEY_LYRIC_SAVE_MODE = "lyric_save_mode"
     private const val KEY_SAVE_LYRIC_TRANSLATION = "save_lyric_translation"
@@ -278,6 +282,7 @@ object AppSettingsManager {
         val ignoreEmbedded = p.getBoolean(KEY_IGNORE_EMBEDDED_LYRICS, false)
         val bilingual = p.getBoolean(KEY_BILINGUAL_TRANS, true)
         val wordAnim = p.getBoolean(KEY_WORD_ANIM, true)
+        val keepScreenOn = p.getBoolean(KEY_KEEP_SCREEN_ON_ON_LYRICS, false)
         val fontName = p.getString(KEY_LYRIC_FONT_SIZE, LyricFontSize.Normal.name) ?: LyricFontSize.Normal.name
         val font =
             try {
@@ -309,6 +314,7 @@ object AppSettingsManager {
 
         val pixelShift = p.getBoolean(KEY_SCREENSAVER_PIXEL_SHIFT, true)
         val duringPlayback = p.getBoolean(KEY_SCREENSAVER_DURING_PLAYBACK, true)
+        val screenSaverLyrics = p.getBoolean(KEY_SCREENSAVER_LYRICS, true)
         val downloadDir = p.getString(KEY_DOWNLOAD_DIRECTORY, "") ?: ""
         val lyricSaveModeName = p.getString(KEY_LYRIC_SAVE_MODE, LyricSaveMode.Embedded.name) ?: LyricSaveMode.Embedded.name
         val lyricSaveMode = runCatching { LyricSaveMode.valueOf(lyricSaveModeName) }.getOrDefault(LyricSaveMode.Embedded)
@@ -335,12 +341,14 @@ object AppSettingsManager {
                 ignoreEmbeddedLyrics = ignoreEmbedded,
                 showBilingualLyrics = bilingual,
                 enableWordByWordAnim = wordAnim,
+                keepScreenOnOnLyrics = keepScreenOn,
                 lyricFontSize = font,
                 customLyricFontSizeSp = customFontSize,
                 screenSaverTimeout = timeout,
                 screenSaverBrightness = brightness,
                 enablePixelShift = pixelShift,
                 enableScreenSaverDuringPlayback = duringPlayback,
+                enableScreenSaverLyrics = screenSaverLyrics,
                 downloadDirectory = downloadDir,
                 lyricSaveMode = lyricSaveMode,
                 saveLyricTranslation = saveLyricTranslation,
@@ -468,6 +476,13 @@ object AppSettingsManager {
 
     fun updateWordByWordAnim(enable: Boolean) = setEnableWordByWordAnimation(enable)
 
+    fun setKeepScreenOnOnLyrics(enable: Boolean) {
+        _settings.value = _settings.value.copy(keepScreenOnOnLyrics = enable)
+        prefs?.edit()?.putBoolean(KEY_KEEP_SCREEN_ON_ON_LYRICS, enable)?.apply()
+    }
+
+    fun updateKeepScreenOnOnLyrics(enable: Boolean) = setKeepScreenOnOnLyrics(enable)
+
     fun setLyricFontSize(size: LyricFontSize) {
         _settings.value = _settings.value.copy(lyricFontSize = size)
         prefs?.edit()?.putString(KEY_LYRIC_FONT_SIZE, size.name)?.apply()
@@ -518,6 +533,13 @@ object AppSettingsManager {
     }
 
     fun updateEnableScreenSaverDuringPlayback(enable: Boolean) = setEnableScreenSaverDuringPlayback(enable)
+
+    fun setEnableScreenSaverLyrics(enable: Boolean) {
+        _settings.value = _settings.value.copy(enableScreenSaverLyrics = enable)
+        prefs?.edit()?.putBoolean(KEY_SCREENSAVER_LYRICS, enable)?.apply()
+    }
+
+    fun updateEnableScreenSaverLyrics(enable: Boolean) = setEnableScreenSaverLyrics(enable)
 
     fun setThemeMode(mode: ThemeMode) {
         _settings.value = _settings.value.copy(themeMode = mode)
@@ -616,7 +638,7 @@ object AppSettingsManager {
                                 imgBytes += calculateDirSize(file)
                             }
 
-                            "matched_lyrics", "lyrics" -> {
+                            "matched_lyrics", "lyrics", "cached_lyrics", "lyric_offsets.json" -> {
                                 lyricsBytes += calculateDirSize(file)
                             }
 
@@ -666,9 +688,19 @@ object AppSettingsManager {
                 val imageCleared = imageCacheClearAction?.invoke() ?: true
 
                 val cacheDir = ctx.cacheDir
-                val preservedFolders = setOf("covers", "local_covers", "lyrics", "matched_lyrics")
+                val preservedFolders =
+                    setOf(
+                        "covers",
+                        "local_covers",
+                        "lyrics",
+                        "matched_lyrics",
+                        "cached_lyrics",
+                        "media_cache",
+                        "image_cache",
+                    )
+                val preservedFiles = setOf("lyric_offsets.json")
                 cacheDir.listFiles()?.forEach { file ->
-                    if (!preservedFolders.contains(file.name)) {
+                    if (!preservedFolders.contains(file.name) && !preservedFiles.contains(file.name)) {
                         deleteRecursively(file)
                     }
                 }
@@ -676,6 +708,9 @@ object AppSettingsManager {
                 File(cacheDir, "local_covers").mkdirs()
                 File(cacheDir, "lyrics").mkdirs()
                 File(cacheDir, "matched_lyrics").mkdirs()
+                File(cacheDir, "cached_lyrics").mkdirs()
+                File(cacheDir, "image_cache").mkdirs()
+                File(cacheDir, "media_cache").mkdirs()
                 LocalMusicManager.onCacheCleared()
                 LocalMusicManager.healMissingCovers()
                 refreshCacheUsage()
@@ -700,9 +735,19 @@ object AppSettingsManager {
                 val imageCleared = imageCacheClearAction?.invoke() ?: true
 
                 val cacheDir = ctx.cacheDir
-                val preservedFolders = setOf("covers", "local_covers", "lyrics", "matched_lyrics")
+                val preservedFolders =
+                    setOf(
+                        "covers",
+                        "local_covers",
+                        "lyrics",
+                        "matched_lyrics",
+                        "cached_lyrics",
+                        "media_cache",
+                        "image_cache",
+                    )
+                val preservedFiles = setOf("lyric_offsets.json")
                 cacheDir.listFiles()?.forEach { file ->
-                    if (!preservedFolders.contains(file.name)) {
+                    if (!preservedFolders.contains(file.name) && !preservedFiles.contains(file.name)) {
                         deleteRecursively(file)
                     }
                 }
@@ -710,6 +755,7 @@ object AppSettingsManager {
                 File(cacheDir, "local_covers").mkdirs()
                 File(cacheDir, "lyrics").mkdirs()
                 File(cacheDir, "matched_lyrics").mkdirs()
+                File(cacheDir, "cached_lyrics").mkdirs()
                 File(cacheDir, "image_cache").mkdirs()
                 File(cacheDir, "media_cache").mkdirs()
                 cleanStaleInstallers()

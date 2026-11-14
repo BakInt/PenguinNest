@@ -30,6 +30,7 @@ fun CenterAlignedKaraokeLyricsView(
     lyrics: List<LyricLine>,
     currentPositionMs: Long,
     modifier: Modifier = Modifier,
+    songMid: String = "",
     lyricOffsetMs: Long =
         org.melodist.playback.PlaybackManager.currentLyricOffsetMs
             .collectAsState()
@@ -65,7 +66,19 @@ fun CenterAlignedKaraokeLyricsView(
             if (index == -1) 0 else index
         }
 
-    val listState = rememberLazyListState()
+    val initialIndex =
+        remember(songMid, lyrics) {
+            val index = lyrics.indexOfLast { it.timestampMs <= effectivePositionMs }
+            if (index == -1) 0 else index
+        }
+    val listState =
+        remember(songMid.ifBlank { lyrics.firstOrNull()?.text.orEmpty() }) {
+            androidx.compose.foundation.lazy.LazyListState(
+                firstVisibleItemIndex = initialIndex.coerceIn(0, (lyrics.size - 1).coerceAtLeast(0)),
+                firstVisibleItemScrollOffset = 0,
+            )
+        }
+    var isInitialAligned by remember(songMid, lyrics) { mutableStateOf(false) }
     val takeoverScroll by org.melodist.tv.connect.TakeoverLyricsState.scrollFlow
         .collectAsState()
 
@@ -81,10 +94,20 @@ fun CenterAlignedKaraokeLyricsView(
             }
         } else {
             if (activeIndex in lyrics.indices) {
-                listState.animateScrollToItem(
-                    index = activeIndex,
-                    scrollOffset = -80,
-                )
+                val currentVisibleIndex = listState.firstVisibleItemIndex
+                val distance = abs(activeIndex - currentVisibleIndex)
+                if (!isInitialAligned || distance > 3) {
+                    isInitialAligned = true
+                    listState.scrollToItem(
+                        index = activeIndex,
+                        scrollOffset = -80,
+                    )
+                } else {
+                    listState.animateScrollToItem(
+                        index = activeIndex,
+                        scrollOffset = -80,
+                    )
+                }
             }
         }
     }
@@ -169,50 +192,7 @@ private fun LyricLineItem(
     )
 
     val fontSp = baseFontSize.sp
-    val annotatedString =
-        remember(line, isCurrent, currentLineElapsedMs, baseFontSize, enableWordAnim, highlightColor) {
-            buildAnnotatedString {
-                if (isCurrent && line.isWordSynced && enableWordAnim) {
-                    line.words.forEach { wordSpan ->
-                        val wordStart = wordSpan.offsetMs
-                        val isSang = currentLineElapsedMs >= wordStart
-
-                        val wordColor =
-                            if (isSang) {
-                                highlightColor
-                            } else {
-                                UnplayedLyricColor
-                            }
-
-                        pushStyle(
-                            SpanStyle(
-                                color = wordColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = fontSp,
-                            ),
-                        )
-                        append(wordSpan.word)
-                        pop()
-                    }
-                } else {
-                    val color =
-                        if (isCurrent) {
-                            highlightColor
-                        } else {
-                            Color.White
-                        }
-                    pushStyle(
-                        SpanStyle(
-                            color = color,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = fontSp,
-                        ),
-                    )
-                    append(line.text)
-                    pop()
-                }
-            }
-        }
+    val lineHeightSp = (baseFontSize * 1.42f).sp
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -225,12 +205,29 @@ private fun LyricLineItem(
                     this.alpha = animatedAlpha.value
                 },
     ) {
-        // 歌词原文渲染
-        Text(
-            text = annotatedString,
-            textAlign = TextAlign.Center,
-            lineHeight = (baseFontSize * 1.42f).sp,
-        )
+        // 歌词原文渲染：当前行逐字使用 core-ui ContinuousKaraokeText 硬件裁切平滑流动，非当前行静态渲染
+        if (isCurrent && line.isWordSynced && enableWordAnim) {
+            org.melodist.ui.lyrics.ContinuousKaraokeText(
+                line = line,
+                currentLineElapsedMs = currentLineElapsedMs,
+                highlightColor = highlightColor,
+                defaultTextColor = UnplayedLyricColor,
+                fontSize = fontSp,
+                lineHeight = lineHeightSp,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Bold,
+            )
+        } else {
+            val color = if (isCurrent) highlightColor else Color.White
+            Text(
+                text = line.text,
+                color = color,
+                fontSize = fontSp,
+                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                lineHeight = lineHeightSp,
+            )
+        }
 
         // 译文渲染 (置于下方，带颜色过渡)
         if (line.hasTranslation && showBilingual) {
