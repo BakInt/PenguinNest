@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -43,10 +44,10 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Tv
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -92,6 +93,7 @@ import org.melodist.model.Artist
 import org.melodist.model.QualityOption
 import org.melodist.model.Song
 import org.melodist.playback.PlaybackManager
+import org.melodist.playback.SleepTimerManager
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -126,6 +128,8 @@ fun SongActionSheet(
     var showCommentsSheet by remember { mutableStateOf(false) }
     var showDiarySheet by remember { mutableStateOf(false) }
     var showListenTogetherSheet by remember { mutableStateOf(false) }
+    var showSleepTimerSelectDialog by remember { mutableStateOf(false) }
+    var showSleepTimerActiveConfirmDialog by remember { mutableStateOf(false) }
 
     val connectState by MobileConnectManager.connectionState.collectAsState()
     val isTvConnected = connectState is MobileConnectionState.Paired
@@ -300,6 +304,35 @@ fun SongActionSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
+        dragHandle = {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp, top = 22.dp, bottom = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    modifier =
+                        Modifier
+                            .size(width = 32.dp, height = 4.dp)
+                            .align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    shape = CircleShape,
+                ) {}
+
+                SleepTimerActionBadge(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    onClick = {
+                        if (SleepTimerManager.isTimerActive.value) {
+                            showSleepTimerActiveConfirmDialog = true
+                        } else {
+                            showSleepTimerSelectDialog = true
+                        }
+                    },
+                )
+            }
+        },
     ) {
         Column(
             modifier =
@@ -364,9 +397,7 @@ fun SongActionSheet(
                     (!song.isLocal)
 
             if (hasQuickActions) {
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 Row(
                     modifier =
@@ -434,7 +465,6 @@ fun SongActionSheet(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                     )
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                     DropdownMenuItem(
                                         text = { Text("立即在电视播放") },
                                         leadingIcon = { Icon(Icons.Rounded.PlayArrow, contentDescription = null) },
@@ -485,9 +515,6 @@ fun SongActionSheet(
                                             },
                                         )
                                     }
-                                    if (dlnaDevices.isNotEmpty()) {
-                                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                    }
                                 }
 
                                 if (dlnaDevices.isNotEmpty()) {
@@ -497,7 +524,6 @@ fun SongActionSheet(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                     )
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                     dlnaDevices.forEach { dev ->
                                         val isThisDevCasting = dlnaCastingDevice?.controlUrl == dev.controlUrl
                                         DropdownMenuItem(
@@ -641,13 +667,10 @@ fun SongActionSheet(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             } else {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             }
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.height(4.dp))
 
             if (showNextPlay) {
                 ActionSheetItem(
@@ -882,6 +905,17 @@ fun SongActionSheet(
             onDismissRequest = { showDownloadQualityDialog = false },
         )
     }
+
+    SleepTimerSelectDialog(
+        visible = showSleepTimerSelectDialog,
+        onDismissRequest = { showSleepTimerSelectDialog = false },
+    )
+
+    SleepTimerActiveConfirmDialog(
+        visible = showSleepTimerActiveConfirmDialog,
+        onDismissRequest = { showSleepTimerActiveConfirmDialog = false },
+        onResetTimer = { showSleepTimerSelectDialog = true },
+    )
 }
 
 @Composable
