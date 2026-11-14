@@ -35,9 +35,9 @@ import org.melodist.core.connect.model.QrPairData
 import org.melodist.core.connect.model.RemoteControlMode
 import org.melodist.core.connect.storage.ConnectStorageManager
 import org.melodist.data.LyricCacheManager
+import org.melodist.mobile.util.LocalNetworkPermissionHelper
 import org.melodist.model.AudioQualityTier
 import org.melodist.model.Song
-import org.melodist.mobile.util.LocalNetworkPermissionHelper
 import org.melodist.playback.PlaybackInterceptor
 import org.melodist.playback.PlaybackManager
 
@@ -119,6 +119,9 @@ object MobileConnectManager {
         server.start()
 
         setupPlaybackInterceptor()
+        org.melodist.playback.DeviceAudioCapability.isRemotePlaybackActive = {
+            PlaybackManager.isRemoteActive.value || isTvOnline
+        }
 
         scope.launch {
             client.connectionState.collect { _connectionState.value = it }

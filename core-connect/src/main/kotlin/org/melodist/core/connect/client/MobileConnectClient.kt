@@ -90,11 +90,20 @@ class MobileConnectClient(
             encodeDefaults = true
         }
 
+    @Volatile
     private var activeSocket: WebSocket? = null
+
+    @Volatile
     private var currentTarget: ConnectDevice? = null
+
+    @Volatile
     private var isManualDisconnect = false
+
+    @Volatile
     private var wasPairedSuccessfully = false
     private var lastPinCode: String = ""
+
+    @Volatile
     private var reconnectAttempt = 0
     private val maxReconnectAttempts = 5
     private var reconnectJob: Job? = null
@@ -147,7 +156,6 @@ class MobileConnectClient(
                         response: Response,
                     ) {
                         android.util.Log.i("QQMusicConnectClient", "Connected to $url successfully")
-                        reconnectAttempt = 0
                         reconnectJob?.cancel()
                         reconnectJob = null
                         _connectionState.value = MobileConnectionState.Connected
@@ -174,6 +182,7 @@ class MobileConnectClient(
                         code: Int,
                         reason: String,
                     ) {
+                        if (webSocket !== activeSocket) return
                         android.util.Log.i("QQMusicConnectClient", "WebSocket closed: $code, reason: $reason")
                         handleDisconnectionOrScheduleReconnect(targetDevice, isFailure = false, errorMsg = null)
                     }
@@ -183,6 +192,7 @@ class MobileConnectClient(
                         t: Throwable,
                         response: Response?,
                     ) {
+                        if (webSocket !== activeSocket) return
                         val isUnreachable =
                             t is java.net.ConnectException ||
                                 t is java.net.SocketTimeoutException ||
@@ -195,9 +205,9 @@ class MobileConnectClient(
                         }
                         val friendlyMsg =
                             if (targetDevice.host.startsWith("10.0.2.")) {
-                                "目标 IP (${targetDevice.host}) 是模拟器私有地址，外部手机无法直连。请在 TV 端切换物理网卡 IP 或使用手动连接输入电脑 Wi-Fi IP"
+                                "鐩爣 IP (${targetDevice.host}) 鏄ā鎷熷櫒绉佹湁鍦板潃锛屽閮ㄦ墜鏈烘棤娉曠洿杩炪€傝鍦?TV 绔垏鎹㈢墿鐞嗙綉鍗?IP 鎴栦娇鐢ㄦ墜鍔ㄨ繛鎺ヨ緭鍏ョ數鑴?Wi-Fi IP"
                             } else {
-                                t.message ?: "连接失败"
+                                t.message ?: "杩炴帴澶辫触"
                             }
                         handleDisconnectionOrScheduleReconnect(targetDevice, isFailure = true, errorMsg = friendlyMsg)
                     }
@@ -477,6 +487,7 @@ class MobileConnectClient(
                     storageManager.savePairedDevice(updated)
                     storageManager.setLastConnectedDevice(updated)
                     wasPairedSuccessfully = true
+                    reconnectAttempt = 0
                     _connectionState.value = MobileConnectionState.Paired(updated)
                     requestPlayerState()
                     requestQueueState()
