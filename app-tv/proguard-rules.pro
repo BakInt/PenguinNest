@@ -1,4 +1,4 @@
-# Melodist TV ProGuard / R8 优化规则
+# QQMusic TV ProGuard / R8 优化规则
 
 # 包名重排与符号池压缩
 -repackageclasses ''
