@@ -11,6 +11,7 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import kotlinx.coroutines.Dispatchers
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -40,6 +41,10 @@ class QQMusicApp :
             .init(this)
         org.melodist.data.ListeningStatsManager
             .init(this)
+        org.melodist.data.LyricCacheManager
+            .init(this)
+        org.melodist.playback.AudioQualityAuditor
+            .cleanOrphanProbeFiles(this)
         org.melodist.data.AppSettingsManager.imageCacheClearAction = {
             try {
                 SingletonImageLoader.get(this@QQMusicApp).diskCache?.clear()
@@ -72,9 +77,12 @@ class QQMusicApp :
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
         val isLowRam = activityManager?.isLowRamDevice == true
         val memoryPercent = if (isLowRam) 0.15 else 0.25
+        val tvIoDispatcher = Dispatchers.IO.limitedParallelism(4)
 
         return ImageLoader
             .Builder(context)
+            .fetcherCoroutineContext(tvIoDispatcher)
+            .decoderCoroutineContext(tvIoDispatcher)
             .components {
                 add(OkHttpNetworkFetcherFactory(callFactory = { okHttpClient }))
             }.memoryCache {

@@ -59,11 +59,13 @@ fun PlaylistTvLyricsOverlay(
             contentAlignment = Alignment.Center,
         ) {
             if (lyrics.isNotEmpty()) {
+                val currentSong by PlaybackManager.currentSong.collectAsState()
                 val lyricsCurrentPositionMs by PlaybackManager.currentPositionMs.collectAsState()
                 CenterAlignedKaraokeLyricsView(
                     lyrics = lyrics,
                     currentPositionMs = lyricsCurrentPositionMs,
                     highlightColor = themeHighlightColor,
+                    songMid = currentSong?.songMid.orEmpty(),
                 )
             } else if (isPlaybackLoading) {
                 Text(
@@ -96,6 +98,8 @@ fun PlaylistTvBottomBar(
     loopMode: PlaybackLoopMode,
     selectedTier: AudioQualityTier,
     queueCount: Int,
+    isTimerActive: Boolean = false,
+    onTimerClick: () -> Unit = {},
     onFavoriteClick: () -> Unit,
     onPrevClick: () -> Unit,
     onPlayPauseClick: () -> Unit,
@@ -141,6 +145,8 @@ fun PlaylistTvBottomBar(
             isPlaying = isPlaying,
             isFavorite = activePlayingSong?.songMid in favoriteSongMids,
             canFavorite = canFavorite,
+            isTimerActive = isTimerActive,
+            onTimerClick = onTimerClick,
             loopMode = loopMode.label,
             qualityLabel = AudioQualityTier.getBadge(selectedTier),
             canChangeQuality = canChangeQuality,

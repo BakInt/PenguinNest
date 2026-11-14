@@ -60,10 +60,10 @@ fun PlaylistTvScreen(
     isReturningFromPlayer: Boolean = false,
     isReturningFromSubScreen: Boolean = false,
     songs: List<Song> = emptyList(),
-    currentPlayingSongId: Long? = null,
     onPlayAll: () -> Unit = {},
     onPlayShuffle: () -> Unit = {},
     onSongClick: (Song) -> Unit = {},
+    onNavigateToPlayer: () -> Unit = {},
     onNavigateToArtist: (String, String) -> Unit = { _, _ -> },
     onNavigateToAlbum: (String, String) -> Unit = { _, _ -> },
     onNavigateToSettings: () -> Unit = {},
@@ -786,11 +786,14 @@ fun PlaylistTvScreen(
     var isControlsHidden by remember { mutableStateOf(false) }
     var showQueueSidebar by remember { mutableStateOf(false) }
     var showQualityDialog by remember { mutableStateOf(false) }
+    var showTimerDialog by remember { mutableStateOf(false) }
     var showArtistAlbumDialog by remember { mutableStateOf(false) }
     var lastInteractionTimeMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     val playlist by PlaybackManager.playlist.collectAsState()
     val isPlaying by PlaybackManager.isPlaying.collectAsState()
+    val isTimerActive by org.melodist.playback.SleepTimerManager.isTimerActive
+        .collectAsState()
     val durationMs by PlaybackManager.durationMs.collectAsState()
     val selectedTier by PlaybackManager.currentTier.collectAsState()
     val lyrics by PlaybackManager.lyrics.collectAsState()
@@ -810,8 +813,10 @@ fun PlaylistTvScreen(
             Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, sat, value)))
         }
 
-    LaunchedEffect(screenMode, isControlsHidden, showQueueSidebar, showQualityDialog, showArtistAlbumDialog, lastInteractionTimeMs) {
-        if (screenMode == PlaylistScreenMode.Player && !isControlsHidden && !showQueueSidebar && !showQualityDialog && !showArtistAlbumDialog) {
+    LaunchedEffect(screenMode, isControlsHidden, showQueueSidebar, showQualityDialog, showTimerDialog, showArtistAlbumDialog, lastInteractionTimeMs) {
+        if (screenMode == PlaylistScreenMode.Player && !isControlsHidden && !showQueueSidebar && !showQualityDialog && !showTimerDialog &&
+            !showArtistAlbumDialog
+        ) {
             kotlinx.coroutines.delay(10_000L)
             isControlsHidden = true
         }
@@ -822,6 +827,8 @@ fun PlaylistTvScreen(
             showArtistAlbumDialog = false
         } else if (showQualityDialog) {
             showQualityDialog = false
+        } else if (showTimerDialog) {
+            showTimerDialog = false
         } else if (showQueueSidebar) {
             showQueueSidebar = false
         } else if (isControlsHidden) {
@@ -849,17 +856,21 @@ fun PlaylistTvScreen(
                     else -> PlaylistScreenCache.lastPlayedIndex.coerceIn(0, playlistSongs.size - 1)
                 }
             dynamicReturnTargetIndex = target
-            listState.scrollToItem((target - 1).coerceAtLeast(0))
             var focused = false
             for (attempt in 0..5) {
-                kotlinx.coroutines.delay(if (attempt == 0) 100L else 60L)
+                kotlinx.coroutines.delay(if (attempt == 0) 80L else 50L)
                 try {
                     returnSongRequester.requestFocus()
                     focused = true
                     break
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.w("PlaylistScreenMode", "Operation failed", e)
+                    if (attempt == 1) {
+                        val isVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == target }
+                        if (!isVisible) {
+                            listState.scrollToItem((target - 2).coerceAtLeast(0))
+                        }
+                    }
                 }
             }
             if (!focused) {
@@ -878,17 +889,21 @@ fun PlaylistTvScreen(
         if (isReturning && returnTargetIndex >= 0 && playlistSongs.isNotEmpty()) {
             dynamicReturnTargetIndex = returnTargetIndex
             isPlayAllFocused = false
-            listState.scrollToItem((returnTargetIndex - 1).coerceAtLeast(0))
             var focused = false
             for (attempt in 0..7) {
-                kotlinx.coroutines.delay(if (attempt == 0) 100L else 60L)
+                kotlinx.coroutines.delay(if (attempt == 0) 80L else 50L)
                 try {
                     returnSongRequester.requestFocus()
                     focused = true
                     break
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.w("PlaylistScreenMode", "Operation failed", e)
+                    if (attempt == 1) {
+                        val isVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == returnTargetIndex }
+                        if (!isVisible) {
+                            listState.scrollToItem((returnTargetIndex - 2).coerceAtLeast(0))
+                        }
+                    }
                 }
             }
             if (!focused) {
@@ -901,17 +916,19 @@ fun PlaylistTvScreen(
             } else {
                 PlaylistScreenCache.clearTargetReturnSong()
             }
-        } else if (!isReturning) {
-            var focused = false
-            for (attempt in 0..3) {
-                kotlinx.coroutines.delay(if (attempt == 0) 60L else 40L)
+        }
+    }
+
+    // 首次进入歌单时，确保焦点准确落在左侧“播放全部”按钮上
+    LaunchedEffect(isReturning) {
+        if (!isReturning) {
+            for (attempt in 0..9) {
+                kotlinx.coroutines.delay(if (attempt == 0) 50L else 50L)
                 try {
                     playAllRequester.requestFocus()
-                    focused = true
                     break
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.w("PlaylistScreenMode", "Operation failed", e)
                 }
             }
         }
@@ -952,7 +969,7 @@ fun PlaylistTvScreen(
                             )
                         }
                         syncFullPlaylistToPlayback()
-                        screenMode = PlaylistScreenMode.Player
+                        onNavigateToPlayer()
                     }
                     onPlayAll()
                 },
@@ -1002,7 +1019,7 @@ fun PlaylistTvScreen(
                         )
                     }
                     syncFullPlaylistToPlayback()
-                    screenMode = PlaylistScreenMode.Player
+                    onNavigateToPlayer()
                     onSongClick(song)
                 },
                 onSongLongClick = { song ->
@@ -1040,6 +1057,8 @@ fun PlaylistTvScreen(
                 loopMode = loopMode,
                 selectedTier = selectedTier,
                 queueCount = playlist.size,
+                isTimerActive = isTimerActive,
+                onTimerClick = { showTimerDialog = true },
                 onFavoriteClick = { PlaybackManager.toggleCurrentSongFavorite() },
                 onPrevClick = { PlaybackManager.playPrevious() },
                 onPlayPauseClick = { PlaybackManager.togglePlayPause() },
@@ -1086,6 +1105,9 @@ fun PlaylistTvScreen(
                 selectedTier = selectedTier,
                 onSelectTier = { PlaybackManager.switchTier(it) },
                 onDismissQualityDialog = { showQualityDialog = false },
+                showTimerDialog = showTimerDialog,
+                onDismissTimerDialog = { showTimerDialog = false },
+                accentColor = themeHighlightColor,
                 showArtistAlbumDialog = showArtistAlbumDialog,
                 onDismissArtistAlbumDialog = { showArtistAlbumDialog = false },
                 actionSong = actionSong,

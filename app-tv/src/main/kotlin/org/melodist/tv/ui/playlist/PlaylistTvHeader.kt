@@ -91,6 +91,7 @@ fun PlaylistTvLeftPanel(
                 songMid = if (isPlayerMode) activePlayingSong?.songMid.orEmpty() else "",
                 contentDescription = if (isPlayerMode) activePlayingSong?.name.orEmpty() else resolvedTitle,
                 shape = RoundedCornerShape(6.dp),
+                preferRawCover = true,
                 modifier = Modifier.size(coverSize),
             )
         } else if (!isPlayerMode && categoryId == "favorites") {
@@ -216,14 +217,7 @@ fun PlaylistTvLeftPanel(
                                 .fillMaxWidth()
                                 .height(46.dp)
                                 .focusRequester(playAllRequester)
-                                .onFocusChanged { onPlayAllFocusChanged(it.isFocused) }
-                                .then(
-                                    if (hasSongs) {
-                                        Modifier.focusProperties { right = firstSongRequester }
-                                    } else {
-                                        Modifier
-                                    },
-                                ),
+                                .onFocusChanged { onPlayAllFocusChanged(it.isFocused) },
                         shape =
                             ButtonDefaults.shape(
                                 shape = QQMusicShapes.CardCorner,
