@@ -109,6 +109,7 @@ object PlaybackManager {
     private val exoPlayer: ExoPlayer? get() = playerPipeline.player
     private var playJob: Job? = null
     private var lyricLoadJob: Job? = null
+    private var retryJob: Job? = null
 
     private val remoteStateHolder = PlaybackRemoteStateHolder()
     val isRemoteActive: StateFlow<Boolean> = remoteStateHolder.isRemoteActive
@@ -355,18 +356,20 @@ object PlaybackManager {
             Log.w("QQMusicPlayback", "Playback failure for ${curr.name} (retry $currentSongRetryCount/2): $errorMsg")
             _errorMessage.value = "网络加载波动，正在等待重试 ($currentSongRetryCount/2)..."
             _isLoading.value = true
-            scope.launch {
-                delay(3000L)
-                val targetSong = _currentSong.value
-                if (targetSong?.songMid == curr.songMid) {
-                    val custom = lastCustomStreamArgs
-                    if (custom != null && custom.first.songMid == curr.songMid) {
-                        playCustomStream(custom.first, custom.second, custom.third, seekToMs = _currentPositionMs.value)
-                    } else {
-                        playSong(curr, forceTier = _currentTier.value, seekToMs = _currentPositionMs.value)
+            retryJob?.cancel()
+            retryJob =
+                scope.launch {
+                    delay(3000L)
+                    val targetSong = _currentSong.value
+                    if (targetSong?.songMid == curr.songMid) {
+                        val custom = lastCustomStreamArgs
+                        if (custom != null && custom.first.songMid == curr.songMid) {
+                            playCustomStream(custom.first, custom.second, custom.third, seekToMs = _currentPositionMs.value)
+                        } else {
+                            playSong(curr, forceTier = _currentTier.value, seekToMs = _currentPositionMs.value)
+                        }
                     }
                 }
-            }
             return
         }
 
@@ -1205,21 +1208,31 @@ object PlaybackManager {
         val prevPos = _currentPositionMs.value
         val prevDur = _durationMs.value
         val prevTier = _currentTier.value
-        if (prevSong != null && prevSong.songMid != song.songMid) {
-            QQMusicCacheManager.handleTrackSwitchEviction(prevSong.songMid, prevPos, prevDur, prevTier)
+        val isSongSwitching = (prevSong == null || prevSong.songMid != song.songMid)
+        if (isSongSwitching) {
+            QQMusicCacheManager.handleTrackSwitchEviction(prevSong?.songMid.orEmpty(), prevPos, prevDur, prevTier)
+            _lyrics.value = emptyList()
+            _isLoading.value = true
+            _currentPositionMs.value = seekToMs
+            _bufferedPositionMs.value = seekToMs
         }
         QQMusicCacheManager.onNewSongStarted(song.songMid)
-        if (_currentSong.value?.songMid != song.songMid) {
+        if (isSongSwitching) {
             currentSongRetryCount = 0
             audioTrackRetryCount = 0
             preloadCoordinator.onSongChanged(song.songMid)
         }
-        if (playJob?.isActive == true && exoPlayer?.isPlaying == true) {
-            exoPlayer?.volume = 0f
-            exoPlayer?.stop()
-            exoPlayer?.clearMediaItems()
+        exoPlayer?.let { player ->
+            try {
+                player.volume = 0f
+                player.stop()
+                player.clearMediaItems()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+            }
         }
         playJob?.cancel()
+        retryJob?.cancel()
         switchQualityJob?.cancel()
         _isSwitchingQuality.value = false
 
@@ -1235,6 +1248,11 @@ object PlaybackManager {
             effectiveSong = effectiveSong.copy(coverUrl = "")
         }
 
+        _currentSong.value = effectiveSong
+        _currentPositionMs.value = seekToMs
+        _bufferedPositionMs.value = seekToMs
+        _durationMs.value = policyCoordinator.resolveDurationMs(effectiveSong)
+
         val initialLyrics = LyricCacheManager.getLyrics(effectiveSong.songMid).orEmpty()
         applyLyricsWithChorus(initialLyrics)
         loadLyricsForSong(effectiveSong)
@@ -1243,12 +1261,9 @@ object PlaybackManager {
         if (playbackInterceptor?.onInterceptPlaySong(effectiveSong, forceTier, seekToMs) == true) {
             exoPlayer?.stop()
             exoPlayer?.clearMediaItems()
-            _currentSong.value = effectiveSong
-            _currentPositionMs.value = seekToMs
-            _bufferedPositionMs.value = seekToMs
-            _durationMs.value = if (effectiveSong.durationSeconds > 0) effectiveSong.durationSeconds * 1000L else 0L
             _currentTier.value = forceTier ?: _preferredTier.value
             _isPlaying.value = true
+            _isLoading.value = false
             _isTransitioning.value = false
             savePlaybackState()
             loadLyricsForSong(effectiveSong)
@@ -1256,11 +1271,7 @@ object PlaybackManager {
             return
         }
 
-        _currentSong.value = effectiveSong
         playbackEventListeners.forEach { it.onSongPlay(effectiveSong) }
-        _currentPositionMs.value = seekToMs
-        _bufferedPositionMs.value = seekToMs
-        _durationMs.value = policyCoordinator.resolveDurationMs(effectiveSong)
         _isTransitioning.value = true
         appContext?.let { startPlaybackService(it) }
 
@@ -1302,7 +1313,7 @@ object PlaybackManager {
         val foundIndex = list.indexOfFirst { it.songMid == song.songMid }
         if (foundIndex != -1) {
             queueManager.setCurrentIndex(foundIndex)
-            if (!queueManager.isRadioMode.value && queueManager.loopMode.value == PlaybackLoopMode.Shuffle) {
+            if (queueManager.loopMode.value == PlaybackLoopMode.Shuffle) {
                 queueManager.shuffleQueue.syncTo(foundIndex, list.size, list)
             }
         }
@@ -1459,8 +1470,8 @@ object PlaybackManager {
      * 恢复或启动当前音频回放。
      */
     fun play() {
+        retryJob?.cancel()
         if (playbackInterceptor?.onInterceptResume() == true) return
-        if (_isLoading.value) return
         val currSong = _currentSong.value
         if (currSong != null && ListenTogetherManager.isInRoom && isLocalPlaybackSong(currSong)) {
             notifyUser("请退出一起听后再播放哦")
@@ -1468,7 +1479,10 @@ object PlaybackManager {
         }
         val player = exoPlayer ?: return
         if (!player.isPlaying) {
-            if (player.playbackState == androidx.media3.common.Player.STATE_IDLE && currSong != null) {
+            if (playJob?.isActive == true) {
+                player.playWhenReady = true
+                appContext?.let { startPlaybackService(it) }
+            } else if (player.playbackState == androidx.media3.common.Player.STATE_IDLE && currSong != null) {
                 playSong(currSong, seekToMs = _currentPositionMs.value)
             } else if (player.currentMediaItem == null && currSong != null) {
                 playSong(currSong, seekToMs = _currentPositionMs.value)
@@ -1524,6 +1538,7 @@ object PlaybackManager {
         }
         consecutiveErrorCount = 0
         playJob?.cancel()
+        retryJob?.cancel()
         switchQualityJob?.cancel()
         _isSwitchingQuality.value = false
 
@@ -1965,6 +1980,15 @@ object PlaybackManager {
     fun getNextSong(): Song? = queueManager.getNextSong(remoteStateHolder.isRemoteActive.value, remoteStateHolder.remoteNextSong.value)
 
     /**
+     * 获取电台模式下的动态展示队列（已播历史 + 当前曲 + 下一首预告）
+     */
+    fun getRadioDisplayPlaylist(): List<Song> =
+        queueManager.getRadioDisplayPlaylist(
+            isRemoteActive = remoteStateHolder.isRemoteActive.value,
+            remoteNextSong = remoteStateHolder.remoteNextSong.value,
+        )
+
+    /**
      * 顺次循环切换播放模式（顺序循环 -> 单曲循环 -> 随机播放）。
      */
     fun cycleLoopMode() {
@@ -1993,6 +2017,13 @@ object PlaybackManager {
     private fun handleSongEnded() {
         if (remoteStateHolder.isRemoteActive.value) {
             Log.d("QQMusicPlayback", "Remote playback is active, skip local song ended auto-advance.")
+            return
+        }
+        if (SleepTimerManager.onSongEnded()) {
+            _isTransitioning.value = false
+            exoPlayer?.seekTo(0L)
+            _currentPositionMs.value = 0L
+            pause()
             return
         }
         _isTransitioning.value = true

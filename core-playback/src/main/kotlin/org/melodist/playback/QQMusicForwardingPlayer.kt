@@ -209,9 +209,6 @@ class QQMusicForwardingPlayer(
         }
 
     override fun play() {
-        if (PlaybackManager.isLoading.value) {
-            return
-        }
         if (isRemoteVirtual || (super.getCurrentMediaItem() == null && PlaybackManager.currentSong.value != null)) {
             PlaybackManager.togglePlayPause()
         } else {
