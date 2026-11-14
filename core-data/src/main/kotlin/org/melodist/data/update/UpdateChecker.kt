@@ -36,6 +36,12 @@ object UpdateChecker {
     const val KEY_LAST_CHECK_TIME = "last_check_time_ms"
     const val CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L
 
+    /**
+     * 更新检测总开关：false 时停用全部检测入口（启动自动检测直接跳过不联网，
+     * 手动"检查更新"返回 Error 提示）。需要恢复该功能时改回 true 即可。
+     */
+    const val UPDATE_CHECK_ENABLED = false
+
     fun shouldCheckUpdate(
         lastCheckMs: Long,
         nowMs: Long = System.currentTimeMillis(),
@@ -66,6 +72,9 @@ object UpdateChecker {
         targetKeyword: String? = null,
         force: Boolean = false,
     ): UpdateResult? {
+        if (!UPDATE_CHECK_ENABLED) {
+            return null
+        }
         if (!force && !shouldCheckUpdate(context)) {
             return null
         }
@@ -89,15 +98,18 @@ object UpdateChecker {
     suspend fun checkUpdate(
         currentVersion: String,
         targetKeyword: String? = null,
-    ): UpdateResult =
-        withContext(Dispatchers.IO) {
+    ): UpdateResult {
+        if (!UPDATE_CHECK_ENABLED) {
+            return UpdateResult.Error("更新检测已停用")
+        }
+        return withContext(Dispatchers.IO) {
             try {
                 val request =
                     Request
                         .Builder()
                         .url(GITHUB_API_LATEST_RELEASE)
                         .header("Accept", "application/vnd.github.v3+json")
-                        .header("User-Agent", "Melodist/$currentVersion")
+                        .header("User-Agent", "QQMusic/$currentVersion")
                         .build()
 
                 httpClient.newCall(request).execute().use { response ->
@@ -145,6 +157,7 @@ object UpdateChecker {
                 UpdateResult.Error(e.message ?: "网络连接异常")
             }
         }
+    }
 
     fun isNewerVersion(
         remoteTag: String,

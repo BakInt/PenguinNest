@@ -30,8 +30,8 @@ class AudioMetadataParserTest {
         val metadata = AudioMetadataParser.parse(bytes)
         assertNull(metadata.lyrics)
 
-        val webdavLyrics = WebDavService.extractEmbeddedLyricsFromBytes(bytes)
-        assertNull(webdavLyrics)
+        val embeddedLyrics = AudioMetadataParser.extractEmbeddedLyricsFromBytes(bytes)
+        assertNull(embeddedLyrics)
     }
 
     @Test
@@ -41,7 +41,7 @@ class AudioMetadataParserTest {
         val metadata = AudioMetadataParser.parse(payload)
         assertEquals(sampleLyric, metadata.lyrics)
 
-        val webdavLyrics = WebDavService.extractEmbeddedLyricsFromBytes(payload)
-        assertEquals(sampleLyric, webdavLyrics)
+        val embeddedLyrics = AudioMetadataParser.extractEmbeddedLyricsFromBytes(payload)
+        assertEquals(sampleLyric, embeddedLyrics)
     }
 }

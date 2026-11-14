@@ -360,6 +360,7 @@ internal suspend fun LoginApiService.exchangeOAuthForMusicKeyImpl(cookies: Mutab
                         musicKey = musicKey,
                         cookies = cookies,
                         avatarUrl = UserSession.profile.avatarUrl,
+                        preserveMembership = true,
                     )
                     return@withContext true
                 }
@@ -380,7 +381,7 @@ internal suspend fun LoginApiService.exchangeOAuthForMusicKeyImpl(cookies: Mutab
 internal suspend fun LoginApiService.refreshQQLoginTokenImpl(
     openid: String,
     accessToken: String,
-): Boolean =
+): LegOutcome =
     withContext(Dispatchers.IO) {
         try {
             val url = "https://u.y.qq.com/cgi-bin/musicu.fcg"
@@ -402,13 +403,16 @@ internal suspend fun LoginApiService.refreshQQLoginTokenImpl(
             }
 
             client.newCall(requestBuilder.build()).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext false
+                if (!resp.isSuccessful) return@withContext LegOutcome.Transient
                 val json = resp.body.string()
                 val jsonElement = Json.parseToJsonElement(json).jsonObject
-                val loginObj = jsonElement["login"]?.jsonObject ?: return@withContext false
+                val loginObj = jsonElement["login"]?.jsonObject ?: return@withContext LegOutcome.Rejected
                 val code = loginObj["code"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: -1
-                if (code != 0) return@withContext false
-                val loginData = loginObj["data"]?.jsonObject ?: return@withContext false
+                if (code != 0) {
+                    ApiLogger.w("LoginApiService", "refreshQQLoginToken rejected: $json")
+                    return@withContext LegOutcome.Rejected
+                }
+                val loginData = loginObj["data"]?.jsonObject ?: return@withContext LegOutcome.Rejected
 
                 val musicId =
                     loginData["str_musicid"]?.jsonPrimitive?.contentOrNull
@@ -419,38 +423,60 @@ internal suspend fun LoginApiService.refreshQQLoginTokenImpl(
                 val newAccessToken = loginData["access_token"]?.jsonPrimitive?.contentOrNull ?: accessToken
                 val unionid = loginData["unionid"]?.jsonPrimitive?.contentOrNull ?: ""
 
-                if (musicKey.isNotEmpty()) {
-                    val cookies = UserSession.profile.cookies.toMutableMap()
-                    if (musicId.isNotEmpty()) {
-                        cookies["musicid"] = musicId
-                        cookies["uin"] = musicId
-                        cookies["qqmusic_uin"] = musicId
-                    }
-                    cookies["qqmusic_key"] = musicKey
-                    cookies["qm_keyst"] = musicKey
-                    cookies["qqmusic_version"] = "17"
-                    cookies["qqmusic_miniversion"] = "70"
-                    cookies["tmeLoginType"] = "2"
-                    if (newOpenid.isNotEmpty()) cookies["psrf_qqopenid"] = newOpenid
-                    if (newAccessToken.isNotEmpty()) cookies["psrf_qqaccess_token"] = newAccessToken
-                    if (unionid.isNotEmpty()) cookies["psrf_qqunionid"] = unionid
+                if (musicKey.isEmpty()) return@withContext LegOutcome.Rejected
 
-                    UserSession.update(
-                        uin = musicId.ifEmpty { UserSession.profile.uin },
-                        nick = UserSession.profile.nick,
-                        musicKey = musicKey,
-                        cookies = cookies,
-                        avatarUrl = UserSession.profile.avatarUrl,
-                        isVip = UserSession.profile.isVip,
-                    )
-                    return@withContext true
+                val normalizedMusicId = musicId.trimStart('o')
+                val expireAt =
+                    parseSessionExpireAt(
+                        loginData["expiration"]?.jsonPrimitive?.contentOrNull
+                            ?: loginData["expire_in"]?.jsonPrimitive?.contentOrNull
+                            ?: loginData["expired_in"]?.jsonPrimitive?.contentOrNull,
+                    ) ?: 0L
+
+                val cookies = UserSession.profile.cookies.toMutableMap()
+                if (normalizedMusicId.isNotEmpty()) {
+                    if (normalizedMusicId != musicId) cookies["musicid_raw"] = musicId
+                    cookies["musicid"] = normalizedMusicId
+                    cookies["uin"] = normalizedMusicId
+                    cookies["qqmusic_uin"] = normalizedMusicId
                 }
+                cookies["qqmusic_key"] = musicKey
+                cookies["qm_keyst"] = musicKey
+                cookies["musickey"] = musicKey
+                cookies["qqmusic_version"] = "17"
+                cookies["qqmusic_miniversion"] = "70"
+                cookies["tmeLoginType"] = "2"
+                // 两套键双写：官方 App 渠道写 `openid`/`access_token`，QQ 互联链读 `psrf_*`，
+                // 双写后同一账号在任一续签腿上都能命中，避免只有一条腿可用。
+                if (newOpenid.isNotEmpty()) {
+                    cookies["psrf_qqopenid"] = newOpenid
+                    cookies["openid"] = newOpenid
+                }
+                if (newAccessToken.isNotEmpty()) {
+                    cookies["psrf_qqaccess_token"] = newAccessToken
+                    cookies["access_token"] = newAccessToken
+                }
+                if (unionid.isNotEmpty()) cookies["psrf_qqunionid"] = unionid
+
+                UserSession.update(
+                    uin = normalizedMusicId.ifEmpty { UserSession.profile.uin },
+                    nick = UserSession.profile.nick,
+                    musicKey = musicKey,
+                    cookies = cookies,
+                    avatarUrl = UserSession.profile.avatarUrl,
+                    isVip = UserSession.profile.isVip,
+                    preserveMembership = true,
+                    musicKeyExpireAt = expireAt,
+                )
+                LegOutcome.Success
             }
-            false
+        } catch (e: java.io.IOException) {
+            ApiLogger.w("LoginApiService", "refreshQQLoginToken network error", e)
+            LegOutcome.Transient
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             ApiLogger.w("LoginApiService", "refreshQQLoginToken failed", e)
-            false
+            LegOutcome.Rejected
         }
     }
 
@@ -518,12 +544,12 @@ internal suspend fun LoginApiService.refreshQQPlaybackCredentials(
  *
  * @param musicId 用户识别标识（musicid 或 uin）
  * @param musicKey 当前生效的旧 musickey
- * @return 刷新并更新成功返回 `true`；失败返回 `false`
+ * @return 刷新并更新成功返回 [LegOutcome.Success]；网络异常返回 [LegOutcome.Transient]；服务端拒绝返回 [LegOutcome.Rejected]
  */
 internal suspend fun LoginApiService.refreshByExistingMusicKeyImpl(
     musicId: String,
     musicKey: String,
-): Boolean =
+): LegOutcome =
     withContext(Dispatchers.IO) {
         try {
             val cleanUin = musicId.trimStart('o')
@@ -544,16 +570,19 @@ internal suspend fun LoginApiService.refreshByExistingMusicKeyImpl(
             }
 
             client.newCall(requestBuilder.build()).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext false
+                if (!resp.isSuccessful) return@withContext LegOutcome.Transient
                 val json = resp.body.string()
                 val jsonElement = Json.parseToJsonElement(json).jsonObject
-                val loginObj = jsonElement["login"]?.jsonObject ?: return@withContext false
+                val loginObj = jsonElement["login"]?.jsonObject ?: return@withContext LegOutcome.Rejected
                 val code = loginObj["code"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: -1
-                if (code != 0) return@withContext false
-                val loginData = loginObj["data"]?.jsonObject ?: return@withContext false
+                if (code != 0) {
+                    ApiLogger.w("LoginApiService", "refreshByExistingMusicKey rejected: $json")
+                    return@withContext LegOutcome.Rejected
+                }
+                val loginData = loginObj["data"]?.jsonObject ?: return@withContext LegOutcome.Rejected
 
                 val newMusicKey = loginData["musickey"]?.jsonPrimitive?.contentOrNull ?: ""
-                if (newMusicKey.isEmpty()) return@withContext false
+                if (newMusicKey.isEmpty()) return@withContext LegOutcome.Rejected
 
                 val returnedMusicId =
                     loginData["str_musicid"]?.jsonPrimitive?.contentOrNull
@@ -563,11 +592,22 @@ internal suspend fun LoginApiService.refreshByExistingMusicKeyImpl(
                 val newAccessToken = loginData["access_token"]?.jsonPrimitive?.contentOrNull
                 val unionid = loginData["unionid"]?.jsonPrimitive?.contentOrNull
 
+                // uin 归一化：服务端可能回带 `o` 前缀，若原样写回 cookies，后续
+                // `UserSession.update` 的"同账号"比较会失败，会员信息继承随之丢失。
+                val normalizedMusicId = returnedMusicId.trimStart('o')
+                val expireAt =
+                    parseSessionExpireAt(
+                        loginData["expiration"]?.jsonPrimitive?.contentOrNull
+                            ?: loginData["expire_in"]?.jsonPrimitive?.contentOrNull
+                            ?: loginData["expired_in"]?.jsonPrimitive?.contentOrNull,
+                    ) ?: 0L
+
                 val cookies = UserSession.profile.cookies.toMutableMap()
-                if (returnedMusicId.isNotEmpty()) {
-                    cookies["musicid"] = returnedMusicId
-                    cookies["uin"] = returnedMusicId
-                    cookies["qqmusic_uin"] = returnedMusicId
+                if (normalizedMusicId.isNotEmpty()) {
+                    if (normalizedMusicId != returnedMusicId) cookies["musicid_raw"] = returnedMusicId
+                    cookies["musicid"] = normalizedMusicId
+                    cookies["uin"] = normalizedMusicId
+                    cookies["qqmusic_uin"] = normalizedMusicId
                 }
                 cookies["qqmusic_key"] = newMusicKey
                 cookies["qm_keyst"] = newMusicKey
@@ -575,24 +615,35 @@ internal suspend fun LoginApiService.refreshByExistingMusicKeyImpl(
                 cookies["qqmusic_version"] = "17"
                 cookies["qqmusic_miniversion"] = "70"
                 cookies["tmeLoginType"] = "2"
-                if (!newOpenid.isNullOrEmpty()) cookies["psrf_qqopenid"] = newOpenid
-                if (!newAccessToken.isNullOrEmpty()) cookies["psrf_qqaccess_token"] = newAccessToken
+                if (!newOpenid.isNullOrEmpty()) {
+                    cookies["psrf_qqopenid"] = newOpenid
+                    cookies["openid"] = newOpenid
+                }
+                if (!newAccessToken.isNullOrEmpty()) {
+                    cookies["psrf_qqaccess_token"] = newAccessToken
+                    cookies["access_token"] = newAccessToken
+                }
                 if (!unionid.isNullOrEmpty()) cookies["psrf_qqunionid"] = unionid
 
                 UserSession.update(
-                    uin = returnedMusicId.ifEmpty { UserSession.profile.uin },
+                    uin = normalizedMusicId.ifEmpty { UserSession.profile.uin },
                     nick = UserSession.profile.nick,
                     musicKey = newMusicKey,
                     cookies = cookies,
                     avatarUrl = UserSession.profile.avatarUrl,
                     isVip = UserSession.profile.isVip,
+                    preserveMembership = true,
+                    musicKeyExpireAt = expireAt,
                 )
-                true
+                LegOutcome.Success
             }
+        } catch (e: java.io.IOException) {
+            ApiLogger.w("LoginApiService", "refreshByExistingMusicKey network error", e)
+            LegOutcome.Transient
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             ApiLogger.w("LoginApiService", "refreshByExistingMusicKey exception", e)
-            false
+            LegOutcome.Rejected
         }
     }
 

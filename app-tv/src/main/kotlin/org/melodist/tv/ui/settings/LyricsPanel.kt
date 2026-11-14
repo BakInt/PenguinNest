@@ -30,8 +30,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
 import org.melodist.data.AppSettingsManager
 import org.melodist.data.LyricFontSize
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -94,21 +94,21 @@ fun LyricsPanel(menuRequester: FocusRequester) {
                         modifier = btnModifier,
                         shape =
                             ButtonDefaults.shape(
-                                shape = MelodistShapes.ButtonCorner,
-                                focusedShape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
+                                focusedShape = QQMusicShapes.ButtonCorner,
                             ),
                         colors =
                             ButtonDefaults.colors(
                                 containerColor =
                                     if (isSelected) {
-                                        MelodistColors.AccentGreen.copy(
+                                        QQMusicColors.AccentGreen.copy(
                                             alpha = 0.25f,
                                         )
                                     } else {
                                         Color.White.copy(alpha = 0.05f)
                                     },
                                 focusedContainerColor = Color.White,
-                                contentColor = if (isSelected) MelodistColors.AccentGreen else Color.White,
+                                contentColor = if (isSelected) QQMusicColors.AccentGreen else Color.White,
                                 focusedContentColor = Color.Black,
                             ),
                         border =
@@ -119,19 +119,19 @@ fun LyricsPanel(menuRequester: FocusRequester) {
                                             BorderStroke(
                                                 1.dp,
                                                 if (isSelected) {
-                                                    MelodistColors.AccentGreen.copy(
+                                                    QQMusicColors.AccentGreen.copy(
                                                         alpha = 0.7f,
                                                     )
                                                 } else {
                                                     Color.White.copy(alpha = 0.12f)
                                                 },
                                             ),
-                                        shape = MelodistShapes.ButtonCorner,
+                                        shape = QQMusicShapes.ButtonCorner,
                                     ),
                                 focusedBorder =
                                     Border(
-                                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                        shape = MelodistShapes.ButtonCorner,
+                                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                        shape = QQMusicShapes.ButtonCorner,
                                     ),
                             ),
                         scale = ButtonDefaults.scale(focusedScale = 1.05f),
@@ -177,7 +177,7 @@ fun LyricsPanel(menuRequester: FocusRequester) {
                     text = "示例歌词英语",
                     fontSize = settings.effectiveLyricTitleSp.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MelodistColors.AccentGreen,
+                    color = QQMusicColors.AccentGreen,
                     textAlign = TextAlign.Center,
                     lineHeight = (settings.effectiveLyricTitleSp * 1.42f).sp,
                 )
@@ -230,9 +230,9 @@ private fun CustomLyricFontSizeDialog(
             modifier =
                 Modifier
                     .width(420.dp)
-                    .clip(MelodistShapes.DialogCorner)
+                    .clip(QQMusicShapes.DialogCorner)
                     .background(Color(0xFF1E1E24))
-                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), MelodistShapes.DialogCorner)
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), QQMusicShapes.DialogCorner)
                     .padding(24.dp),
         ) {
             Column(
@@ -256,9 +256,9 @@ private fun CustomLyricFontSizeDialog(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .clip(MelodistShapes.ButtonCorner)
+                            .clip(QQMusicShapes.ButtonCorner)
                             .background(Color.White.copy(alpha = 0.08f))
-                            .border(BorderStroke(1.5.dp, MelodistColors.FocusTeal), MelodistShapes.ButtonCorner)
+                            .border(BorderStroke(1.5.dp, QQMusicColors.FocusTeal), QQMusicShapes.ButtonCorner)
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     BasicTextField(
@@ -276,7 +276,7 @@ private fun CustomLyricFontSizeDialog(
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
                             ),
-                        cursorBrush = SolidColor(MelodistColors.FocusTeal),
+                        cursorBrush = SolidColor(QQMusicColors.FocusTeal),
                         keyboardOptions =
                             KeyboardOptions(
                                 keyboardType = KeyboardType.Number,
@@ -313,8 +313,8 @@ private fun CustomLyricFontSizeDialog(
                         modifier = Modifier.weight(1f),
                         shape =
                             ButtonDefaults.shape(
-                                shape = MelodistShapes.ButtonCorner,
-                                focusedShape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
+                                focusedShape = QQMusicShapes.ButtonCorner,
                             ),
                         colors =
                             ButtonDefaults.colors(
@@ -332,12 +332,12 @@ private fun CustomLyricFontSizeDialog(
                         modifier = Modifier.weight(1f),
                         shape =
                             ButtonDefaults.shape(
-                                shape = MelodistShapes.ButtonCorner,
-                                focusedShape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
+                                focusedShape = QQMusicShapes.ButtonCorner,
                             ),
                         colors =
                             ButtonDefaults.colors(
-                                containerColor = MelodistColors.FocusTeal,
+                                containerColor = QQMusicColors.FocusTeal,
                                 focusedContainerColor = Color.White,
                                 contentColor = Color.Black,
                                 focusedContentColor = Color.Black,

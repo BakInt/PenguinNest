@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import org.melodist.tv.ui.settings.*
 import org.melodist.tv.ui.theme.LocalMonetSurface
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberMonetSurfaceColor
 import org.melodist.tv.ui.theme.rememberTvWindowMetrics
 import org.melodist.tv.ui.theme.toMonetContainer
@@ -35,7 +35,7 @@ enum class SettingsCategory(
     Lyrics("播放与歌词", "双语逐行翻译 / 歌词字号大小"),
     ScreenSaver("OLED 屏保与显示", "闲置等待时间 / 像素微移 / 播放屏保"),
     Storage("存储与缓存清理", "缓存占用统计 / 图片与歌词缓存释放"),
-    About("关于 Melodist TV", "系统环境 / 音频直通 / 解码能力"),
+    About("关于 QQMusic TV", "系统环境 / 音频直通 / 解码能力"),
 }
 
 @Composable
@@ -136,11 +136,11 @@ fun SettingsTvScreen(
                         Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .clip(MelodistShapes.CardCorner)
+                            .clip(QQMusicShapes.CardCorner)
                             .background(surfaceColor.toMonetContainer(0.05f))
                             .border(
                                 BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                                MelodistShapes.CardCorner,
+                                QQMusicShapes.CardCorner,
                             ).padding(horizontal = 32.dp, vertical = 24.dp),
                 ) {
                     CompositionLocalProvider(LocalMonetSurface provides surfaceColor) {

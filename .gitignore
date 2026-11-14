@@ -34,3 +34,8 @@ scripts/
 
 # Documentation
 docs/*.md
+
+# Local build logs & kotlin session
+.kotlin/
+build-*.log
+

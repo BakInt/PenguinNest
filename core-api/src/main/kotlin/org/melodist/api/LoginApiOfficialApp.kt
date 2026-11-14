@@ -176,6 +176,8 @@ private suspend fun LoginApiService.exchangeOfficialAppLogin(
                     musicKey = musicKey,
                     cookies = cookies.toMap(),
                     avatarUrl = avatar,
+                    // 同一账号续登时保留已刷新到的会员信息，避免账号页短暂显示"未开通"。
+                    preserveMembership = true,
                 )
                 true
             }
@@ -205,7 +207,7 @@ internal suspend fun LoginApiService.refreshOfficialAppTokenImpl(
     loginType: Int = 2,
     openid: String = "",
     accessToken: String = "",
-): Boolean =
+): LegOutcome =
     withContext(Dispatchers.IO) {
         try {
             val numericUin = musicId.trimStart('o').toLongOrNull() ?: 0L
@@ -251,18 +253,25 @@ internal suspend fun LoginApiService.refreshOfficialAppTokenImpl(
                     .build()
 
             client.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext false
+                if (!resp.isSuccessful) return@withContext LegOutcome.Transient
                 val json = resp.body.string()
                 val jsonElement = Json.parseToJsonElement(json).jsonObject
-                val req0 = jsonElement["req_0"]?.jsonObject ?: return@withContext false
+                val req0 = jsonElement["req_0"]?.jsonObject ?: return@withContext LegOutcome.Rejected
                 if (req0["code"]?.jsonPrimitive?.intOrNull != 0) {
                     ApiLogger.w("LoginApiService", "refreshOfficialAppToken rejected: $json")
-                    return@withContext false
+                    return@withContext LegOutcome.Rejected
                 }
 
-                val data = req0["data"]?.jsonObject ?: return@withContext false
-                val newMusicKey = data["musickey"]?.jsonPrimitive?.contentOrNull ?: return@withContext false
-                if (newMusicKey.isEmpty()) return@withContext false
+                val data = req0["data"]?.jsonObject ?: return@withContext LegOutcome.Rejected
+                val newMusicKey = data["musickey"]?.jsonPrimitive?.contentOrNull ?: return@withContext LegOutcome.Rejected
+                if (newMusicKey.isEmpty()) return@withContext LegOutcome.Rejected
+
+                val expireAt =
+                    parseSessionExpireAt(
+                        data["expiration"]?.jsonPrimitive?.contentOrNull
+                            ?: data["expire_in"]?.jsonPrimitive?.contentOrNull
+                            ?: data["expired_in"]?.jsonPrimitive?.contentOrNull,
+                    ) ?: 0L
 
                 val cookies = UserSession.profile.cookies.toMutableMap()
                 cookies["musickey"] = newMusicKey
@@ -270,8 +279,17 @@ internal suspend fun LoginApiService.refreshOfficialAppTokenImpl(
                 cookies["qqmusic_key"] = newMusicKey
                 data["refresh_token"]?.jsonPrimitive?.contentOrNull?.let { cookies["refresh_token"] = it }
                 data["refresh_key"]?.jsonPrimitive?.contentOrNull?.let { cookies["refresh_key"] = it }
-                data["openid"]?.jsonPrimitive?.contentOrNull?.let { cookies["openid"] = it }
-                data["access_token"]?.jsonPrimitive?.contentOrNull?.let { cookies["access_token"] = it }
+                // 关键修复：官方 App 渠道历史上只写 `openid`/`access_token`，而续签链腿 ③
+                // 读的是 `psrf_qqopenid`/`psrf_qqaccess_token`，导致该渠道只有一条腿可用。
+                // 两套键双写后，官方 App 账号在 refresh_token 失效时还有 QQ 互联腿兜底。
+                data["openid"]?.jsonPrimitive?.contentOrNull?.let {
+                    cookies["openid"] = it
+                    cookies["psrf_qqopenid"] = it
+                }
+                data["access_token"]?.jsonPrimitive?.contentOrNull?.let {
+                    cookies["access_token"] = it
+                    cookies["psrf_qqaccess_token"] = it
+                }
 
                 UserSession.update(
                     uin = UserSession.profile.uin,
@@ -280,13 +298,18 @@ internal suspend fun LoginApiService.refreshOfficialAppTokenImpl(
                     cookies = cookies.toMap(),
                     avatarUrl = UserSession.profile.avatarUrl,
                     isVip = UserSession.profile.isVip,
+                    preserveMembership = true,
+                    musicKeyExpireAt = expireAt,
                 )
-                true
+                LegOutcome.Success
             }
+        } catch (e: java.io.IOException) {
+            ApiLogger.w("LoginApiService", "refreshOfficialAppToken network error", e)
+            LegOutcome.Transient
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             ApiLogger.w("LoginApiService", "refreshOfficialAppToken exception", e)
-            false
+            LegOutcome.Rejected
         }
     }
 

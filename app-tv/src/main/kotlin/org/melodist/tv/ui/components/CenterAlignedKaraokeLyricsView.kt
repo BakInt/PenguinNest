@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import org.melodist.data.AppSettingsManager
 import org.melodist.model.LyricLine
-import org.melodist.tv.ui.theme.MelodistColors
+import org.melodist.tv.ui.theme.QQMusicColors
 import kotlin.math.abs
 
 @Composable
@@ -34,7 +34,7 @@ fun CenterAlignedKaraokeLyricsView(
         org.melodist.playback.PlaybackManager.currentLyricOffsetMs
             .collectAsState()
             .value,
-    highlightColor: Color = MelodistColors.AccentGreen,
+    highlightColor: Color = QQMusicColors.AccentGreen,
 ) {
     val settings by AppSettingsManager.settings.collectAsState()
     val baseFontSize = settings.effectiveLyricTitleSp
@@ -48,7 +48,7 @@ fun CenterAlignedKaraokeLyricsView(
         ) {
             Text(
                 text = "纯音乐，请静心欣赏",
-                color = MelodistColors.TextMuted,
+                color = QQMusicColors.TextMuted,
                 fontSize = 24.sp,
                 textAlign = TextAlign.Center,
             )
@@ -137,7 +137,7 @@ private fun LyricLineItem(
     baseFontSize: Int = 24,
     enableWordAnim: Boolean = true,
     showBilingual: Boolean = true,
-    highlightColor: Color = MelodistColors.AccentGreen,
+    highlightColor: Color = QQMusicColors.AccentGreen,
 ) {
     // 渲染逐字或整行
     val currentLineElapsedMs = if (isCurrent) (currentPositionMs - line.timestampMs).coerceAtLeast(0) else 0L

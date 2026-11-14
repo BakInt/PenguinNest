@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -25,6 +26,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,11 +39,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.melodist.api.AddSongResult
 import org.melodist.api.MusicApiService
 import org.melodist.api.addSongsToPlaylist
+import org.melodist.api.deleteSongsFromPlaylist
 import org.melodist.data.UserLibraryCacheManager
+import org.melodist.model.Playlist
 import org.melodist.model.Song
 import org.melodist.playback.PlaybackManager
 
@@ -69,11 +75,38 @@ fun AddToPlaylistBottomSheet(
 
     val onlineSongs =
         remember(songs) {
-            songs.filter { it.songMid.isNotBlank() && !it.isLocal && !it.isWebDav }
+            songs.filter { it.songMid.isNotBlank() && !it.isLocal }
         }
+
+    // 单曲场景才启用"点击=切换归属"语义；多选维持仅添加
+    val toggleSong = remember(onlineSongs) { onlineSongs.singleOrNull() }
+
+    // 歌单曲目缓存写入版本号：新增/移除/预热完成后自增，驱动归属标记重组
+    val membershipVersion by UserLibraryCacheManager.membershipVersionFlow.collectAsState()
 
     var isOperating by remember { mutableStateOf(false) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+
+    // 打开弹窗后预热各歌单曲目缓存，使归属标记尽快从"未知"变为确定
+    LaunchedEffect(createdPlaylists) {
+        val pending =
+            createdPlaylists.filter { playlist ->
+                !UserLibraryCacheManager.isPlaylistSongsCacheValid(playlist.dirId, playlist.tid)
+            }
+        if (pending.isEmpty()) return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            pending.forEach { playlist ->
+                UserLibraryCacheManager.loadPlaylistSongs(
+                    apiService = apiService,
+                    dirId = playlist.dirId,
+                    tid = playlist.tid,
+                    isFav = playlist.isFav,
+                    forceRefresh = true,
+                    targetTotalCount = playlist.songCount,
+                )
+            }
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -143,6 +176,15 @@ fun AddToPlaylistBottomSheet(
                             .height(320.dp),
                 ) {
                     items(createdPlaylists, key = { it.dirId }) { playlist ->
+                        // 归属状态：null = 未知（缓存缺失/过期），true/false = 确定
+                        val isMember =
+                            remember(playlist.dirId, playlist.tid, membershipVersion) {
+                                toggleSong?.let { song ->
+                                    UserLibraryCacheManager
+                                        .getPlaylistSongMids(playlist.dirId, playlist.tid)
+                                        ?.contains(song.songMid)
+                                }
+                            }
                         Row(
                             modifier =
                                 Modifier
@@ -154,6 +196,31 @@ fun AddToPlaylistBottomSheet(
                                         }
                                         isOperating = true
                                         scope.launch {
+                                            val singleSong = toggleSong
+                                            if (singleSong != null && isMember == true) {
+                                                // 已在此歌单：点击即移除（取消收藏到该歌单）
+                                                val removed =
+                                                    apiService.deleteSongsFromPlaylist(
+                                                        dirId = playlist.dirId,
+                                                        songs = listOf(singleSong),
+                                                    )
+                                                isOperating = false
+                                                if (removed) {
+                                                    UserLibraryCacheManager.onSongsRemovedFromPlaylist(
+                                                        playlist.dirId,
+                                                        listOf(singleSong),
+                                                    )
+                                                    Toast
+                                                        .makeText(context, "已从《${playlist.name}》移除", Toast.LENGTH_SHORT)
+                                                        .show()
+                                                    onDismissRequest()
+                                                    onSuccess?.invoke()
+                                                } else {
+                                                    Toast.makeText(context, "从歌单移除失败", Toast.LENGTH_SHORT).show()
+                                                }
+                                                return@launch
+                                            }
+
                                             val result =
                                                 apiService.addSongsToPlaylist(
                                                     dirId = playlist.dirId,
@@ -178,15 +245,38 @@ fun AddToPlaylistBottomSheet(
                                                 }
 
                                                 AddSongResult.AlreadyExists -> {
-                                                    val msg =
-                                                        if (onlineSongs.size == 1) {
-                                                            "歌单中已存在该歌曲"
+                                                    // 服务端判定已存在。仅当归属明确为"不在该歌单"（本地判断失误）
+                                                    // 且为单曲场景时，才继续按"点击=切换"语义执行移除；
+                                                    // 归属未知时不做删除，避免在无视觉提示下移除用户数据。
+                                                    val single = toggleSong
+                                                    if (single != null && isMember == false) {
+                                                        val removed =
+                                                            apiService.deleteSongsFromPlaylist(
+                                                                dirId = playlist.dirId,
+                                                                songs = listOf(single),
+                                                            )
+                                                        if (removed) {
+                                                            UserLibraryCacheManager.onSongsRemovedFromPlaylist(
+                                                                playlist.dirId,
+                                                                listOf(single),
+                                                            )
+                                                            Toast
+                                                                .makeText(context, "已从《${playlist.name}》移除", Toast.LENGTH_SHORT)
+                                                                .show()
+                                                            onDismissRequest()
+                                                            onSuccess?.invoke()
                                                         } else {
-                                                            "歌单中已存在所选歌曲"
+                                                            Toast.makeText(context, "从歌单移除失败", Toast.LENGTH_SHORT).show()
                                                         }
-                                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                                    onDismissRequest()
-                                                    onSuccess?.invoke()
+                                                    } else {
+                                                        val msg =
+                                                            if (onlineSongs.size == 1) {
+                                                                "该歌曲已在此歌单中"
+                                                            } else {
+                                                                "所选歌曲已在此歌单中"
+                                                            }
+                                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                                    }
                                                 }
 
                                                 AddSongResult.Failed -> {
@@ -217,6 +307,14 @@ fun AddToPlaylistBottomSheet(
                                     text = "${playlist.songCount} 首",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (isMember == true) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = "已在该歌单中",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp),
                                 )
                             }
                         }

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -69,6 +70,45 @@ enum class MobileLoginChannel(
     QQ("QQ", "手机 QQ"),
     WeChat("微信", "手机微信"),
     QQMusic("QQ音乐", "QQ 音乐"),
+}
+
+/**
+ * 登录成功后的会话同步：先补全账号档案再落盘。
+ *
+ * 账号档案刷新（[MusicApiService.refreshCurrentUserProfile]）是唯一能填充会员/等级/到期信息的来源；
+ * 刷新失败时档案只有身份与凭据、会员字段全为空，界面会显示"未开通"。因此这里做有限次重试，
+ * 并在任何情况下都把已取得的会话落盘，保证用户至少已登录，会员信息由后续刷新补齐。
+ *
+ * @param context 用于持久化会话的上下文
+ * @param channel 触发本次登录的渠道，仅用于日志
+ */
+private suspend fun syncSessionAfterLogin(
+    context: android.content.Context,
+    channel: MobileLoginChannel,
+) {
+    val maxAttempts = 3
+    var refreshed = false
+    repeat(maxAttempts) { attempt ->
+        if (refreshed) return@repeat
+        refreshed =
+            try {
+                MusicApiService().refreshCurrentUserProfile() == true
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ApiLogger.w("MobileLoginDialog", "Failed to refresh user profile after ${channel.label} login", e)
+                false
+            }
+        if (!refreshed && attempt < maxAttempts - 1) {
+            delay(1500L * (attempt + 1))
+        }
+    }
+    if (!refreshed) {
+        ApiLogger.w(
+            "MobileLoginDialog",
+            "Profile refresh did not complete after ${channel.label} login; session saved with identity only",
+        )
+    }
+    UserSessionManager.save(context)
 }
 
 @Composable
@@ -174,8 +214,7 @@ fun MobileLoginDialog(
                     ) {
                         FilledTonalButton(
                             onClick = {
-                                UserSession.clear()
-                                UserSessionManager.save(context)
+                                UserSessionManager.clear(context)
                             },
                             modifier = Modifier.weight(1f),
                         ) {
@@ -183,8 +222,7 @@ fun MobileLoginDialog(
                         }
                         OutlinedButton(
                             onClick = {
-                                UserSession.clear()
-                                UserSessionManager.save(context)
+                                UserSessionManager.clear(context)
                                 onDismissRequest()
                             },
                             modifier = Modifier.weight(1f),
@@ -201,6 +239,9 @@ fun MobileLoginDialog(
                     var qrImageBitmap by remember(selectedChannel, refreshTrigger) { mutableStateOf<ImageBitmap?>(null) }
                     var statusText by remember(selectedChannel, refreshTrigger) { mutableStateOf("正在获取二维码...") }
                     var isPolling by remember(selectedChannel, refreshTrigger) { mutableStateOf(false) }
+                    var officialQrId by remember(selectedChannel, refreshTrigger) { mutableStateOf<String?>(null) }
+                    var wakeMessage by remember(selectedChannel, refreshTrigger) { mutableStateOf<String?>(null) }
+                    val officialAppAvailable = remember { OfficialAppWakeHelper.isOfficialAppAvailable(context) }
 
                     fun refreshQr() {
                         refreshTrigger++
@@ -295,13 +336,8 @@ fun MobileLoginDialog(
                                             }
 
                                             QrStatus.Success -> {
-                                                statusText = "登录成功"
-                                                try {
-                                                    MusicApiService().refreshCurrentUserProfile()
-                                                } catch (e: Exception) {
-                                                    ApiLogger.w("MobileLoginDialog", "Failed to refresh user profile after QQ login", e)
-                                                }
-                                                UserSessionManager.save(context)
+                                                statusText = "登录成功，正在同步账号信息..."
+                                                syncSessionAfterLogin(context, selectedChannel)
                                                 isPolling = false
                                                 onLoginSuccess()
                                                 break
@@ -347,13 +383,8 @@ fun MobileLoginDialog(
                                             }
 
                                             QrStatus.Success -> {
-                                                statusText = "登录成功"
-                                                try {
-                                                    MusicApiService().refreshCurrentUserProfile()
-                                                } catch (e: Exception) {
-                                                    ApiLogger.w("MobileLoginDialog", "Failed to refresh user profile after WeChat login", e)
-                                                }
-                                                UserSessionManager.save(context)
+                                                statusText = "登录成功，正在同步账号信息..."
+                                                syncSessionAfterLogin(context, selectedChannel)
                                                 isPolling = false
                                                 onLoginSuccess()
                                                 break
@@ -380,10 +411,11 @@ fun MobileLoginDialog(
 
                                 MobileLoginChannel.QQMusic -> {
                                     val qrInfo = loginService.fetchOfficialAppQrCode()
+                                    officialQrId = qrInfo.identifier
                                     val bitmap = BitmapFactory.decodeByteArray(qrInfo.imageBytes, 0, qrInfo.imageBytes.size)
                                     if (bitmap != null) {
                                         qrImageBitmap = bitmap.asImageBitmap()
-                                        statusText = "请使用 ${selectedChannel.appName} 扫码"
+                                        statusText = wakeMessage ?: "请扫码，或点击上方按钮唤起官方 App 确认"
                                     }
 
                                     while (isPolling) {
@@ -391,7 +423,7 @@ fun MobileLoginDialog(
                                         val poll = loginService.pollOfficialAppQrStatus(qrInfo.identifier)
                                         when (poll.status) {
                                             QrStatus.Waiting -> {
-                                                statusText = "请使用 ${selectedChannel.appName} 扫码"
+                                                statusText = wakeMessage ?: "请扫码，或点击上方按钮唤起官方 App 确认"
                                             }
 
                                             QrStatus.Confirming -> {
@@ -399,13 +431,8 @@ fun MobileLoginDialog(
                                             }
 
                                             QrStatus.Success -> {
-                                                statusText = "登录成功"
-                                                try {
-                                                    MusicApiService().refreshCurrentUserProfile()
-                                                } catch (e: Exception) {
-                                                    ApiLogger.w("MobileLoginDialog", "Failed to refresh user profile after official app login", e)
-                                                }
-                                                UserSessionManager.save(context)
+                                                statusText = "登录成功，正在同步账号信息..."
+                                                syncSessionAfterLogin(context, selectedChannel)
                                                 isPolling = false
                                                 onLoginSuccess()
                                                 break
@@ -433,6 +460,26 @@ fun MobileLoginDialog(
                         } catch (e: Exception) {
                             statusText = "拉取二维码失败: ${e.message ?: "网络异常"}"
                         }
+                    }
+
+                    // 官方 App 一键唤起（仅 QQ 音乐渠道且官方 App 可用时展示；扫码保留为回退）
+                    if (selectedChannel == MobileLoginChannel.QQMusic && officialAppAvailable) {
+                        Button(
+                            onClick = {
+                                val qrcodeId = officialQrId
+                                wakeMessage =
+                                    if (qrcodeId != null && OfficialAppWakeHelper.wake(context, qrcodeId)) {
+                                        "已唤起 QQ 音乐，请在官方 App 中确认登录"
+                                    } else {
+                                        "唤起失败，请使用下方二维码扫码"
+                                    }
+                            },
+                            enabled = officialQrId != null && isPolling,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("唤起 QQ 音乐 App 授权")
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
 
                     // 二维码展示卡片

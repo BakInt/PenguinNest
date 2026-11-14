@@ -62,7 +62,6 @@ object CoverMemoryManager {
                     val keyStr = key.key
                     val isRawOrLarge =
                         keyStr.contains("cover_raw_") ||
-                            keyStr.contains("webdav_raw_") ||
                             keyStr.contains("M000") ||
                             keyStr.contains("R1200x1200")
                     isRawOrLarge && keepUrls.none { keep -> keyStr.contains(keep) }

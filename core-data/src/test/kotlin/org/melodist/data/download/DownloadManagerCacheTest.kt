@@ -73,7 +73,7 @@ class DownloadManagerCacheTest {
 
         assertFalse(DownloadManager.cacheExporter?.isTierFullyCached("uncached_mid", AudioQualityTier.SQ) == true)
 
-        val targetDir = File(System.getProperty("java.io.tmpdir"), "melodist_test_${System.currentTimeMillis()}")
+        val targetDir = File(System.getProperty("java.io.tmpdir"), "qqmusic_test_${System.currentTimeMillis()}")
         targetDir.mkdirs()
         try {
             val exported = DownloadManager.cacheExporter?.exportCompleteCache("cached_mid", AudioQualityTier.SQ, targetDir, "test_base")

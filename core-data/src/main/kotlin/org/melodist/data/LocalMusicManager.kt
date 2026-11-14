@@ -93,7 +93,7 @@ data class LocalFileItem(
 
 object LocalMusicManager {
     private const val TAG = "LocalMusicManager"
-    private const val PREF_NAME = "melodist_local_music"
+    private const val PREF_NAME = "qqmusic_local_music"
     private const val KEY_CONFIG = "local_config_json"
     private var prefs: SharedPreferences? = null
     private var appContext: Context? = null
@@ -903,9 +903,7 @@ object LocalMusicManager {
                     val parsed =
                         org.melodist.api.AudioMetadataParser
                             .parse(headerBytes)
-                    val lyrics =
-                        parsed.lyrics ?: org.melodist.api.WebDavService
-                            .extractEmbeddedLyricsFromBytes(headerBytes)
+                    val lyrics = parsed.lyrics
                     if (!lyrics.isNullOrBlank()) {
                         return@withContext lyrics
                     }

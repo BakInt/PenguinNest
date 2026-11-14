@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,27 +51,45 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.melodist.api.LYRIC_SEARCH_MIN_KEYWORD_LENGTH
 import org.melodist.api.MusicApiService
 import org.melodist.api.search
 import org.melodist.api.searchAlbums
+import org.melodist.api.searchByLyric
 import org.melodist.api.searchPlaylists
+import org.melodist.api.streamSongNameSuggestions
 import org.melodist.data.SearchKeywordHistoryManager
+import org.melodist.data.SongFavCountManager
 import org.melodist.mobile.ui.components.AlbumArtImage
 import org.melodist.mobile.ui.components.CommonSongList
+import org.melodist.mobile.ui.components.buildHighlightedAnnotatedString
 import org.melodist.mobile.ui.navigation.LocalAppNavigation
 import org.melodist.model.Album
+import org.melodist.model.LyricSearchResult
 import org.melodist.model.Playlist
 import org.melodist.model.Song
+import org.melodist.model.SongNameHighlightParser
+import org.melodist.model.SongNameSuggestion
+import org.melodist.playback.PlaybackManager
 import org.melodist.playback.QueuePaginationSource
 
 enum class SearchTab(
@@ -81,10 +100,55 @@ enum class SearchTab(
     Album("专辑"),
 }
 
+/** 联想命中前缀高亮色（对齐官方红色高亮） */
+private val SuggestionHighlightColor = Color(0xFFEC4433)
+
+/**
+ * 联想行歌名文本：优先按服务端 hilight 标记渲染（包含式），
+ * 无标记时回退为本地包含式高亮（A 路 smartbox 条目无 hilight 字段）
+ */
+private fun buildSuggestionNameText(
+    item: SongNameSuggestion,
+    keyword: String,
+    defaultColor: Color,
+): AnnotatedString {
+    if (item.highlight.isNotBlank()) {
+        val (text, ranges) = SongNameHighlightParser.parse(item.highlight)
+        return buildAnnotatedString {
+            var cursor = 0
+            for (range in ranges) {
+                if (range.first > cursor) {
+                    append(text.substring(cursor, range.first))
+                }
+                withStyle(
+                    SpanStyle(
+                        color = SuggestionHighlightColor,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                ) {
+                    append(text.substring(range.first, range.last + 1))
+                }
+                cursor = range.last + 1
+            }
+            if (cursor < text.length) {
+                append(text.substring(cursor))
+            }
+        }
+    }
+    return buildHighlightedAnnotatedString(
+        text = item.name,
+        query = keyword,
+        defaultColor = defaultColor,
+        highlightColor = SuggestionHighlightColor,
+    )
+}
+
 class SearchScreenState {
     var query by mutableStateOf("")
     var currentTab by mutableStateOf(SearchTab.Song)
     var historyKeywords by mutableStateOf(SearchKeywordHistoryManager.getKeywords())
+    var suggestions by mutableStateOf<List<SongNameSuggestion>>(emptyList())
+    var lyricSnippets by mutableStateOf<Map<String, String>>(emptyMap())
 
     val songListState =
         androidx.compose.foundation.lazy
@@ -99,6 +163,9 @@ class SearchScreenState {
     var songResults by mutableStateOf<List<Song>>(emptyList())
     var playlistResults by mutableStateOf<List<Playlist>>(emptyList())
     var albumResults by mutableStateOf<List<Album>>(emptyList())
+
+    /** 搜索结果歌曲收藏数（key = songId），接口不可用时保持为空 */
+    var favoriteCounts by mutableStateOf<Map<Long, Int>>(emptyMap())
 
     var songPage by mutableIntStateOf(1)
     var playlistPage by mutableIntStateOf(1)
@@ -125,9 +192,12 @@ class SearchScreenState {
         query = ""
         hasSearched = false
         activeQuery = ""
+        suggestions = emptyList()
+        lyricSnippets = emptyMap()
         songResults = emptyList()
         playlistResults = emptyList()
         albumResults = emptyList()
+        favoriteCounts = emptyMap()
         loadedTabs = emptySet()
         songPage = 1
         playlistPage = 1
@@ -175,6 +245,8 @@ fun SearchScreen(
     var query by searchState::query
     var currentTab by searchState::currentTab
     var historyKeywords by searchState::historyKeywords
+    var suggestions by searchState::suggestions
+    var lyricSnippets by searchState::lyricSnippets
 
     val songListState = searchState.songListState
     val playlistListState = searchState.playlistListState
@@ -183,6 +255,7 @@ fun SearchScreen(
     var songResults by searchState::songResults
     var playlistResults by searchState::playlistResults
     var albumResults by searchState::albumResults
+    var favoriteCounts by searchState::favoriteCounts
 
     var songPage by searchState::songPage
     var playlistPage by searchState::playlistPage
@@ -201,6 +274,53 @@ fun SearchScreen(
     var isLoading by searchState::isLoading
     var hasSearched by searchState::hasSearched
 
+    // 歌词命中合并：追加在歌名结果之后（按 songMid 去重），命中片段供徽标与副标题展示
+    fun mergeLyricHits(
+        nameResults: List<Song>,
+        lyricHits: List<LyricSearchResult>,
+    ) {
+        val existingMids = nameResults.map { it.songMid }.toSet()
+        val extra =
+            lyricHits
+                .filter { it.song.songMid.isNotBlank() && it.song.songMid !in existingMids }
+                .distinctBy { it.song.songMid }
+        lyricSnippets =
+            extra
+                .mapNotNull { hit ->
+                    hit.snippet.takeIf { it.isNotBlank() }?.let { snippet -> hit.song.songMid to snippet }
+                }.toMap()
+        if (extra.isNotEmpty()) {
+            songResults = nameResults + extra.map { it.song }
+        }
+    }
+
+    // 搜索结果落地后批量拉取收藏数（10 分钟缓存，接口失败时静默保持未知）
+    fun refreshSongFavoriteCounts(targets: List<Song>) {
+        val ids = targets.map { it.songId }.filter { it > 0L }.distinct()
+        if (ids.isEmpty()) return
+        scope.launch {
+            val counts = withContext(Dispatchers.IO) { SongFavCountManager.getCounts(ids) }
+            if (counts.isEmpty()) return@launch
+            val visibleIds = songResults.map { it.songId }.toSet()
+            val merged = counts.filterKeys { it in visibleIds }
+            if (merged.isNotEmpty()) {
+                favoriteCounts = favoriteCounts + merged
+            }
+        }
+    }
+
+    // 点击行首爱心：切换收藏状态，并本地修正计数，避免整批重新拉取
+    fun handleFavoriteClick(song: Song) {
+        val supported = PlaybackManager.isSongFavoriteSupported(song)
+        val wasFavorite = supported && PlaybackManager.isSongFavorite(song.songMid)
+        PlaybackManager.toggleSongFavorite(song)
+        if (!supported) return
+        val delta = if (wasFavorite) -1 else 1
+        SongFavCountManager.adjust(song.songId, delta)
+        val current = favoriteCounts[song.songId] ?: return
+        favoriteCounts = favoriteCounts + (song.songId to (current + delta).coerceAtLeast(0))
+    }
+
     fun executeSearch(
         targetKeyword: String,
         targetTab: SearchTab,
@@ -216,8 +336,10 @@ fun SearchScreen(
         if (isNewQuery) {
             activeQuery = trimmed
             songResults = emptyList()
+            lyricSnippets = emptyMap()
             playlistResults = emptyList()
             albumResults = emptyList()
+            favoriteCounts = emptyMap()
             loadedTabs = emptySet()
             hasSearched = true
 
@@ -240,9 +362,28 @@ fun SearchScreen(
                     when (targetTab) {
                         SearchTab.Song -> {
                             songPage = 1
+                            // 歌词搜索与歌名搜索并行（短词模糊匹配噪音大，长度达标才触发）
+                            val lyricDeferred =
+                                if (trimmed.length >= LYRIC_SEARCH_MIN_KEYWORD_LENGTH) {
+                                    scope.async {
+                                        try {
+                                            apiService.searchByLyric(trimmed)
+                                        } catch (e: CancellationException) {
+                                            throw e
+                                        } catch (e: Exception) {
+                                            Log.w("SearchScreen", "Lyric search failed for query: $trimmed", e)
+                                            emptyList()
+                                        }
+                                    }
+                                } else {
+                                    null
+                                }
                             val list = apiService.search(trimmed, page = 1, pageSize = 30)
                             songResults = list
                             hasMoreSongs = list.size >= 30
+                            val lyricHits = lyricDeferred?.await() ?: emptyList()
+                            mergeLyricHits(list, lyricHits)
+                            refreshSongFavoriteCounts(songResults)
                         }
 
                         SearchTab.Playlist -> {
@@ -268,6 +409,28 @@ fun SearchScreen(
             }
             isLoading = false
         }
+    }
+
+    // 输入联想：防抖 250ms，A 路 smartbox + B 路包含式搜索增量合并渲染，新输入到来时自动取消旧流
+    LaunchedEffect(Unit) {
+        snapshotFlow { query.trim() }
+            .distinctUntilChanged()
+            .collectLatest { trimmed ->
+                if (trimmed.isBlank() || (hasSearched && trimmed == activeQuery)) {
+                    suggestions = emptyList()
+                } else {
+                    delay(250)
+                    apiService
+                        .streamSongNameSuggestions(trimmed)
+                        .collect { merged -> suggestions = merged }
+                }
+            }
+    }
+
+    // 点击联想词：填入完整歌名并执行搜索，展示所有相关歌曲
+    fun applySuggestion(item: SongNameSuggestion) {
+        query = item.name
+        executeSearch(item.name, SearchTab.Song)
     }
 
     val searchQueuePaginationSource =
@@ -307,6 +470,7 @@ fun SearchScreen(
                         if (newUnique.isNotEmpty()) {
                             songResults = songResults + newUnique
                             songPage = nextPage
+                            refreshSongFavoriteCounts(newUnique)
                         }
                         isLoadingMoreSongs = false
                         return newUnique
@@ -533,7 +697,79 @@ fun SearchScreen(
                 }
             }
 
-            if (!hasSearched) {
+            val showSuggestions = query.isNotBlank() && (!hasSearched || query.trim() != activeQuery)
+            if (showSuggestions) {
+                // 输入联想面板
+                if (suggestions.isEmpty()) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "暂无联想建议",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                        contentPadding =
+                            PaddingValues(
+                                top = 4.dp,
+                                bottom = contentPadding.calculateBottomPadding() + 16.dp,
+                            ),
+                    ) {
+                        itemsIndexed(
+                            suggestions,
+                            // key 含 index 兜底：mid/歌名任一重复都不会触发 LazyColumn key 冲突闪退
+                            key = { index, item -> "$index:${item.mid}:${item.name}" },
+                        ) { _, item ->
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { applySuggestion(item) }
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                // 联想仅展示歌名：优先服务端包含式高亮，否则本地包含式高亮
+                                Text(
+                                    text =
+                                        buildSuggestionNameText(
+                                            item = item,
+                                            keyword = query.trim(),
+                                            defaultColor = MaterialTheme.colorScheme.onSurface,
+                                        ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            )
+                        }
+                    }
+                }
+            } else if (!hasSearched) {
                 // 未发起搜索时展示搜索历史
                 if (historyKeywords.isNotEmpty()) {
                     Column(
@@ -676,6 +912,10 @@ fun SearchScreen(
                                             .weight(1f),
                                     state = songListState,
                                     paginationSource = searchQueuePaginationSource,
+                                    lyricSnippetProvider = { song -> lyricSnippets[song.songMid] },
+                                    showFavoriteButton = true,
+                                    favoriteCounts = favoriteCounts,
+                                    onFavoriteToggle = { song -> handleFavoriteClick(song) },
                                     contentPadding =
                                         PaddingValues(
                                             top = 4.dp,

@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.melodist.api.MusicApiService
 import org.melodist.api.getPlayUrl
-import org.melodist.data.WebDavManager
 import org.melodist.data.pipeline.AudioMetadataPipeline
 import org.melodist.mobile.connect.MobileConnectManager
 import org.melodist.model.AudioQualityTier
@@ -114,14 +113,6 @@ object DlnaCastManager {
             return server.buildLocalAudioStreamUrl(localFilePath)
         }
 
-        if (song.isWebDav || song.songMid.startsWith("webdav_")) {
-            val serverId = song.songMid.removePrefix("webdav_").substringBeforeLast('_')
-            val href = song.mediaMid.ifBlank { song.localFilePath.orEmpty() }
-            if (serverId.isNotBlank() && href.isNotBlank()) {
-                return server.buildWebDavStreamUrl(serverId, href)
-            }
-        }
-
         val cachedPath = song.localFilePath?.takeIf { File(it).exists() }
         if (!cachedPath.isNullOrBlank()) {
             return server.buildLocalAudioStreamUrl(cachedPath)
@@ -157,42 +148,6 @@ object DlnaCastManager {
             val file = File(cleanPath)
             if (file.exists() && file.length() > 0L) {
                 return server.buildLocalCoverUrl(cleanPath)
-            }
-        }
-
-        if (song.isWebDav || song.songMid.startsWith("webdav_")) {
-            val serverId = song.songMid.removePrefix("webdav_").substringBeforeLast('_')
-            val href = song.mediaMid.ifBlank { song.localFilePath.orEmpty() }
-            val webDavServers = WebDavManager.getServers()
-            val webDavServer =
-                webDavServers.find { it.id == serverId }
-                    ?: WebDavManager.getActiveServer()
-                    ?: webDavServers.firstOrNull()
-            if (webDavServer != null && href.isNotBlank()) {
-                val cachedCover =
-                    WebDavManager.getSongCoverPath(webDavServer.id, href)
-                        ?: WebDavManager.getSongRawCoverPath(webDavServer.id, href)
-                val cachedLocalPath = cachedCover?.removePrefix("file://")
-                if (!cachedLocalPath.isNullOrBlank()) {
-                    val file = File(cachedLocalPath)
-                    if (file.exists() && file.length() > 0L) {
-                        return server.buildLocalCoverUrl(cachedLocalPath)
-                    }
-                }
-
-                try {
-                    val meta = WebDavManager.extractPlaybackMetadata(webDavServer, song)
-                    val extractedPath = (meta.rawCoverUrl ?: meta.coverUrl)?.removePrefix("file://")
-                    if (!extractedPath.isNullOrBlank()) {
-                        val file = File(extractedPath)
-                        if (file.exists() && file.length() > 0L) {
-                            return server.buildLocalCoverUrl(extractedPath)
-                        }
-                    }
-                } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    Log.w("DlnaCastManager", "Failed to extract WebDAV cover for ${song.songMid}", e)
-                }
             }
         }
 

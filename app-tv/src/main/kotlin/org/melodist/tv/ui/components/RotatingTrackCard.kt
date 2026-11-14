@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import org.melodist.tv.ui.theme.LocalMonetSurface
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.MonetColorExtractor
 import org.melodist.tv.ui.theme.toMonetContainer
 
@@ -145,8 +145,8 @@ fun RotatingTrackCard(
                 },
         shape =
             CardDefaults.shape(
-                shape = MelodistShapes.CardCorner,
-                focusedShape = MelodistShapes.CardCorner,
+                shape = QQMusicShapes.CardCorner,
+                focusedShape = QQMusicShapes.CardCorner,
             ),
         colors =
             CardDefaults.colors(
@@ -158,12 +158,12 @@ fun RotatingTrackCard(
                 border =
                     Border(
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-                        shape = MelodistShapes.CardCorner,
+                        shape = QQMusicShapes.CardCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(3.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.CardCorner,
+                        border = BorderStroke(3.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.CardCorner,
                     ),
             ),
         scale =
@@ -212,7 +212,7 @@ fun RotatingTrackCard(
                     // 封面占比由 64% (max 175dp) 提升至 80% (max 240dp)
                     val singleSize = (cardWidth * 0.80f).coerceIn(160.dp, 240.dp)
                     if (currentItem.coverUrl.isNotBlank() || currentItem.albumMid.isNotBlank()) {
-                        MelodistElevatedCover(
+                        QQMusicElevatedCover(
                             coverUrl = currentItem.coverUrl,
                             albumMid = currentItem.albumMid,
                             songMid = currentItem.songMid,
@@ -225,9 +225,9 @@ fun RotatingTrackCard(
                             modifier =
                                 Modifier
                                     .size((cardWidth * 0.60f).coerceIn(120.dp, 180.dp))
-                                    .clip(MelodistShapes.CardCorner)
+                                    .clip(QQMusicShapes.CardCorner)
                                     .background(Color.White.copy(alpha = 0.08f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.12f), MelodistShapes.CardCorner),
+                                    .border(1.dp, Color.White.copy(alpha = 0.12f), QQMusicShapes.CardCorner),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(

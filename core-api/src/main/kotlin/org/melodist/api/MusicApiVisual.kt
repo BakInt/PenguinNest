@@ -94,7 +94,7 @@ object MusicApiVisual {
  */
 suspend fun MusicApiService.getSongVisualMid(songMid: String): String? =
     withContext(Dispatchers.IO) {
-        if (songMid.isBlank() || songMid.startsWith("webdav_")) return@withContext null
+        if (songMid.isBlank()) return@withContext null
         MusicApiVisual.getCachedVisualMid(songMid)?.let { return@withContext it }
 
         val uin = UserSession.profile.uin.ifBlank { "0" }

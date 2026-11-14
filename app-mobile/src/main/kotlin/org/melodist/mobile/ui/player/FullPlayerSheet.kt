@@ -159,7 +159,7 @@ fun FullPlayerSheet(
 
     LaunchedEffect(song?.songId) {
         val songId = song?.songId ?: 0L
-        if (songId > 0L && song?.isLocal != true && song?.isWebDav != true) {
+        if (songId > 0L && song?.isLocal != true) {
             MusicApiService().getSongCommentCount(songId)
         }
     }
@@ -367,9 +367,8 @@ fun FullPlayerSheet(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     // 专辑封面
-                    val isLocalOrWebDav =
-                        song?.songMid?.startsWith("webdav_") == true ||
-                            song?.songMid?.startsWith("local_") == true ||
+                    val isLocal =
+                        song?.songMid?.startsWith("local_") == true ||
                             !song?.localFilePath.isNullOrBlank()
 
                     val badgeText =
@@ -409,7 +408,7 @@ fun FullPlayerSheet(
                                         onClick = {
                                             if (isListenTogetherTrial) {
                                                 PlaybackManager.notifyUser("试听音乐不支持切换音质哦")
-                                            } else if (!isLocalOrWebDav) {
+                                            } else if (!isLocal) {
                                                 PlaybackManager.ensureQualityProbed()
                                                 showQualitySheet = true
                                             }
@@ -904,7 +903,7 @@ fun FullPlayerSheet(
                             onOpenQualitySheet = {
                                 if (isListenTogetherTrial) {
                                     PlaybackManager.notifyUser("试听音乐不支持切换音质哦")
-                                } else if (!PlaybackManager.isPureLocalOrWebDavSong(song)) {
+                                } else if (!PlaybackManager.isPureLocalSong(song)) {
                                     PlaybackManager.ensureQualityProbed()
                                     showQualitySheet = true
                                 }

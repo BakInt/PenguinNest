@@ -23,12 +23,15 @@ import org.melodist.api.MusicApiService
 import org.melodist.api.PlaybackCredentialsManager
 import org.melodist.api.PlaybackVipTier
 import org.melodist.api.QualityResult
+import org.melodist.api.SessionKeeper
+import org.melodist.api.SessionState
 import org.melodist.api.UserSession
 import org.melodist.api.getPlayUrl
 import org.melodist.api.getSongVisualMid
 import org.melodist.data.LyricCacheManager
 import org.melodist.data.download.DownloadManager
 import org.melodist.model.AudioQualityTier
+import org.melodist.model.ChorusDetector
 import org.melodist.model.LyricLine
 import org.melodist.model.PlaybackSourceContext
 import org.melodist.model.QualityOption
@@ -127,6 +130,7 @@ object PlaybackManager {
         remoteStateHolder.clearRemotePlayback()
         _isPlaying.value = false
         _currentSong.value = null
+        _chorusSections.value = emptyList()
         _currentPositionMs.value = 0L
         _bufferedPositionMs.value = 0L
         _fileCacheFraction.value = 0f
@@ -155,7 +159,7 @@ object PlaybackManager {
                 exoPlayer?.stop()
                 exoPlayer?.clearMediaItems()
                 _currentSong.value = null
-                _lyrics.value = emptyList()
+                applyLyricsWithChorus(emptyList())
                 _isPlaying.value = false
             },
         )
@@ -163,6 +167,9 @@ object PlaybackManager {
     private var pendingTrialSongMid: String? = null
     private var pendingTrialTime: Long = 0L
     private var lastNotifiedTrialSongMid: String? = null
+
+    /** 已就"本地判定无会员"提示过的歌曲，避免每次起播都弹同一条提示。 */
+    private var lastNotifiedVipHintSongMid: String? = null
 
     init {
         scope.launch {
@@ -277,10 +284,8 @@ object PlaybackManager {
             currentSongProvider = { _currentSong.value },
             onLyricsUpdated = { lyrics ->
                 scope.launch(Dispatchers.Main) {
-                    _lyrics.value = lyrics
-                    _currentSong.value?.let { current ->
-                        updateCurrentMediaMetadata(current)
-                    }
+                    applyLyricsWithChorus(lyrics)
+                    _currentSong.value?.let { updateCurrentMediaMetadata(it) }
                 }
             },
             onOffsetCalibrated = { _currentLyricOffsetMs.value = it },
@@ -299,6 +304,23 @@ object PlaybackManager {
 
     private val _lyrics = MutableStateFlow<List<LyricLine>>(emptyList())
     val lyrics: StateFlow<List<LyricLine>> = _lyrics.asStateFlow()
+
+    private val _chorusSections = MutableStateFlow<List<ChorusDetector.ChorusSection>>(emptyList())
+
+    /** 当前曲副歌（高潮）区间：由逐行歌词重复结构检测派生，生命周期与歌词一致 */
+    val chorusSections: StateFlow<List<ChorusDetector.ChorusSection>> = _chorusSections.asStateFlow()
+
+    /** 歌词与副歌点位统一赋值入口：点位随歌词同生命周期，无当前曲时不画点 */
+    private fun applyLyricsWithChorus(lyrics: List<LyricLine>) {
+        _lyrics.value = lyrics
+        val current = _currentSong.value
+        _chorusSections.value =
+            if (current == null) {
+                emptyList()
+            } else {
+                ChorusDetector.detect(lyrics, current.durationSeconds * 1000L)
+            }
+    }
 
     private val _currentLyricOffsetMs = MutableStateFlow(0L)
     val currentLyricOffsetMs: StateFlow<Long> = _currentLyricOffsetMs.asStateFlow()
@@ -330,7 +352,7 @@ object PlaybackManager {
 
         if (allowCurrentSongRetry && curr != null && currentSongRetryCount < 2) {
             currentSongRetryCount++
-            Log.w("MelodistPlayback", "Playback failure for ${curr.name} (retry $currentSongRetryCount/2): $errorMsg")
+            Log.w("QQMusicPlayback", "Playback failure for ${curr.name} (retry $currentSongRetryCount/2): $errorMsg")
             _errorMessage.value = "网络加载波动，正在等待重试 ($currentSongRetryCount/2)..."
             _isLoading.value = true
             scope.launch {
@@ -352,7 +374,7 @@ object PlaybackManager {
         audioTrackRetryCount = 0
         consecutiveErrorCount++
         if (consecutiveErrorCount >= 3) {
-            Log.w("MelodistPlayback", "Continuous playback failure reached limit (3), stopping playback.")
+            Log.w("QQMusicPlayback", "Continuous playback failure reached limit (3), stopping playback.")
             _errorMessage.value = "$errorMsg (多次尝试失败已停止)"
             _isPlaying.value = false
             exoPlayer?.stop()
@@ -360,11 +382,11 @@ object PlaybackManager {
         } else {
             _errorMessage.value = "$errorMsg (即将尝试下一首 $consecutiveErrorCount/3)"
             if (remoteStateHolder.isRemoteActive.value) {
-                Log.w("MelodistPlayback", "Remote playback is active, skip local error auto-advance.")
+                Log.w("QQMusicPlayback", "Remote playback is active, skip local error auto-advance.")
                 return
             }
             if (ListenTogetherManager.isInRoom) {
-                Log.w("MelodistPlayback", "In listen together room, skip local error auto-advance.")
+                Log.w("QQMusicPlayback", "In listen together room, skip local error auto-advance.")
                 return
             }
             scope.launch {
@@ -476,7 +498,7 @@ object PlaybackManager {
                         .show()
                 }
             } catch (e: Exception) {
-                Log.w("MelodistPlayback", "Failed to dispatch user toast notification", e)
+                Log.w("QQMusicPlayback", "Failed to dispatch user toast notification", e)
             }
         }
     }
@@ -507,7 +529,6 @@ object PlaybackManager {
             apiService = apiService,
             qualityCoordinator = qualityCoordinator,
             queueManager = queueManager,
-            lyricsCoordinator = lyricsCoordinator,
             getContext = { appContext },
             getCurrentSong = { _currentSong.value },
             setCurrentSong = { _currentSong.value = it },
@@ -517,8 +538,6 @@ object PlaybackManager {
             getCurrentTrackSpec = { _currentTrackSpec.value },
             setCurrentTrackSpec = { _currentTrackSpec.value = it },
             onSwitchTierRequest = { switchTier(it) },
-            onUpdateMediaMetadataRequest = { updateCurrentMediaMetadata(it) },
-            onPrefetchAdjacentCoversRequest = { preloadCoordinator.prefetchAdjacentCoversAndMetadata() },
         )
     }
 
@@ -560,7 +579,7 @@ object PlaybackManager {
                     val current = _currentSong.value ?: return
                     val enriched = PlaybackMetadataCoordinator.enrichFromExoMetadata(current, mediaMetadata) ?: return
 
-                    Log.i("MelodistPlayback", "Enriched metadata from ExoPlayer: ${enriched.name} - ${enriched.singer} (${enriched.album})")
+                    Log.i("QQMusicPlayback", "Enriched metadata from ExoPlayer: ${enriched.name} - ${enriched.singer} (${enriched.album})")
                     _currentSong.value = enriched
                     queueManager.updateSongInPlaylist(enriched)
                     updateCurrentMediaMetadata(enriched)
@@ -573,7 +592,7 @@ object PlaybackManager {
                     }
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.w("MelodistPlayback", "Failed to apply enriched metadata from ExoPlayer", e)
+                    Log.w("QQMusicPlayback", "Failed to apply enriched metadata from ExoPlayer", e)
                 }
             }
 
@@ -636,7 +655,7 @@ object PlaybackManager {
 
             override fun onPlayerError(error: PlaybackException) {
                 _isLoading.value = false
-                Log.e("MelodistPlayback", "ExoPlayer playback error: ${error.errorCodeName}, cause: ${error.cause?.message}", error)
+                Log.e("QQMusicPlayback", "ExoPlayer playback error: ${error.errorCodeName}, cause: ${error.cause?.message}", error)
                 val current = _currentSong.value
                 val curTier = _currentTier.value
                 val fallback = getFallbackTier(curTier)
@@ -649,7 +668,7 @@ object PlaybackManager {
 
                 if (isAudioTrackError && audioTrackRetryCount < 1) {
                     audioTrackRetryCount++
-                    Log.w("MelodistPlayback", "AudioTrack/AudioSink error encountered (${error.errorCodeName}). Resetting audio pipeline and retrying...")
+                    Log.w("QQMusicPlayback", "AudioTrack/AudioSink error encountered (${error.errorCodeName}). Resetting audio pipeline and retrying...")
                     _errorMessage.value = "音频驱动重置中，正在重试播放..."
                     scope.launch {
                         delay(300L)
@@ -673,11 +692,11 @@ object PlaybackManager {
                                 ?.currentMediaItem
                                 ?.localConfiguration
                                 ?.uri
-                                ?.host == "cache.melodist.internal"
+                                ?.host == "cache.qqmusic.internal"
                         )
                 if (isDummyUriFailure) {
-                    Log.w("MelodistPlayback", "Local cache playback failed for ${current.name}, evicting cache and falling back to network")
-                    MelodistCacheManager.evictIncompleteCacheAsync(current.songMid, curTier)
+                    Log.w("QQMusicPlayback", "Local cache playback failed for ${current.name}, evicting cache and falling back to network")
+                    QQMusicCacheManager.evictIncompleteCacheAsync(current.songMid, curTier)
                     scope.launch {
                         delay(200L)
                         playSong(current, forceTier = curTier, seekToMs = _currentPositionMs.value)
@@ -685,8 +704,8 @@ object PlaybackManager {
                     return
                 }
 
-                if (current != null && fallback != null && !isLocalOrWebDavSong(current)) {
-                    Log.w("MelodistPlayback", "Playback failed at tier $curTier, falling back to $fallback")
+                if (current != null && fallback != null && !isLocalPlaybackSong(current)) {
+                    Log.w("QQMusicPlayback", "Playback failed at tier $curTier, falling back to $fallback")
                     qualityCoordinator.recordTierFailureForSong(current.songMid, curTier)
                     _errorMessage.value = "当前音质播放失败，已自动降级为 ${AudioQualityTier.getBadge(fallback)}"
                     scope.launch {
@@ -702,7 +721,7 @@ object PlaybackManager {
                 if (tracks.containsType(androidx.media3.common.C.TRACK_TYPE_AUDIO) &&
                     !tracks.isTypeSelected(androidx.media3.common.C.TRACK_TYPE_AUDIO)
                 ) {
-                    Log.w("MelodistPlayback", "onTracksChanged: Audio track exists but none selected (missing decoder)")
+                    Log.w("QQMusicPlayback", "onTracksChanged: Audio track exists but none selected (missing decoder)")
                     handlePlaybackFailure("播放失败：当前设备缺少该音频格式解码器")
                     return
                 }
@@ -719,7 +738,7 @@ object PlaybackManager {
                 if (resolved.shouldApplyTierToSong) {
                     val currentSong = _currentSong.value
                     Log.i(
-                        "MelodistPlayback",
+                        "QQMusicPlayback",
                         "onTracksChanged auto-detected tier: ${resolved.detectedTier}",
                     )
                     _currentTier.value = resolved.detectedTier
@@ -834,7 +853,7 @@ object PlaybackManager {
                 }
             }
         } catch (e: Exception) {
-            Log.w("MelodistPlayback", "Failed to start PlaybackService: $e")
+            Log.w("QQMusicPlayback", "Failed to start PlaybackService: $e")
         }
     }
 
@@ -846,32 +865,62 @@ object PlaybackManager {
     fun init(context: Context) {
         if (appContext == null) {
             appContext = context.applicationContext
-            val profile = PlaybackProfile.detect(context)
-            MelodistCacheManager.init(context, profile)
-            org.melodist.data.AppSettingsManager.mediaCacheSizeProvider = { MelodistCacheManager.getCacheSizeBytes() }
-            org.melodist.data.AppSettingsManager.mediaQuotaProvider = { MelodistCacheManager.activeCacheQuotaBytes }
-            org.melodist.data.AppSettingsManager.cachedTrackCountProvider = { MelodistCacheManager.getCachedKeyCount() }
-            org.melodist.data.AppSettingsManager.mediaCacheClearAction = { MelodistCacheManager.clearAllCache() }
-            DownloadManager.cacheExporter = MelodistCacheManager
-            LyricCacheManager.init(context)
-            LocalLyricAutoMatcher.init(context)
-            restorePlaybackState()
-            if (UserSession.isLoggedIn) {
-                syncFavoriteSongsAsync()
+            // 每一步单独兜底：缓存/歌词等子系统的故障不应该让播放器整个不可用。
+            safeInit("QQMusicCacheManager.init") {
+                val profile = PlaybackProfile.detect(context)
+                QQMusicCacheManager.init(context, profile)
+                org.melodist.data.AppSettingsManager.mediaCacheSizeProvider = { QQMusicCacheManager.getCacheSizeBytes() }
+                org.melodist.data.AppSettingsManager.mediaQuotaProvider = { QQMusicCacheManager.activeCacheQuotaBytes }
+                org.melodist.data.AppSettingsManager.cachedTrackCountProvider = { QQMusicCacheManager.getCachedKeyCount() }
+                org.melodist.data.AppSettingsManager.mediaCacheClearAction = { QQMusicCacheManager.clearAllCache() }
+                org.melodist.data.AppSettingsManager.onMediaCacheLimitChangedListener = { limitGb ->
+                    QQMusicCacheManager.applyUserQuotaGb(limitGb)
+                }
+                DownloadManager.cacheExporter = QQMusicCacheManager
+            }
+            safeInit("LyricCacheManager.init") { LyricCacheManager.init(context) }
+            safeInit("LocalLyricAutoMatcher.init") { LocalLyricAutoMatcher.init(context) }
+            safeInit("restorePlaybackState") { restorePlaybackState() }
+            safeInit("syncFavoriteSongsAsync") {
+                if (UserSession.isLoggedIn) {
+                    syncFavoriteSongsAsync()
+                }
             }
         }
-        usbRouter.register(context)
-        org.melodist.data.AppSettingsManager.onUsbExclusiveChangedListener = {
-            resetPlayerPipeline()
+        safeInit("usbRouter.register") { usbRouter.register(context) }
+        safeInit("onUsbExclusiveChangedListener") {
+            org.melodist.data.AppSettingsManager.onUsbExclusiveChangedListener = {
+                resetPlayerPipeline()
+            }
         }
-        if (exoPlayer == null) {
-            playerPipeline.buildExoPlayer(context)
-            _isPlaying.value = false
-            progressTracker.start()
-        } else {
-            updateUsbExclusiveRouting()
+        safeInit("buildExoPlayer") {
+            if (exoPlayer == null) {
+                playerPipeline.buildExoPlayer(context)
+                _isPlaying.value = false
+                progressTracker.start()
+            } else {
+                updateUsbExclusiveRouting()
+            }
         }
-        startPlaybackService(context)
+        safeInit("startPlaybackService") { startPlaybackService(context) }
+    }
+
+    /**
+     * 单步初始化兜底：失败只降级该子系统并记入启动降级日志，不冒泡到调用方（启动路径）。
+     *
+     * 协程取消必须原样抛出，否则会破坏结构化并发。
+     */
+    private fun safeInit(
+        step: String,
+        block: () -> Unit,
+    ) {
+        try {
+            block()
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            Log.w("QQMusicPlayback", "Playback init step failed: $step", e)
+            org.melodist.data.CrashGuard.record("PlaybackManager.$step", e)
+        }
     }
 
     fun resetPlayerPipeline(restoreMediaItem: Boolean = true) = playerPipeline.resetPlayerPipeline(restoreMediaItem)
@@ -931,7 +980,7 @@ object PlaybackManager {
             _currentSong.value = restored.currentSong
             _currentTier.value = restored.currentSong.currentTier
             val cached = LyricCacheManager.getLyrics(restored.currentSong.songMid).orEmpty()
-            _lyrics.value = cached
+            applyLyricsWithChorus(cached)
             loadLyricsForSong(restored.currentSong)
         }
         _currentPositionMs.value = restored.currentPositionMs
@@ -941,6 +990,8 @@ object PlaybackManager {
     fun setFavoriteSongMids(mids: Set<String>) = favoriteController.setFavoriteSongMids(mids)
 
     fun addFavoriteSongMids(mids: Collection<String>) = favoriteController.addFavoriteSongMids(mids)
+
+    fun removeFavoriteSongMids(mids: Collection<String>) = favoriteController.removeFavoriteSongMids(mids)
 
     fun syncFavoriteSongsAsync(forceRefresh: Boolean = false) = favoriteController.syncFavoriteSongsAsync(forceRefresh)
 
@@ -974,7 +1025,7 @@ object PlaybackManager {
         if (ListenTogetherManager.isInRoom) {
             val targetSong = songs.getOrNull(startIndex) ?: songs.firstOrNull()
             if (targetSong != null) {
-                if (isLocalOrWebDavSong(targetSong)) {
+                if (isLocalPlaybackSong(targetSong)) {
                     notifyUser("请退出一起听后再播放哦")
                     return
                 }
@@ -1008,7 +1059,7 @@ object PlaybackManager {
         targetTag: String? = null,
     ) {
         if (ListenTogetherManager.isInRoom) {
-            val filtered = newSongs.filterNot { isLocalOrWebDavSong(it) }
+            val filtered = newSongs.filterNot { isLocalPlaybackSong(it) }
             if (filtered.isEmpty() && newSongs.isNotEmpty()) {
                 notifyUser("请退出一起听后再播放哦")
                 return
@@ -1020,7 +1071,7 @@ object PlaybackManager {
     }
 
     fun insertNextPlay(song: Song) {
-        if (ListenTogetherManager.isInRoom && isLocalOrWebDavSong(song)) {
+        if (ListenTogetherManager.isInRoom && isLocalPlaybackSong(song)) {
             notifyUser("请退出一起听后再播放哦")
             return
         }
@@ -1032,7 +1083,7 @@ object PlaybackManager {
         seekToMs: Long = 0L,
     ) {
         if (ListenTogetherManager.isInRoom) {
-            if (isLocalOrWebDavSong(song)) {
+            if (isLocalPlaybackSong(song)) {
                 notifyUser("请退出一起听后再播放哦")
                 return
             }
@@ -1094,7 +1145,7 @@ object PlaybackManager {
     }
 
     /**
-     * 起播指定歌曲，支持从指定断点续播、本地/WebDAV/在线多源加载以及音质级联降级。
+     * 起播指定歌曲，支持从指定断点续播、本地/在线多源加载以及音质级联降级。
      *
      * @param song 目标曲目实体
      * @param forceTier 强制指定的音质级别；为 null 时采用用户全局首选音质偏好
@@ -1106,8 +1157,8 @@ object PlaybackManager {
         seekToMs: Long = 0L,
         isQueueAdvance: Boolean = false,
     ) {
-        val isLocalOrWebDav = isLocalOrWebDavSong(song)
-        if (ListenTogetherManager.isInRoom && isLocalOrWebDav) {
+        val isLocalPlayback = isLocalPlaybackSong(song)
+        if (ListenTogetherManager.isInRoom && isLocalPlayback) {
             notifyUser("请退出一起听后再播放哦")
             return
         }
@@ -1115,7 +1166,7 @@ object PlaybackManager {
         val isBothVip = ListenTogetherManager.isBothVip.value
         val isSyncing = ListenTogetherManager.isSyncingRemote
 
-        if (!isLocalOrWebDav && song.isVip) {
+        if (!isLocalPlayback && song.isVip) {
             if (isInTogether && !isBothVip) {
                 if (!isSyncing && !isQueueAdvance) {
                     if (!checkListenTogetherTrialClick(song)) {
@@ -1126,14 +1177,25 @@ object PlaybackManager {
             } else if (!isInTogether) {
                 val effectiveVipTier = PlaybackCredentialsManager.getEffectiveVipTier()
                 if (effectiveVipTier == PlaybackVipTier.NONE) {
-                    notifyUser("需要开通会员后才可以播放哦")
-                    return
+                    // 本地会员档位只作提示，不再硬拦截：能否播放最终由服务端返回的直链（purl）决定。
+                    // 硬拦的代价是把"凭据未同步/已过期"的真实会员一并挡在门外（见 doc/18 §4.3）。
+                    if (lastNotifiedVipHintSongMid != song.songMid) {
+                        lastNotifiedVipHintSongMid = song.songMid
+                        notifyUser(
+                            when (SessionKeeper.state) {
+                                SessionState.ReauthRequired -> "登录已过期，正在尝试恢复；失败请重新登录"
+                                SessionState.TransientFailure -> "会员状态暂时未同步，正在自动重试"
+                                else -> "该歌曲需要会员，正在尝试播放"
+                            },
+                        )
+                    }
                 }
             } else {
                 lastNotifiedTrialSongMid = null
             }
         } else {
             lastNotifiedTrialSongMid = null
+            lastNotifiedVipHintSongMid = null
         }
 
         stopSilentKeepAlive()
@@ -1144,9 +1206,9 @@ object PlaybackManager {
         val prevDur = _durationMs.value
         val prevTier = _currentTier.value
         if (prevSong != null && prevSong.songMid != song.songMid) {
-            MelodistCacheManager.handleTrackSwitchEviction(prevSong.songMid, prevPos, prevDur, prevTier)
+            QQMusicCacheManager.handleTrackSwitchEviction(prevSong.songMid, prevPos, prevDur, prevTier)
         }
-        MelodistCacheManager.onNewSongStarted(song.songMid)
+        QQMusicCacheManager.onNewSongStarted(song.songMid)
         if (_currentSong.value?.songMid != song.songMid) {
             currentSongRetryCount = 0
             audioTrackRetryCount = 0
@@ -1169,27 +1231,12 @@ object PlaybackManager {
                 null
             }
         val isCoverInvalid = coverFile != null && (!coverFile.exists() || coverFile.length() == 0L)
-        if (effectiveSong.coverUrl.isBlank() || isCoverInvalid) {
-            if (effectiveSong.songMid.startsWith("webdav_")) {
-                val server =
-                    org.melodist.data.WebDavManager
-                        .getActiveServer()
-                val relativeHref = effectiveSong.mediaMid.ifBlank { effectiveSong.localFilePath ?: "" }
-                if (server != null && relativeHref.isNotBlank()) {
-                    val cachedCover =
-                        org.melodist.data.WebDavManager
-                            .getSongCoverPath(server.id, relativeHref)
-                    effectiveSong = effectiveSong.copy(coverUrl = cachedCover.orEmpty())
-                } else {
-                    effectiveSong = effectiveSong.copy(coverUrl = "")
-                }
-            } else if (isCoverInvalid) {
-                effectiveSong = effectiveSong.copy(coverUrl = "")
-            }
+        if (isCoverInvalid) {
+            effectiveSong = effectiveSong.copy(coverUrl = "")
         }
 
         val initialLyrics = LyricCacheManager.getLyrics(effectiveSong.songMid).orEmpty()
-        _lyrics.value = initialLyrics
+        applyLyricsWithChorus(initialLyrics)
         loadLyricsForSong(effectiveSong)
         prefetchAdjacentCoversAndMetadata()
 
@@ -1230,8 +1277,8 @@ object PlaybackManager {
                 null
             } else {
                 completedDownloadTier
-                    ?: MelodistCacheManager.findHigherOrEqualStereoCachedTier(effectiveSong.songMid, targetTierInit)
-                    ?: if (MelodistCacheManager.isSongTierCached(effectiveSong.songMid, targetTierInit)) targetTierInit else null
+                    ?: QQMusicCacheManager.findHigherOrEqualStereoCachedTier(effectiveSong.songMid, targetTierInit)
+                    ?: if (QQMusicCacheManager.isSongTierCached(effectiveSong.songMid, targetTierInit)) targetTierInit else null
             }
         val isDirectCachedInit =
             !shouldBypassCache &&
@@ -1275,7 +1322,7 @@ object PlaybackManager {
         }
 
         qualityCoordinator.resetForSong(song)
-        if (!PlaybackSourceResolver.isPureLocalOrWebDav(song)) {
+        if (!PlaybackSourceResolver.isPureLocalSong(song)) {
             if (policyCoordinator.isQualityProbeAllowed(song)) {
                 probeHealer.launchProbeJob(song, delayMs = 3000L)
             }
@@ -1337,9 +1384,6 @@ object PlaybackManager {
                             preloadCoordinator.clearPrefetchedUrlInfo()
                         }
                     },
-                    onWebDavPostAction = {
-                        probeHealer.triggerWebDavMetadataAndCoverHeal(song)
-                    },
                     onLocalFilePostAction = {
                         launch(Dispatchers.IO) {
                             try {
@@ -1361,7 +1405,7 @@ object PlaybackManager {
                                     }
                                 }
                             } catch (e: Exception) {
-                                Log.w("MelodistPlayback", "Failed to update song details with raw cover", e)
+                                Log.w("QQMusicPlayback", "Failed to update song details with raw cover", e)
                             }
                         }
                     },
@@ -1418,7 +1462,7 @@ object PlaybackManager {
         if (playbackInterceptor?.onInterceptResume() == true) return
         if (_isLoading.value) return
         val currSong = _currentSong.value
-        if (currSong != null && ListenTogetherManager.isInRoom && isLocalOrWebDavSong(currSong)) {
+        if (currSong != null && ListenTogetherManager.isInRoom && isLocalPlaybackSong(currSong)) {
             notifyUser("请退出一起听后再播放哦")
             return
         }
@@ -1451,7 +1495,7 @@ object PlaybackManager {
     }
 
     /**
-     * 播放自定义直链音频流（支持 WebDAV 或外部流式播放）。
+     * 播放自定义直链音频流（支持外部流式播放）。
      *
      * @param song 曲目元数据对象
      * @param streamUrl 音频媒体资源 URL
@@ -1464,7 +1508,7 @@ object PlaybackManager {
         headers: Map<String, String> = emptyMap(),
         seekToMs: Long = 0L,
     ) {
-        if (ListenTogetherManager.isInRoom && isLocalOrWebDavSong(song)) {
+        if (ListenTogetherManager.isInRoom && isLocalPlaybackSong(song)) {
             notifyUser("请退出一起听后再播放哦")
             return
         }
@@ -1473,7 +1517,7 @@ object PlaybackManager {
         exoPlayer?.repeatMode = Player.REPEAT_MODE_OFF
         exoPlayer?.stop()
         exoPlayer?.clearMediaItems()
-        MelodistCacheManager.onNewSongStarted(song.songMid)
+        QQMusicCacheManager.onNewSongStarted(song.songMid)
         if (_currentSong.value?.songMid != song.songMid) {
             currentSongRetryCount = 0
             audioTrackRetryCount = 0
@@ -1499,17 +1543,14 @@ object PlaybackManager {
 
         _isLoading.value = true
         _errorMessage.value = null
-        _lyrics.value = emptyList()
+        applyLyricsWithChorus(emptyList())
         _currentPositionMs.value = seekToMs
-        if (song.isWebDav || song.songMid.startsWith("webdav_")) {
-            prefetchAdjacentWebDavCovers()
-        }
 
         val player = exoPlayer ?: return
         val baseHttpFactory =
             DefaultHttpDataSource
                 .Factory()
-                .setUserAgent("MelodistTV/1.0 ConnectStream")
+                .setUserAgent("QQMusicTV/1.0 ConnectStream")
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(30_000)
                 .setReadTimeoutMs(30_000)
@@ -1701,20 +1742,20 @@ object PlaybackManager {
 
     fun isCellularNetwork(): Boolean = PlaybackSourceResolver.isCellularNetwork(appContext)
 
-    fun isLocalOrWebDavSong(song: Song?): Boolean {
+    fun isLocalPlaybackSong(song: Song?): Boolean {
         if (song == null) return false
         if (lastCustomStreamArgs != null && _currentSong.value?.songMid == song.songMid) {
             return true
         }
-        return PlaybackSourceResolver.isLocalOrWebDavSong(song)
+        return PlaybackSourceResolver.isLocalPlaybackSong(song)
     }
 
-    fun isPureLocalOrWebDavSong(song: Song?): Boolean {
+    fun isPureLocalSong(song: Song?): Boolean {
         if (song == null) return false
         if (lastCustomStreamArgs != null && _currentSong.value?.songMid == song.songMid) {
             return true
         }
-        return PlaybackSourceResolver.isPureLocalOrWebDav(song)
+        return PlaybackSourceResolver.isPureLocalSong(song)
     }
 
     fun getAudioQualityRank(tier: AudioQualityTier): Int = PlaybackSourceResolver.getAudioQualityRank(tier)
@@ -1802,11 +1843,11 @@ object PlaybackManager {
         switchQualityJob =
             scope.launch {
                 try {
-                    val isTargetFullyCached = MelodistCacheManager.isSongTierFullyCached(current.songMid, effectiveTier)
+                    val isTargetFullyCached = QQMusicCacheManager.isSongTierFullyCached(current.songMid, effectiveTier)
                     val playUrlInfo =
                         if (isTargetFullyCached) {
-                            Log.i("MelodistPlayback", "Reusing local complete cache for tier switch: ${current.name} ($effectiveTier)")
-                            val dummyUri = "https://cache.melodist.internal/${current.songMid}?tier=${effectiveTier.name}"
+                            Log.i("QQMusicPlayback", "Reusing local complete cache for tier switch: ${current.name} ($effectiveTier)")
+                            val dummyUri = "https://cache.qqmusic.internal/${current.songMid}?tier=${effectiveTier.name}"
                             org.melodist.api.QualityResult(
                                 url = dummyUri,
                                 tier = effectiveTier,
@@ -1817,7 +1858,7 @@ object PlaybackManager {
                                 try {
                                     apiService.getPlayUrl(current.songMid, mediaMid = current.mediaMid, preferredTier = effectiveTier)
                                 } catch (e: Exception) {
-                                    Log.w("MelodistPlayback", "Failed to fetch play url for quality $effectiveTier: ${e.message}", e)
+                                    Log.w("QQMusicPlayback", "Failed to fetch play url for quality $effectiveTier: ${e.message}", e)
                                     null
                                 }
                             }
@@ -1832,7 +1873,7 @@ object PlaybackManager {
                     if (playUrlInfo != null && !rawUrl.isNullOrBlank()) {
                         _currentTier.value = playUrlInfo.tier
                         _currentSong.value = _currentSong.value?.copy(currentTier = playUrlInfo.tier)
-                        val isTargetFullyCached = MelodistCacheManager.isSongTierFullyCached(current.songMid, playUrlInfo.tier)
+                        val isTargetFullyCached = QQMusicCacheManager.isSongTierFullyCached(current.songMid, playUrlInfo.tier)
                         _isCurrentTrackFromCache.value = isTargetFullyCached
                         _fileCacheFraction.value = if (isTargetFullyCached) 1f else 0f
                         val player = exoPlayer ?: return@launch
@@ -1858,7 +1899,7 @@ object PlaybackManager {
                             player.play()
                         }
                         savePlaybackState()
-                        Log.i("MelodistPlayback", "Seamlessly switched to tier ${playUrlInfo.tier} at position ${livePositionMs}ms")
+                        Log.i("QQMusicPlayback", "Seamlessly switched to tier ${playUrlInfo.tier} at position ${livePositionMs}ms")
                     } else {
                         _isSwitchingQuality.value = false
                         val fallback = getFallbackTier(effectiveTier)
@@ -1875,7 +1916,7 @@ object PlaybackManager {
                     }
                 } catch (e: Exception) {
                     _isSwitchingQuality.value = false
-                    Log.e("MelodistPlayback", "Unexpected error during seamless quality switch to $effectiveTier", e)
+                    Log.e("QQMusicPlayback", "Unexpected error during seamless quality switch to $effectiveTier", e)
                 }
             }
     }
@@ -1931,7 +1972,7 @@ object PlaybackManager {
             return
         }
         queueManager.cycleLoopMode()
-        prefetchAdjacentWebDavCovers()
+        prefetchAdjacentCoversAndMetadata()
     }
 
     /**
@@ -1941,7 +1982,7 @@ object PlaybackManager {
      */
     fun setLoopMode(mode: PlaybackLoopMode) {
         queueManager.setLoopMode(mode)
-        prefetchAdjacentWebDavCovers()
+        prefetchAdjacentCoversAndMetadata()
     }
 
     /**
@@ -1949,11 +1990,9 @@ object PlaybackManager {
      */
     fun prefetchAdjacentCoversAndMetadata() = preloadCoordinator.prefetchAdjacentCoversAndMetadata()
 
-    fun prefetchAdjacentWebDavCovers() = preloadCoordinator.prefetchAdjacentCoversAndMetadata()
-
     private fun handleSongEnded() {
         if (remoteStateHolder.isRemoteActive.value) {
-            Log.d("MelodistPlayback", "Remote playback is active, skip local song ended auto-advance.")
+            Log.d("QQMusicPlayback", "Remote playback is active, skip local song ended auto-advance.")
             return
         }
         _isTransitioning.value = true

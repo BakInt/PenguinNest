@@ -52,10 +52,10 @@ import org.melodist.tv.acr.AcrViewModel
 import org.melodist.tv.ui.components.AudioQualityDialog
 import org.melodist.tv.ui.components.BottomPlayerBar
 import org.melodist.tv.ui.components.CenterAlignedKaraokeLyricsView
-import org.melodist.tv.ui.components.MelodistElevatedCover
+import org.melodist.tv.ui.components.QQMusicElevatedCover
 import org.melodist.tv.ui.components.PlayerQueueSidebar
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberTvWindowMetrics
 import org.melodist.tv.ui.theme.toMonetContainer
 import java.util.Locale
@@ -315,13 +315,13 @@ fun AcrTvScreen(
                         Box(
                             modifier = Modifier.size(metrics.playerCoverSize),
                         ) {
-                            MelodistElevatedCover(
+                            QQMusicElevatedCover(
                                 coverUrl = activeSong.coverUrl,
                                 albumMid = activeSong.albumMid,
                                 visualMid = activeSong.visualMid,
                                 songMid = activeSong.songMid,
                                 contentDescription = "Cover",
-                                shape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -420,7 +420,7 @@ fun AcrTvScreen(
                                 text = String.format(Locale.US, "已采集 %.1fs · 实时比对声学特征", state.recordedSeconds),
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = MelodistColors.AccentGreen,
+                                color = QQMusicColors.AccentGreen,
                             )
                         }
 
@@ -612,7 +612,7 @@ fun AcrTvScreen(
                     animationSpec = tween(durationMillis = 300),
                 ) + fadeOut(animationSpec = tween(durationMillis = 300)),
         ) {
-            val canChangeQuality = !PlaybackManager.isPureLocalOrWebDavSong(activeSong)
+            val canChangeQuality = !PlaybackManager.isPureLocalSong(activeSong)
             BottomPlayerBar(
                 modifier = Modifier.fillMaxWidth(),
                 surfaceColor = surfaceColor,
@@ -704,9 +704,9 @@ private fun AcrListeningVisualCard(
         modifier =
             Modifier
                 .size(coverSize)
-                .clip(MelodistShapes.ButtonCorner)
+                .clip(QQMusicShapes.ButtonCorner)
                 .background(containerBg)
-                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), MelodistShapes.ButtonCorner),
+                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), QQMusicShapes.ButtonCorner),
         contentAlignment = Alignment.Center,
     ) {
         // 声波脉冲环
@@ -719,12 +719,12 @@ private fun AcrListeningVisualCard(
                         Brush.radialGradient(
                             colors =
                                 listOf(
-                                    MelodistColors.AccentGreen.copy(alpha = 0.35f),
+                                    QQMusicColors.AccentGreen.copy(alpha = 0.35f),
                                     Color.Transparent,
                                 ),
                         ),
                         shape = CircleShape,
-                    ).border(2.dp, MelodistColors.AccentGreen.copy(alpha = 0.5f), CircleShape),
+                    ).border(2.dp, QQMusicColors.AccentGreen.copy(alpha = 0.5f), CircleShape),
         )
 
         // 麦克风核心图标
@@ -733,13 +733,13 @@ private fun AcrListeningVisualCard(
                 Modifier
                     .size(80.dp)
                     .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                    .border(2.dp, MelodistColors.AccentGreen, CircleShape),
+                    .border(2.dp, QQMusicColors.AccentGreen, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Default.Mic,
                 contentDescription = null,
-                tint = MelodistColors.AccentGreen,
+                tint = QQMusicColors.AccentGreen,
                 modifier = Modifier.size(38.dp),
             )
         }
@@ -758,9 +758,9 @@ private fun AcrFailedVisualCard(
         modifier =
             Modifier
                 .size(coverSize)
-                .clip(MelodistShapes.ButtonCorner)
+                .clip(QQMusicShapes.ButtonCorner)
                 .background(containerBg)
-                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), MelodistShapes.ButtonCorner),
+                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), QQMusicShapes.ButtonCorner),
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -793,9 +793,9 @@ private fun AcrPermissionVisualCard(
         modifier =
             Modifier
                 .size(coverSize)
-                .clip(MelodistShapes.ButtonCorner)
+                .clip(QQMusicShapes.ButtonCorner)
                 .background(containerBg)
-                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), MelodistShapes.ButtonCorner),
+                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), QQMusicShapes.ButtonCorner),
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -848,8 +848,8 @@ private fun AcrTvButton(
         interactionSource = interactionSource,
         shape =
             ButtonDefaults.shape(
-                shape = MelodistShapes.ButtonCorner,
-                focusedShape = MelodistShapes.ButtonCorner,
+                shape = QQMusicShapes.ButtonCorner,
+                focusedShape = QQMusicShapes.ButtonCorner,
             ),
         colors =
             ButtonDefaults.colors(
@@ -863,12 +863,12 @@ private fun AcrTvButton(
                 border =
                     Border(
                         border = BorderStroke(1.dp, normalBorder),
-                        shape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.ButtonCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
             ),
         scale =
@@ -914,12 +914,12 @@ private fun AcrHeaderBackButton(onClick: () -> Unit) {
                     border =
                         BorderStroke(
                             width = if (isFocused) 2.dp else 1.dp,
-                            color = if (isFocused) MelodistColors.FocusTeal else Color.White.copy(alpha = 0.08f),
+                            color = if (isFocused) QQMusicColors.FocusTeal else Color.White.copy(alpha = 0.08f),
                         ),
-                    shape = MelodistShapes.PillCorner,
+                    shape = QQMusicShapes.PillCorner,
                 ).background(
                     color = if (isFocused) Color.White else Color.Black.copy(alpha = 0.3f),
-                    shape = MelodistShapes.PillCorner,
+                    shape = QQMusicShapes.PillCorner,
                 ).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),

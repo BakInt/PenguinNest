@@ -132,12 +132,12 @@ class UsbAudioRouter(
 
             val supportedMixers = audioManager.getSupportedMixerAttributes(usbDevice)
             Log.e(
-                "MelodistPlayback",
+                "QQMusicPlayback",
                 "USB DAC [${usbDevice.productName}] reported ${supportedMixers.size} supported mixer configurations",
             )
             for (m in supportedMixers) {
                 Log.e(
-                    "MelodistPlayback",
+                    "QQMusicPlayback",
                     "DAC mixer config: behavior=${m.mixerBehavior}, rate=${m.format.sampleRate}, enc=${m.format.encoding}, ch=0x${Integer.toHexString(
                         m.format.channelMask,
                     )}",
@@ -176,7 +176,7 @@ class UsbAudioRouter(
 
             val applied = audioManager.setPreferredMixerAttributes(mediaAttributes, usbDevice, finalMixer)
             Log.e(
-                "MelodistPlayback",
+                "QQMusicPlayback",
                 "Applied Bit-Perfect mixer: success=$applied, rate=${finalMixer.format.sampleRate}Hz, enc=${finalMixer.format.encoding}, behavior=${finalMixer.mixerBehavior}",
             )
 
@@ -185,7 +185,7 @@ class UsbAudioRouter(
             configuredMixerEncoding = finalMixer.format.encoding
             return rateChanged
         } catch (e: Exception) {
-            Log.e("MelodistPlayback", "Failed to configure Bit-Perfect mixer attributes", e)
+            Log.e("QQMusicPlayback", "Failed to configure Bit-Perfect mixer attributes", e)
             return false
         }
     }
@@ -213,7 +213,7 @@ class UsbAudioRouter(
         val usbAudioDevice = findUsbAudioDevice(audioManager)
 
         Log.i(
-            "MelodistPlayback",
+            "QQMusicPlayback",
             "updateUsbExclusiveRouting: isUsbExclusive=$isUsbExclusive, usbAudioDevice=${usbAudioDevice?.productName}",
         )
 
@@ -237,7 +237,7 @@ class UsbAudioRouter(
                             .build()
                     audioManager.clearPreferredMixerAttributes(mediaAttributes, usbAudioDevice)
                 } catch (e: Exception) {
-                    Log.w("MelodistPlayback", "Failed to clear preferred mixer attributes", e)
+                    Log.w("QQMusicPlayback", "Failed to clear preferred mixer attributes", e)
                 }
             }
         }

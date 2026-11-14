@@ -10,17 +10,14 @@ import org.melodist.model.Song
 
 class PlaybackSourceResolverTest {
     @Test
-    fun `isLocalOrWebDavSong identifies WebDav, Local, and file path songs`() {
-        assertFalse(PlaybackSourceResolver.isLocalOrWebDavSong(null))
+    fun `isLocalPlaybackSong identifies local and file path songs`() {
+        assertFalse(PlaybackSourceResolver.isLocalPlaybackSong(null))
 
         val onlineSong = Song(songId = 1, songMid = "003mQIjO4e38e6", name = "Test Online")
-        assertFalse(PlaybackSourceResolver.isLocalOrWebDavSong(onlineSong))
-
-        val webDavSong = Song(songId = 2, songMid = "webdav_abc123", name = "Test WebDAV")
-        assertTrue(PlaybackSourceResolver.isLocalOrWebDavSong(webDavSong))
+        assertFalse(PlaybackSourceResolver.isLocalPlaybackSong(onlineSong))
 
         val localPrefixSong = Song(songId = 3, songMid = "local_456", name = "Test Local Prefix")
-        assertTrue(PlaybackSourceResolver.isLocalOrWebDavSong(localPrefixSong))
+        assertTrue(PlaybackSourceResolver.isLocalPlaybackSong(localPrefixSong))
 
         val localFilePathSong =
             Song(
@@ -29,15 +26,15 @@ class PlaybackSourceResolverTest {
                 name = "Test Downloaded",
                 localFilePath = "/storage/emulated/0/Music/test.flac",
             )
-        assertTrue(PlaybackSourceResolver.isLocalOrWebDavSong(localFilePathSong))
+        assertTrue(PlaybackSourceResolver.isLocalPlaybackSong(localFilePathSong))
     }
 
     @Test
-    fun `isPureLocalOrWebDav distinguishes pure local files from downloaded online songs`() {
-        assertFalse(PlaybackSourceResolver.isPureLocalOrWebDav(null))
+    fun `isPureLocalSong distinguishes pure local files from downloaded online songs`() {
+        assertFalse(PlaybackSourceResolver.isPureLocalSong(null))
 
         val onlineSong = Song(songId = 1, songMid = "003mQIjO4e38e6", name = "Test Online")
-        assertFalse(PlaybackSourceResolver.isPureLocalOrWebDav(onlineSong))
+        assertFalse(PlaybackSourceResolver.isPureLocalSong(onlineSong))
 
         val downloadedSong =
             Song(
@@ -46,13 +43,10 @@ class PlaybackSourceResolverTest {
                 name = "Test Downloaded Online Song",
                 localFilePath = "/storage/emulated/0/Music/download.mp3",
             )
-        assertFalse(PlaybackSourceResolver.isPureLocalOrWebDav(downloadedSong))
+        assertFalse(PlaybackSourceResolver.isPureLocalSong(downloadedSong))
 
         val localPrefixSong = Song(songId = 3, songMid = "local_123", name = "Local Imported Song")
-        assertTrue(PlaybackSourceResolver.isPureLocalOrWebDav(localPrefixSong))
-
-        val webDavSong = Song(songId = 4, songMid = "webdav_456", name = "WebDav Song")
-        assertTrue(PlaybackSourceResolver.isPureLocalOrWebDav(webDavSong))
+        assertTrue(PlaybackSourceResolver.isPureLocalSong(localPrefixSong))
     }
 
     @Test

@@ -34,7 +34,7 @@ object MobileCoverCacheResolver {
     ): Boolean {
         if (song == null) return false
 
-        // 本地音频或 WebDAV 本地大图文件探测
+        // 本地音频本地大图文件探测
         if (isLocalCoverValid(song.rawCoverUrl)) return true
         val matchingRaw = RawCoverHelper.findMatchingRawCoverUrl(song.coverUrl)
         if (!matchingRaw.isNullOrBlank() && isLocalCoverValid(matchingRaw)) return true

@@ -24,8 +24,8 @@ import androidx.tv.material3.Text
 import org.melodist.model.AudioQualityTier
 import org.melodist.playback.DeviceAudioCapability
 import org.melodist.playback.PlaybackManager
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberMonetSurfaceColor
 import org.melodist.tv.ui.theme.toMonetContainer
 
@@ -74,9 +74,9 @@ fun AudioQualityDialog(
                 Modifier
                     .width(638.dp)
                     .wrapContentHeight()
-                    .clip(MelodistShapes.DialogCorner)
+                    .clip(QQMusicShapes.DialogCorner)
                     .background(dialogBackgroundColor)
-                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), MelodistShapes.DialogCorner)
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), QQMusicShapes.DialogCorner)
                     .padding(horizontal = 24.dp, vertical = 22.dp),
         ) {
             Column(
@@ -216,7 +216,7 @@ private fun TierOptionItem(
 
     val subtitleColor =
         when {
-            isFocused && isUsable -> if (isSelected) MelodistColors.FocusTeal else Color(0xFF475569)
+            isFocused && isUsable -> if (isSelected) QQMusicColors.FocusTeal else Color(0xFF475569)
             isFocused && !isUsable -> Color.White.copy(alpha = 0.40f)
             isSelected -> officialColor.copy(alpha = 0.90f)
             isUsable -> Color.White.copy(alpha = 0.70f)
@@ -225,11 +225,11 @@ private fun TierOptionItem(
 
     val border =
         when {
-            isFocused && isUsable -> Modifier.border(BorderStroke(2.5.dp, MelodistColors.FocusTeal), MelodistShapes.ButtonCorner)
-            isFocused && !isUsable -> Modifier.border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.35f)), MelodistShapes.ButtonCorner)
-            isSelected -> Modifier.border(BorderStroke(1.5.dp, officialColor.copy(alpha = 0.85f)), MelodistShapes.ButtonCorner)
-            isUsable -> Modifier.border(BorderStroke(1.dp, Color.White.copy(alpha = 0.20f)), MelodistShapes.ButtonCorner)
-            else -> Modifier.border(BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)), MelodistShapes.ButtonCorner)
+            isFocused && isUsable -> Modifier.border(BorderStroke(2.5.dp, QQMusicColors.FocusTeal), QQMusicShapes.ButtonCorner)
+            isFocused && !isUsable -> Modifier.border(BorderStroke(1.5.dp, Color.White.copy(alpha = 0.35f)), QQMusicShapes.ButtonCorner)
+            isSelected -> Modifier.border(BorderStroke(1.5.dp, officialColor.copy(alpha = 0.85f)), QQMusicShapes.ButtonCorner)
+            isUsable -> Modifier.border(BorderStroke(1.dp, Color.White.copy(alpha = 0.20f)), QQMusicShapes.ButtonCorner)
+            else -> Modifier.border(BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)), QQMusicShapes.ButtonCorner)
         }
 
     Box(
@@ -238,7 +238,7 @@ private fun TierOptionItem(
                 .requiredWidth(110.dp)
                 .height(54.dp)
                 .then(border)
-                .clip(MelodistShapes.ButtonCorner)
+                .clip(QQMusicShapes.ButtonCorner)
                 .background(bg)
                 .clickable(
                     interactionSource = interactionSource,

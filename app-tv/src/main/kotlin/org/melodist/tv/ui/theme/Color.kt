@@ -2,7 +2,7 @@ package org.melodist.tv.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-object MelodistColors {
+object QQMusicColors {
     // 主基调与强调色：亮青绿
     val AccentGreen = Color(0xFF1EE191)
 

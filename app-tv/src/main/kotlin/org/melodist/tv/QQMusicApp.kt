@@ -15,7 +15,7 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
-class MelodistApp :
+class QQMusicApp :
     Application(),
     SingletonImageLoader.Factory {
     override fun onCreate() {
@@ -31,9 +31,9 @@ class MelodistApp :
             .init(this)
         org.melodist.data.AppLifecycleManager.onTrimMemoryAction = {
             try {
-                SingletonImageLoader.get(this@MelodistApp).memoryCache?.clear()
+                SingletonImageLoader.get(this@QQMusicApp).memoryCache?.clear()
             } catch (e: Exception) {
-                Log.w("MelodistApp", "Operation failed", e)
+                Log.w("QQMusicApp", "Operation failed", e)
             }
         }
         org.melodist.data.AppSettingsManager
@@ -42,8 +42,8 @@ class MelodistApp :
             .init(this)
         org.melodist.data.AppSettingsManager.imageCacheClearAction = {
             try {
-                SingletonImageLoader.get(this@MelodistApp).diskCache?.clear()
-                SingletonImageLoader.get(this@MelodistApp).memoryCache?.clear()
+                SingletonImageLoader.get(this@QQMusicApp).diskCache?.clear()
+                SingletonImageLoader.get(this@QQMusicApp).memoryCache?.clear()
                 true
             } catch (_: Exception) {
                 false
@@ -63,7 +63,7 @@ class MelodistApp :
                     val request =
                         original
                             .newBuilder()
-                            .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; MelodistTV) AppleWebKit/537.36")
+                            .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; QQMusicTV) AppleWebKit/537.36")
                             .header("Referer", "https://y.qq.com/")
                             .build()
                     chain.proceed(request)

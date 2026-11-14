@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import org.melodist.tv.ui.theme.LocalMonetSurface
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.toMonetContainer
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -40,14 +40,14 @@ fun CategoryMenuItem(
         modifier = modifier,
         shape =
             ButtonDefaults.shape(
-                shape = MelodistShapes.ButtonCorner,
-                focusedShape = MelodistShapes.ButtonCorner,
+                shape = QQMusicShapes.ButtonCorner,
+                focusedShape = QQMusicShapes.ButtonCorner,
             ),
         colors =
             ButtonDefaults.colors(
                 containerColor = if (isSelected) surfaceColor.toMonetContainer(0.08f) else Color.Transparent,
                 focusedContainerColor = Color.White,
-                contentColor = if (isSelected) MelodistColors.AccentGreen else Color.White,
+                contentColor = if (isSelected) QQMusicColors.AccentGreen else Color.White,
                 focusedContentColor = Color.Black,
             ),
         border =
@@ -56,16 +56,16 @@ fun CategoryMenuItem(
                     Border(
                         border =
                             if (isSelected) {
-                                BorderStroke(1.dp, MelodistColors.AccentGreen.copy(alpha = 0.5f))
+                                BorderStroke(1.dp, QQMusicColors.AccentGreen.copy(alpha = 0.5f))
                             } else {
                                 BorderStroke(1.dp, Color.Transparent)
                             },
-                        shape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.ButtonCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
             ),
         scale =
@@ -145,8 +145,8 @@ fun SettingSwitchCard(
         interactionSource = interactionSource,
         shape =
             ButtonDefaults.shape(
-                shape = MelodistShapes.ButtonCorner,
-                focusedShape = MelodistShapes.ButtonCorner,
+                shape = QQMusicShapes.ButtonCorner,
+                focusedShape = QQMusicShapes.ButtonCorner,
             ),
         colors =
             ButtonDefaults.colors(
@@ -162,12 +162,12 @@ fun SettingSwitchCard(
                 border =
                     Border(
                         border = BorderStroke(1.dp, Color.White.copy(alpha = if (enabled) 0.10f else 0.04f)),
-                        shape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.ButtonCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
             ),
         scale = ButtonDefaults.scale(focusedScale = 1.02f),
@@ -201,7 +201,7 @@ fun SettingSwitchCard(
                     !enabled -> Color.White.copy(alpha = 0.05f)
                     isFocused && checked -> Color(0xFF0D9488)
                     isFocused && !checked -> Color(0xFF2C313A)
-                    !isFocused && checked -> MelodistColors.AccentGreen
+                    !isFocused && checked -> QQMusicColors.AccentGreen
                     else -> Color.White.copy(alpha = 0.12f)
                 }
             val pillTextColor =
@@ -217,7 +217,7 @@ fun SettingSwitchCard(
                     !enabled -> BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
                     isFocused && checked -> BorderStroke(1.dp, Color(0xFF0F766E))
                     isFocused && !checked -> BorderStroke(1.dp, Color(0xFF1F2937))
-                    !isFocused && checked -> BorderStroke(1.dp, MelodistColors.AccentGreen)
+                    !isFocused && checked -> BorderStroke(1.dp, QQMusicColors.AccentGreen)
                     else -> BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
                 }
 

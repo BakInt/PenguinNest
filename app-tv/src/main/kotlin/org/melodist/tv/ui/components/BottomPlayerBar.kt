@@ -42,8 +42,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.toMonetContainer
 import java.util.Locale
 import android.view.KeyEvent as AndroidKeyEvent
@@ -53,7 +53,7 @@ fun BottomPlayerBar(
     progressMs: Long = 155000L,
     progressMsProvider: (() -> Long)? = null,
     durationMs: Long = 236000L,
-    surfaceColor: Color = MelodistColors.SurfaceDark,
+    surfaceColor: Color = QQMusicColors.SurfaceDark,
     isPlaying: Boolean = true,
     isFavorite: Boolean = false,
     canFavorite: Boolean = true,
@@ -72,7 +72,7 @@ fun BottomPlayerBar(
     onFullscreenClick: () -> Unit = {},
     onDownPress: () -> Unit = {},
     onSeekBy: (Long) -> Unit = {},
-    accentColor: Color = MelodistColors.AccentGreen,
+    accentColor: Color = QQMusicColors.AccentGreen,
     modifier: Modifier = Modifier,
 ) {
     val actualProgressProvider = progressMsProvider ?: { progressMs }
@@ -140,7 +140,7 @@ fun BottomPlayerBar(
                     TvIconButton(
                         imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = if (isFavorite) "取消收藏" else "收藏",
-                        iconTint = if (isFavorite) MelodistColors.FavoriteRed else MelodistColors.TextPrimary,
+                        iconTint = if (isFavorite) QQMusicColors.FavoriteRed else QQMusicColors.TextPrimary,
                         containerBg = btnContainer,
                         modifier =
                             Modifier
@@ -283,11 +283,11 @@ private fun TvIconButton(
     imageVector: ImageVector,
     contentDescription: String,
     modifier: Modifier = Modifier,
-    iconTint: Color = MelodistColors.TextPrimary,
+    iconTint: Color = QQMusicColors.TextPrimary,
     isHighlight: Boolean = false,
     size: Dp = 42.dp,
     iconSize: Dp = 22.dp,
-    containerBg: Color = MelodistColors.ContainerDarkSecondary,
+    containerBg: Color = QQMusicColors.ContainerDarkSecondary,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -303,12 +303,12 @@ private fun TvIconButton(
         interactionSource = interactionSource,
         shape =
             IconButtonDefaults.shape(
-                shape = MelodistShapes.ButtonCorner,
-                focusedShape = MelodistShapes.ButtonCorner,
+                shape = QQMusicShapes.ButtonCorner,
+                focusedShape = QQMusicShapes.ButtonCorner,
             ),
         colors =
             IconButtonDefaults.colors(
-                containerColor = if (isHighlight) MelodistColors.AccentGreen else containerBg,
+                containerColor = if (isHighlight) QQMusicColors.AccentGreen else containerBg,
                 focusedContainerColor = Color.White,
                 contentColor = if (isHighlight) Color.Black else iconTint,
                 focusedContentColor = Color.Black,
@@ -318,12 +318,12 @@ private fun TvIconButton(
                 border =
                     Border(
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                        shape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.ButtonCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
             ),
         scale =
@@ -355,7 +355,7 @@ private fun TvIconButton(
 private fun TvQueueButton(
     queueCount: Int,
     modifier: Modifier = Modifier,
-    containerBg: Color = MelodistColors.ContainerDarkSecondary,
+    containerBg: Color = QQMusicColors.ContainerDarkSecondary,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -371,14 +371,14 @@ private fun TvQueueButton(
         interactionSource = interactionSource,
         shape =
             ButtonDefaults.shape(
-                shape = MelodistShapes.ButtonCorner,
-                focusedShape = MelodistShapes.ButtonCorner,
+                shape = QQMusicShapes.ButtonCorner,
+                focusedShape = QQMusicShapes.ButtonCorner,
             ),
         colors =
             ButtonDefaults.colors(
                 containerColor = containerBg,
                 focusedContainerColor = Color.White,
-                contentColor = MelodistColors.TextPrimary,
+                contentColor = QQMusicColors.TextPrimary,
                 focusedContentColor = Color.Black,
             ),
         border =
@@ -386,12 +386,12 @@ private fun TvQueueButton(
                 border =
                     Border(
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                        shape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.ButtonCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
             ),
         scale =
@@ -423,7 +423,7 @@ private fun TvQueueButton(
 private fun TvQualityButton(
     label: String,
     modifier: Modifier = Modifier,
-    containerBg: Color = MelodistColors.QualityGoldBg,
+    containerBg: Color = QQMusicColors.QualityGoldBg,
     canChangeQuality: Boolean = true,
     onClick: () -> Unit,
 ) {
@@ -432,8 +432,8 @@ private fun TvQualityButton(
             modifier =
                 modifier
                     .height(40.dp)
-                    .background(containerBg, MelodistShapes.ButtonCorner)
-                    .border(BorderStroke(1.dp, MelodistColors.QualityGoldBorder), MelodistShapes.ButtonCorner)
+                    .background(containerBg, QQMusicShapes.ButtonCorner)
+                    .border(BorderStroke(1.dp, QQMusicColors.QualityGoldBorder), QQMusicShapes.ButtonCorner)
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -441,7 +441,7 @@ private fun TvQualityButton(
                 text = label,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = MelodistColors.QualityGoldText,
+                color = QQMusicColors.QualityGoldText,
             )
         }
     } else {
@@ -450,27 +450,27 @@ private fun TvQualityButton(
             modifier = modifier.height(40.dp),
             shape =
                 ButtonDefaults.shape(
-                    shape = MelodistShapes.ButtonCorner,
-                    focusedShape = MelodistShapes.ButtonCorner,
+                    shape = QQMusicShapes.ButtonCorner,
+                    focusedShape = QQMusicShapes.ButtonCorner,
                 ),
             colors =
                 ButtonDefaults.colors(
                     containerColor = containerBg,
                     focusedContainerColor = Color.White,
-                    contentColor = MelodistColors.QualityGoldText,
+                    contentColor = QQMusicColors.QualityGoldText,
                     focusedContentColor = Color.Black,
                 ),
             border =
                 ButtonDefaults.border(
                     border =
                         Border(
-                            border = BorderStroke(1.dp, MelodistColors.QualityGoldBorder),
-                            shape = MelodistShapes.ButtonCorner,
+                            border = BorderStroke(1.dp, QQMusicColors.QualityGoldBorder),
+                            shape = QQMusicShapes.ButtonCorner,
                         ),
                     focusedBorder =
                         Border(
-                            border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                            shape = MelodistShapes.ButtonCorner,
+                            border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                            shape = QQMusicShapes.ButtonCorner,
                         ),
                 ),
             scale =
@@ -522,7 +522,7 @@ private fun PlayerProgressBar(
     val progressHeight = if (isProgressFocused) 8.dp else 4.dp
     val progressBorder =
         if (isProgressFocused) {
-            Modifier.border(BorderStroke(2.dp, MelodistColors.FocusTeal), MelodistShapes.PillCorner)
+            Modifier.border(BorderStroke(2.dp, QQMusicColors.FocusTeal), QQMusicShapes.PillCorner)
         } else {
             Modifier
         }
@@ -563,15 +563,15 @@ private fun PlayerProgressBar(
                     .fillMaxWidth()
                     .height(progressHeight)
                     .then(progressBorder)
-                    .clip(MelodistShapes.PillCorner)
-                    .background(MelodistColors.ProgressTrack),
+                    .clip(QQMusicShapes.PillCorner)
+                    .background(QQMusicColors.ProgressTrack),
         ) {
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth(progressFraction)
                         .fillMaxHeight()
-                        .background(if (isProgressFocused) MelodistColors.FocusTeal else accentColor),
+                        .background(if (isProgressFocused) QQMusicColors.FocusTeal else accentColor),
             )
         }
 
@@ -585,13 +585,13 @@ private fun PlayerProgressBar(
         ) {
             Text(
                 text = currentFormatted,
-                color = if (isProgressFocused) MelodistColors.FocusTeal else MelodistColors.TextSecondary,
+                color = if (isProgressFocused) QQMusicColors.FocusTeal else QQMusicColors.TextSecondary,
                 fontWeight = if (isProgressFocused) FontWeight.Bold else FontWeight.Normal,
                 fontSize = 13.sp,
             )
             Text(
                 text = totalFormatted,
-                color = MelodistColors.TextSecondary,
+                color = QQMusicColors.TextSecondary,
                 fontSize = 13.sp,
             )
         }

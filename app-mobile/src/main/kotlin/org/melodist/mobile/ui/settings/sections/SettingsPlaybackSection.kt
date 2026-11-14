@@ -48,11 +48,12 @@ import org.melodist.data.AppSettingsManager
 import org.melodist.data.LyricFontSize
 import org.melodist.mobile.ui.components.AudioQualityBottomSheet
 import org.melodist.mobile.ui.components.SettingsClickableRow
+import org.melodist.mobile.ui.components.SettingsCollapsibleGroup
 import org.melodist.mobile.ui.components.SettingsDivider
 import org.melodist.mobile.ui.components.SettingsGroupCard
-import org.melodist.mobile.ui.components.SettingsGroupTitle
 import org.melodist.mobile.ui.components.SettingsSwitchRow
 import org.melodist.mobile.ui.components.getQualityTierDetailedLabel
+import org.melodist.mobile.ui.components.rememberSettingsSectionExpandedState
 import org.melodist.model.AudioQualityTier
 import org.melodist.playback.PlaybackManager
 
@@ -76,124 +77,137 @@ fun SettingsPlaybackSection(
             "以 32-bit 浮点处理输出，实际听感可能不会提升"
         }
 
+    val playbackExpanded = rememberSettingsSectionExpandedState("settings_section_playback")
+    val lyricsExpanded = rememberSettingsSectionExpandedState("settings_section_lyrics")
+
     Column(modifier = modifier) {
-        SettingsGroupTitle(title = "播放与音质")
-        SettingsGroupCard {
-            SettingsClickableRow(
-                icon = Icons.Rounded.HighQuality,
-                title = "默认优先音质",
-                subtitle = getQualityTierDetailedLabel(settings.preferredQualityTier),
-                onClick = { showQualityDialog = true },
-            )
+        SettingsCollapsibleGroup(
+            title = "播放与音质",
+            expanded = playbackExpanded.value,
+            onExpandedChange = { playbackExpanded.value = it },
+        ) {
+            SettingsGroupCard {
+                SettingsClickableRow(
+                    icon = Icons.Rounded.HighQuality,
+                    title = "默认优先音质",
+                    subtitle = getQualityTierDetailedLabel(settings.preferredQualityTier),
+                    onClick = { showQualityDialog = true },
+                )
 
-            SettingsDivider()
+                SettingsDivider()
 
-            SettingsClickableRow(
-                icon = Icons.Rounded.SignalCellularAlt,
-                title = "移动网络音质",
-                subtitle = getQualityTierDetailedLabel(settings.cellularQualityTier),
-                onClick = { showCellularQualityDialog = true },
-            )
+                SettingsClickableRow(
+                    icon = Icons.Rounded.SignalCellularAlt,
+                    title = "移动网络音质",
+                    subtitle = getQualityTierDetailedLabel(settings.cellularQualityTier),
+                    onClick = { showCellularQualityDialog = true },
+                )
 
-            SettingsDivider()
+                SettingsDivider()
 
-            SettingsSwitchRow(
-                icon = Icons.Rounded.Usb,
-                title = "32Bit浮点通道输出",
-                subtitle = usbSubtitle,
-                checked = isFloatOutputSupported && settings.enableUsbExclusive,
-                enabled = isFloatOutputSupported,
-                onCheckedChange = { AppSettingsManager.setEnableUsbExclusive(it) },
-            )
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.Usb,
+                    title = "32Bit浮点通道输出",
+                    subtitle = usbSubtitle,
+                    checked = isFloatOutputSupported && settings.enableUsbExclusive,
+                    enabled = isFloatOutputSupported,
+                    onCheckedChange = { AppSettingsManager.setEnableUsbExclusive(it) },
+                )
 
-            SettingsDivider()
+                SettingsDivider()
 
-            val context = androidx.compose.ui.platform.LocalContext.current
-            var isBatteryWhitelisted by remember {
-                val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
-                mutableStateOf(pm?.isIgnoringBatteryOptimizations(context.packageName) == true)
-            }
-            SettingsClickableRow(
-                icon = Icons.Rounded.BatteryChargingFull,
-                title = "后台优化",
-                subtitle =
-                    if (isBatteryWhitelisted) {
-                        "已加入电池优化白名单"
-                    } else {
-                        "未加入电池优化白名单"
-                    },
-                onClick = {
-                    try {
-                        val intent =
-                            if (!isBatteryWhitelisted) {
-                                android.content
-                                    .Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                                    .apply {
-                                        data = android.net.Uri.parse("package:${context.packageName}")
-                                    }
-                            } else {
-                                android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                            }
-                        context.startActivity(intent)
-                    } catch (_: Exception) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                var isBatteryWhitelisted by remember {
+                    val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
+                    mutableStateOf(pm?.isIgnoringBatteryOptimizations(context.packageName) == true)
+                }
+                SettingsClickableRow(
+                    icon = Icons.Rounded.BatteryChargingFull,
+                    title = "后台优化",
+                    subtitle =
+                        if (isBatteryWhitelisted) {
+                            "已加入电池优化白名单"
+                        } else {
+                            "未加入电池优化白名单"
+                        },
+                    onClick = {
                         try {
-                            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS))
-                        } catch (e: Exception) {
-                            Log.w("SettingsPlaybackSection", "Operation failed", e)
+                            val intent =
+                                if (!isBatteryWhitelisted) {
+                                    android.content
+                                        .Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                                        .apply {
+                                            data = android.net.Uri.parse("package:${context.packageName}")
+                                        }
+                                } else {
+                                    android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                }
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            try {
+                                context.startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS))
+                            } catch (e: Exception) {
+                                Log.w("SettingsPlaybackSection", "Operation failed", e)
+                            }
                         }
-                    }
-                },
-            )
+                    },
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // 歌词分组
-        SettingsGroupTitle(title = "歌词")
-        SettingsGroupCard {
-            SettingsSwitchRow(
-                icon = Icons.Rounded.Translate,
-                title = "歌词翻译",
-                subtitle = "显示中文翻译",
-                checked = settings.showBilingualLyrics,
-                onCheckedChange = { AppSettingsManager.setShowBilingualTranslation(it) },
-            )
+        SettingsCollapsibleGroup(
+            title = "歌词",
+            expanded = lyricsExpanded.value,
+            onExpandedChange = { lyricsExpanded.value = it },
+        ) {
+            SettingsGroupCard {
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.Translate,
+                    title = "歌词翻译",
+                    subtitle = "显示中文翻译",
+                    checked = settings.showBilingualLyrics,
+                    onCheckedChange = { AppSettingsManager.setShowBilingualTranslation(it) },
+                )
 
-            SettingsDivider()
-
-            SettingsSwitchRow(
-                icon = Icons.Rounded.Sync,
-                title = "自动匹配歌词",
-                subtitle = "为不完整歌词的本地和 WebDAV 音乐匹配歌词",
-                checked = settings.enableAutoMatchLyrics,
-                onCheckedChange = { AppSettingsManager.updateAutoMatchLyrics(it) },
-            )
-
-            if (settings.enableAutoMatchLyrics) {
                 SettingsDivider()
 
                 SettingsSwitchRow(
-                    icon = Icons.Rounded.MusicNote,
-                    title = "忽略内嵌歌词",
-                    subtitle = "优先使用匹配的歌词而不是内嵌歌词",
-                    checked = settings.ignoreEmbeddedLyrics,
-                    onCheckedChange = { AppSettingsManager.updateIgnoreEmbeddedLyrics(it) },
+                    icon = Icons.Rounded.Sync,
+                    title = "自动匹配歌词",
+                    subtitle = "为不完整歌词的本地音乐匹配歌词",
+                    checked = settings.enableAutoMatchLyrics,
+                    onCheckedChange = { AppSettingsManager.updateAutoMatchLyrics(it) },
+                )
+
+                if (settings.enableAutoMatchLyrics) {
+                    SettingsDivider()
+
+                    SettingsSwitchRow(
+                        icon = Icons.Rounded.MusicNote,
+                        title = "忽略内嵌歌词",
+                        subtitle = "优先使用匹配的歌词而不是内嵌歌词",
+                        checked = settings.ignoreEmbeddedLyrics,
+                        onCheckedChange = { AppSettingsManager.updateIgnoreEmbeddedLyrics(it) },
+                    )
+                }
+
+                SettingsDivider()
+
+                SettingsClickableRow(
+                    icon = Icons.Rounded.Palette,
+                    title = "歌词字号",
+                    subtitle =
+                        if (settings.lyricFontSize == LyricFontSize.Custom) {
+                            "自定义 (${settings.customLyricFontSizeSp}sp)"
+                        } else {
+                            "${settings.lyricFontSize.label} (${settings.effectiveLyricTitleSp}sp)"
+                        },
+                    onClick = { showFontSizeDialog = true },
                 )
             }
-
-            SettingsDivider()
-
-            SettingsClickableRow(
-                icon = Icons.Rounded.Palette,
-                title = "歌词字号",
-                subtitle =
-                    if (settings.lyricFontSize == LyricFontSize.Custom) {
-                        "自定义 (${settings.customLyricFontSizeSp}sp)"
-                    } else {
-                        "${settings.lyricFontSize.label} (${settings.effectiveLyricTitleSp}sp)"
-                    },
-                onClick = { showFontSizeDialog = true },
-            )
         }
     }
 

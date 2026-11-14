@@ -62,8 +62,8 @@ import org.melodist.model.Album
 import org.melodist.model.Playlist
 import org.melodist.model.Song
 import org.melodist.tv.ui.components.TvPlaylistSongItem
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 
 /**
  * TV 端歌单曲目列表面板组件，包含分类筛选 Chips、表头、未登录/加载中/空列表占位、
@@ -165,7 +165,7 @@ fun PlaylistTvTrackList(
                     Icon(
                         imageVector = Icons.Filled.AccountCircle,
                         contentDescription = "未登录",
-                        tint = MelodistColors.TextMuted,
+                        tint = QQMusicColors.TextMuted,
                         modifier = Modifier.size(64.dp),
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -173,21 +173,21 @@ fun PlaylistTvTrackList(
                         text = "尚未登录 QQ 音乐账号",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MelodistColors.TextPrimary,
+                        color = QQMusicColors.TextPrimary,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "登录后即可同步云端喜欢、收藏歌单、每日推荐与雷达专属曲库",
                         fontSize = 14.sp,
-                        color = MelodistColors.TextMuted,
+                        color = QQMusicColors.TextMuted,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
                         onClick = onNavigateToSettings,
-                        shape = ButtonDefaults.shape(MelodistShapes.PillCorner),
+                        shape = ButtonDefaults.shape(QQMusicShapes.PillCorner),
                         colors =
                             ButtonDefaults.colors(
-                                containerColor = MelodistColors.AccentGreen,
+                                containerColor = QQMusicColors.AccentGreen,
                                 focusedContainerColor = Color.White,
                                 contentColor = Color.Black,
                                 focusedContentColor = Color.Black,
@@ -196,8 +196,8 @@ fun PlaylistTvTrackList(
                             ButtonDefaults.border(
                                 focusedBorder =
                                     Border(
-                                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                        shape = MelodistShapes.PillCorner,
+                                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                        shape = QQMusicShapes.PillCorner,
                                     ),
                             ),
                         scale = ButtonDefaults.scale(focusedScale = 1.06f),
@@ -218,7 +218,7 @@ fun PlaylistTvTrackList(
                 ) {
                     Text(
                         text = "正在同步曲目列表...",
-                        color = MelodistColors.TextSecondary,
+                        color = QQMusicColors.TextSecondary,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Medium,
                     )
@@ -231,7 +231,7 @@ fun PlaylistTvTrackList(
                 ) {
                     Text(
                         text = "曲目列表中暂无歌曲",
-                        color = MelodistColors.TextMuted,
+                        color = QQMusicColors.TextMuted,
                         fontSize = 16.sp,
                     )
                 }
@@ -365,7 +365,7 @@ fun PlaylistTvTrackList(
                             ) {
                                 Text(
                                     text = "正在载入更多曲目...",
-                                    color = MelodistColors.TextMuted,
+                                    color = QQMusicColors.TextMuted,
                                     fontSize = 14.sp,
                                 )
                             }

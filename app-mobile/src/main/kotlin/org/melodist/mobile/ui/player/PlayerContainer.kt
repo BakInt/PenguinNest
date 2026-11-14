@@ -9,6 +9,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -71,7 +72,8 @@ fun PlayerContainer(
     modifier: Modifier = Modifier,
     isFullPlayerExpanded: Boolean? = null,
     onFullPlayerExpandChange: ((Boolean) -> Unit)? = null,
-    bottomBar: @Composable () -> Unit = {},
+    // 额外底部栏（如底部 Tab 栏）：null 表示没有；有值时迷你播放条不再自行处理导航条内边距
+    bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     var internalExpanded by remember { mutableStateOf(false) }
@@ -222,100 +224,105 @@ fun PlayerContainer(
             Scaffold(
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 bottomBar = {
-                    if (isMiniPlayerVisible) {
-                        val configuration = LocalConfiguration.current
-                        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                        val navBars = WindowInsets.navigationBars.asPaddingValues()
-                        val layoutDir = LocalLayoutDirection.current
-                        val navBottom = navBars.calculateBottomPadding()
-                        val safeBottomPadding = maxOf(navBottom, 10.dp)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        if (isMiniPlayerVisible) {
+                            val configuration = LocalConfiguration.current
+                            val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                            val navBars = WindowInsets.navigationBars.asPaddingValues()
+                            val layoutDir = LocalLayoutDirection.current
+                            val navBottom = navBars.calculateBottomPadding()
+                            // 有底部 Tab 栏时由 Tab 栏处理导航条内边距，迷你条仅留小间隙
+                            val safeBottomPadding = if (bottomBar != null) 6.dp else maxOf(navBottom, 10.dp)
 
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(
-                                        start = navBars.calculateStartPadding(layoutDir),
-                                        end = navBars.calculateEndPadding(layoutDir),
-                                        bottom = safeBottomPadding,
-                                    ),
-                            contentAlignment = Alignment.BottomCenter,
-                        ) {
-                            MiniPlayerBar(
-                                song = currentSong,
-                                isPlaying = isPlaying,
-                                onTogglePlayPause = { PlaybackManager.togglePlayPause() },
-                                onPlayNext = { PlaybackManager.playNext() },
-                                onPlayPrevious = { PlaybackManager.playPrevious() },
-                                prevSong = remember(currentSong, remotePrevSong) { PlaybackManager.getPreviousSong() },
-                                nextSong = remember(currentSong, remoteNextSong) { PlaybackManager.getNextSong() },
-                                onClick = {
-                                    scope.launch {
-                                        activeDirection = SheetExpandDirection.BottomToTop
-                                        if (sheetOffsetY.value < 0f) {
-                                            sheetOffsetY.snapTo(screenHeightPx)
-                                        }
-                                        sheetOffsetY.animateTo(0f, tween(260, easing = FastOutSlowInEasing))
-                                        setExpanded(true)
-                                    }
-                                },
-                                onDragStart = {
-                                    activeDirection = SheetExpandDirection.BottomToTop
-                                    scope.launch {
-                                        if (sheetOffsetY.value < 0f) {
-                                            sheetOffsetY.snapTo(screenHeightPx)
-                                        }
-                                        sheetOffsetY.stop()
-                                    }
-                                },
-                                onDragUp = { dragAmount ->
-                                    activeDirection = SheetExpandDirection.BottomToTop
-                                    scope.launch {
-                                        val current = if (sheetOffsetY.value < 0f) screenHeightPx else sheetOffsetY.value
-                                        val target = (current + dragAmount).coerceIn(0f, screenHeightPx)
-                                        sheetOffsetY.snapTo(target)
-                                    }
-                                },
-                                onDragUpEnd = { velocityY ->
-                                    scope.launch {
-                                        activeDirection = SheetExpandDirection.BottomToTop
-                                        val pulledPx = screenHeightPx - sheetOffsetY.value
-                                        val expandThreshold = (screenHeightPx * 0.22f).coerceAtLeast(thresholdPx)
-                                        if (pulledPx > expandThreshold || velocityY < -700f) {
-                                            sheetOffsetY.animateTo(0f, tween(240, easing = FastOutSlowInEasing))
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(
+                                            start = navBars.calculateStartPadding(layoutDir),
+                                            end = navBars.calculateEndPadding(layoutDir),
+                                            bottom = safeBottomPadding,
+                                        ),
+                                contentAlignment = Alignment.BottomCenter,
+                            ) {
+                                MiniPlayerBar(
+                                    song = currentSong,
+                                    isPlaying = isPlaying,
+                                    onTogglePlayPause = { PlaybackManager.togglePlayPause() },
+                                    onPlayNext = { PlaybackManager.playNext() },
+                                    onPlayPrevious = { PlaybackManager.playPrevious() },
+                                    prevSong = remember(currentSong, remotePrevSong) { PlaybackManager.getPreviousSong() },
+                                    nextSong = remember(currentSong, remoteNextSong) { PlaybackManager.getNextSong() },
+                                    onClick = {
+                                        scope.launch {
+                                            activeDirection = SheetExpandDirection.BottomToTop
+                                            if (sheetOffsetY.value < 0f) {
+                                                sheetOffsetY.snapTo(screenHeightPx)
+                                            }
+                                            sheetOffsetY.animateTo(0f, tween(260, easing = FastOutSlowInEasing))
                                             setExpanded(true)
-                                        } else {
+                                        }
+                                    },
+                                    onDragStart = {
+                                        activeDirection = SheetExpandDirection.BottomToTop
+                                        scope.launch {
+                                            if (sheetOffsetY.value < 0f) {
+                                                sheetOffsetY.snapTo(screenHeightPx)
+                                            }
+                                            sheetOffsetY.stop()
+                                        }
+                                    },
+                                    onDragUp = { dragAmount ->
+                                        activeDirection = SheetExpandDirection.BottomToTop
+                                        scope.launch {
+                                            val current = if (sheetOffsetY.value < 0f) screenHeightPx else sheetOffsetY.value
+                                            val target = (current + dragAmount).coerceIn(0f, screenHeightPx)
+                                            sheetOffsetY.snapTo(target)
+                                        }
+                                    },
+                                    onDragUpEnd = { velocityY ->
+                                        scope.launch {
+                                            activeDirection = SheetExpandDirection.BottomToTop
+                                            val pulledPx = screenHeightPx - sheetOffsetY.value
+                                            val expandThreshold = (screenHeightPx * 0.22f).coerceAtLeast(thresholdPx)
+                                            if (pulledPx > expandThreshold || velocityY < -700f) {
+                                                sheetOffsetY.animateTo(0f, tween(240, easing = FastOutSlowInEasing))
+                                                setExpanded(true)
+                                            } else {
+                                                sheetOffsetY.animateTo(screenHeightPx, spring(dampingRatio = Spring.DampingRatioLowBouncy))
+                                                setExpanded(false)
+                                            }
+                                        }
+                                    },
+                                    onDragUpCancel = {
+                                        scope.launch {
+                                            activeDirection = SheetExpandDirection.BottomToTop
                                             sheetOffsetY.animateTo(screenHeightPx, spring(dampingRatio = Spring.DampingRatioLowBouncy))
                                             setExpanded(false)
                                         }
-                                    }
-                                },
-                                onDragUpCancel = {
-                                    scope.launch {
-                                        activeDirection = SheetExpandDirection.BottomToTop
-                                        sheetOffsetY.animateTo(screenHeightPx, spring(dampingRatio = Spring.DampingRatioLowBouncy))
-                                        setExpanded(false)
-                                    }
-                                },
-                                modifier =
-                                    Modifier
-                                        .then(
-                                            if (isLandscape) {
-                                                Modifier.widthIn(max = 560.dp)
-                                            } else {
-                                                Modifier.fillMaxWidth()
-                                            },
-                                        ).graphicsLayer {
-                                            val pullFraction =
-                                                if (activeDirection == SheetExpandDirection.BottomToTop) {
-                                                    ((screenHeightPx - sheetOffsetY.value) / with(density) { 160.dp.toPx() }).coerceIn(0f, 1f)
+                                    },
+                                    modifier =
+                                        Modifier
+                                            .then(
+                                                if (isLandscape) {
+                                                    Modifier.widthIn(max = 560.dp)
                                                 } else {
-                                                    0f
-                                                }
-                                            alpha = 1f - pullFraction
-                                        },
-                            )
+                                                    Modifier.fillMaxWidth()
+                                                },
+                                            ).graphicsLayer {
+                                                val pullFraction =
+                                                    if (activeDirection == SheetExpandDirection.BottomToTop) {
+                                                        ((screenHeightPx - sheetOffsetY.value) / with(density) { 160.dp.toPx() }).coerceIn(0f, 1f)
+                                                    } else {
+                                                        0f
+                                                    }
+                                                alpha = 1f - pullFraction
+                                            },
+                                )
+                            }
                         }
+
+                        bottomBar?.invoke()
                     }
                 },
                 modifier = Modifier.fillMaxSize(),

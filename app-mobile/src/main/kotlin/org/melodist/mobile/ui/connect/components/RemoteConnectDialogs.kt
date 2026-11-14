@@ -114,7 +114,7 @@ fun RemoteConnectDialogs(
                             val dev =
                                 ConnectDevice(
                                     id = "manual_${actualHost.replace(".", "_")}_$actualPort",
-                                    name = "Melodist TV ($actualHost)",
+                                    name = "QQMusic TV ($actualHost)",
                                     type = DeviceType.TV,
                                     host = actualHost,
                                     port = actualPort,

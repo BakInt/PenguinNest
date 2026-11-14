@@ -9,7 +9,10 @@ import kotlinx.coroutines.launch
 import org.melodist.api.UserSession
 
 object UserSessionManager {
-    private const val PREFS_NAME = "melodist_user_session"
+    private const val PREFS_NAME = "qqmusic_user_session"
+
+    /** v1.7.5 之前的文件名，升级覆盖安装时用于一次性迁移。 */
+    private const val LEGACY_PREFS_NAME = "melodist_user_session"
     private const val KEY_PROFILE = "user_profile_json"
     private val scope = CoroutineScope(Dispatchers.IO)
     private var isObserving = false
@@ -20,6 +23,7 @@ object UserSessionManager {
     fun init(context: Context) {
         val appContext = context.applicationContext
         PlaybackCredentialsPersistence.init(appContext)
+        PrefsMigration.migrate(appContext, PREFS_NAME, LEGACY_PREFS_NAME)
         try {
             val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val jsonStr = prefs.getString(KEY_PROFILE, null)
@@ -51,7 +55,18 @@ object UserSessionManager {
         }
     }
 
+    /**
+     * 将当前会话持久化到磁盘。
+     *
+     * 已登出（会话被清空）时不做写入：调用方通常先 `UserSession.clear()` 再 `save()`，
+     * 若无条件写盘会把空档案覆盖掉磁盘上仍然有效的旧会话，导致下次启动"有 token 无账号信息"。
+     * 会话确需清除时应改用 [clear]。
+     */
     fun save(context: Context) {
+        if (!UserSession.isLoggedIn) {
+            Log.i("UserSessionManager", "Skip saving user session: not logged in")
+            return
+        }
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val jsonStr = UserSession.toJson()

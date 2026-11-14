@@ -30,7 +30,7 @@ import org.melodist.model.CoverUrlResolver
  * 支持多分辨率降级与边缘安全裁切的封面组件
  */
 @Composable
-fun MelodistAsyncImage(
+fun QQMusicAsyncImage(
     coverUrl: String,
     albumMid: String = "",
     artistMid: String = "",
@@ -54,7 +54,7 @@ fun MelodistAsyncImage(
             visualMid.isBlank() &&
             dynamicVisualMid.isBlank() &&
             songMid.isNotBlank() &&
-            !songMid.startsWith("webdav_")
+            !songMid.startsWith("local_")
         ) {
             val vsMid = MusicApiService().getSongVisualMid(songMid)
             if (!vsMid.isNullOrBlank()) {

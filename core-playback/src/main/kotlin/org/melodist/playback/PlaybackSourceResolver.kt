@@ -51,26 +51,22 @@ object PlaybackSourceResolver {
         return caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
     }
 
-    fun isLocalOrWebDavSong(song: Song?): Boolean {
+    fun isLocalPlaybackSong(song: Song?): Boolean {
         if (song == null) return false
-        return song.songMid.startsWith("webdav_") ||
-            song.songMid.startsWith("local_") ||
+        return song.songMid.startsWith("local_") ||
             !song.localFilePath.isNullOrBlank() ||
-            song.isWebDav ||
             song.isLocal
     }
 
     /**
-     * 判断歌曲是否为纯本地导入或 WebDAV 音乐（无线上音源可用）
-     * 仅当歌曲为纯本地或 WebDAV 时才限制切换音质，已下载的在线歌曲不在此列
+     * 判断歌曲是否为纯本地导入音乐（无线上音源可用）
+     * 仅当歌曲为纯本地时才限制切换音质，已下载的在线歌曲不在此列
      */
-    fun isPureLocalOrWebDav(song: Song?): Boolean {
+    fun isPureLocalSong(song: Song?): Boolean {
         if (song == null) return false
         if (song.songMid.isBlank()) return true
-        return song.songMid.startsWith("webdav_") ||
-            song.songMid.startsWith("local_") ||
+        return song.songMid.startsWith("local_") ||
             song.songMid.startsWith("pc_local_") ||
-            song.isWebDav ||
             song.isLocal
     }
 
@@ -96,7 +92,7 @@ object PlaybackSourceResolver {
         if (isTelevision(context)) {
             return requestedTier
         }
-        if (isLocalOrWebDavSong(song)) {
+        if (isLocalPlaybackSong(song)) {
             return requestedTier
         }
         if (!isCellularNetwork(context)) {
@@ -114,7 +110,7 @@ object PlaybackSourceResolver {
 
         val cachedTier =
             if (mid.isNotBlank()) {
-                MelodistCacheManager.getBestFullyCachedTier(mid)
+                QQMusicCacheManager.getBestFullyCachedTier(mid)
             } else {
                 null
             }
@@ -138,7 +134,7 @@ object PlaybackSourceResolver {
         tier: AudioQualityTier,
         song: Song?,
     ): AudioQualityTier {
-        if (isLocalOrWebDavSong(song)) {
+        if (isLocalPlaybackSong(song)) {
             return tier
         }
         if (!DeviceAudioCapability.isTierSupported(tier)) {

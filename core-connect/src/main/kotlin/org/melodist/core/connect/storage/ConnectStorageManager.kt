@@ -59,9 +59,9 @@ class ConnectStorageManager(
         if (name.isNullOrBlank()) {
             name =
                 if (defaultDeviceType == DeviceType.TV) {
-                    "Melodist TV (${Build.MODEL})"
+                    "QQMusic TV (${Build.MODEL})"
                 } else {
-                    "Melodist Mobile (${Build.MODEL})"
+                    "QQMusic Mobile (${Build.MODEL})"
                 }
             prefs.edit().putString(KEY_LOCAL_DEVICE_NAME, name).apply()
         }
@@ -181,7 +181,7 @@ class ConnectStorageManager(
     }
 
     companion object {
-        private const val PREFS_NAME = "melodist_connect_prefs"
+        private const val PREFS_NAME = "qqmusic_connect_prefs"
         private const val KEY_LOCAL_DEVICE_ID = "local_device_id"
         private const val KEY_LOCAL_DEVICE_NAME = "local_device_name"
         private const val KEY_LOCAL_DEVICE_TOKEN = "local_device_token"

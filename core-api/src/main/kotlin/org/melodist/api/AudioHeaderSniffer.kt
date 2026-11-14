@@ -59,7 +59,7 @@ object AudioHeaderSniffer {
                         .Builder()
                         .url(url)
                         .header("Range", "bytes=0-2047")
-                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; MelodistTV) AppleWebKit/537.36")
+                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; QQMusicTV) AppleWebKit/537.36")
                         .header("Referer", "https://y.qq.com/")
                         .build()
 

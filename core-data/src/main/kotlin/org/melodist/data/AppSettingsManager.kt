@@ -131,6 +131,13 @@ enum class LyricSaveMode(
     Both("同时保存"),
 }
 
+enum class StartupTab(
+    val label: String,
+) {
+    HOME("首页"),
+    LIBRARY("我的收藏"),
+}
+
 data class AppSettings(
     // 音频与音质
     val preferredQualityTier: AudioQualityTier = AudioQualityTier.SQ,
@@ -153,12 +160,19 @@ data class AppSettings(
     val downloadDirectory: String = "",
     val lyricSaveMode: LyricSaveMode = LyricSaveMode.Embedded,
     val saveLyricTranslation: Boolean = true,
+    // 音频媒体缓存上限（GB），0 = 默认自适应配额
+    val mediaCacheLimitGb: Int = 0,
     // 外观与主题
     val themeMode: ThemeMode = ThemeMode.System,
-    val dynamicColor: Boolean = true,
+    // 默认关闭动态取色，保证默认观感为 MusicFree 风格色板
+    val dynamicColor: Boolean = false,
     val colorTheme: AppColorTheme = AppColorTheme.Default,
     val customColorHex: String = "#1A73E8",
     val amoledDark: Boolean = false,
+    // 启动页：冷启动时底部 Tab 停在哪个标签
+    val startupTab: StartupTab = StartupTab.HOME,
+    // 底部标签栏是否显示文字，关闭后仅显示图标
+    val showTabBarLabels: Boolean = true,
 ) {
     // 向后兼容旧字段引用
     val enableAtmosPassthrough: Boolean get() = enableAudioPassthrough
@@ -182,7 +196,10 @@ data class AppSettings(
 
 object AppSettingsManager {
     private const val TAG = "AppSettingsManager"
-    private const val PREF_NAME = "melodist_app_settings"
+    private const val PREF_NAME = "qqmusic_app_settings"
+
+    /** v1.7.5 之前的文件名，升级覆盖安装时用于一次性迁移。 */
+    private const val LEGACY_PREF_NAME = "melodist_app_settings"
 
     private const val KEY_PREFERRED_TIER = "preferred_tier"
     private const val KEY_CELLULAR_TIER = "cellular_quality_tier"
@@ -202,11 +219,14 @@ object AppSettingsManager {
     private const val KEY_DOWNLOAD_DIRECTORY = "download_directory"
     private const val KEY_LYRIC_SAVE_MODE = "lyric_save_mode"
     private const val KEY_SAVE_LYRIC_TRANSLATION = "save_lyric_translation"
+    private const val KEY_MEDIA_CACHE_LIMIT_GB = "media_cache_limit_gb"
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_DYNAMIC_COLOR = "dynamic_color"
     private const val KEY_COLOR_THEME = "color_theme"
     private const val KEY_CUSTOM_COLOR_HEX = "custom_color_hex"
     private const val KEY_AMOLED_DARK = "amoled_dark"
+    private const val KEY_STARTUP_TAB = "startup_tab"
+    private const val KEY_SHOW_TAB_BAR_LABELS = "show_tab_bar_labels"
 
     private var prefs: SharedPreferences? = null
     private var appContext: Context? = null
@@ -220,11 +240,13 @@ object AppSettingsManager {
 
     var onAudioPassthroughChangedListener: ((Boolean) -> Unit)? = null
     var onUsbExclusiveChangedListener: ((Boolean) -> Unit)? = null
+    var onMediaCacheLimitChangedListener: ((Int) -> Unit)? = null
 
     fun init(context: Context) {
         if (prefs == null) {
             val app = context.applicationContext
             appContext = app
+            PrefsMigration.migrate(app, PREF_NAME, LEGACY_PREF_NAME)
             prefs = app.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
             loadSettings()
             refreshCacheUsage()
@@ -291,13 +313,17 @@ object AppSettingsManager {
         val lyricSaveModeName = p.getString(KEY_LYRIC_SAVE_MODE, LyricSaveMode.Embedded.name) ?: LyricSaveMode.Embedded.name
         val lyricSaveMode = runCatching { LyricSaveMode.valueOf(lyricSaveModeName) }.getOrDefault(LyricSaveMode.Embedded)
         val saveLyricTranslation = p.getBoolean(KEY_SAVE_LYRIC_TRANSLATION, true)
+        val mediaCacheLimitGb = p.getInt(KEY_MEDIA_CACHE_LIMIT_GB, 0).coerceAtLeast(0)
         val themeModeName = p.getString(KEY_THEME_MODE, ThemeMode.System.name) ?: ThemeMode.System.name
         val themeMode = runCatching { ThemeMode.valueOf(themeModeName) }.getOrDefault(ThemeMode.System)
-        val dynamicColor = p.getBoolean(KEY_DYNAMIC_COLOR, true)
+        val dynamicColor = p.getBoolean(KEY_DYNAMIC_COLOR, false)
         val colorThemeName = p.getString(KEY_COLOR_THEME, AppColorTheme.Default.name) ?: AppColorTheme.Default.name
         val colorTheme = runCatching { AppColorTheme.valueOf(colorThemeName) }.getOrDefault(AppColorTheme.Default)
         val customColorHex = p.getString(KEY_CUSTOM_COLOR_HEX, "#1A73E8") ?: "#1A73E8"
         val amoledDark = p.getBoolean(KEY_AMOLED_DARK, false)
+        val startupTabName = p.getString(KEY_STARTUP_TAB, StartupTab.HOME.name) ?: StartupTab.HOME.name
+        val startupTab = runCatching { StartupTab.valueOf(startupTabName) }.getOrDefault(StartupTab.HOME)
+        val showTabBarLabels = p.getBoolean(KEY_SHOW_TAB_BAR_LABELS, true)
 
         _settings.value =
             AppSettings(
@@ -318,20 +344,23 @@ object AppSettingsManager {
                 downloadDirectory = downloadDir,
                 lyricSaveMode = lyricSaveMode,
                 saveLyricTranslation = saveLyricTranslation,
+                mediaCacheLimitGb = mediaCacheLimitGb,
                 themeMode = themeMode,
                 dynamicColor = dynamicColor,
                 colorTheme = colorTheme,
                 customColorHex = customColorHex,
                 amoledDark = amoledDark,
+                startupTab = startupTab,
+                showTabBarLabels = showTabBarLabels,
             )
     }
 
     fun getDefaultDownloadDirectory(): String =
         try {
             val musicDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_MUSIC)
-            File(musicDir, "Melodist").absolutePath
+            File(musicDir, "QQMusic").absolutePath
         } catch (_: Exception) {
-            "/storage/emulated/0/Music/Melodist"
+            "/storage/emulated/0/Music/QQMusic"
         }
 
     fun getEffectiveDownloadDirectory(): File {
@@ -367,6 +396,15 @@ object AppSettingsManager {
     }
 
     fun updateSaveLyricTranslation(enable: Boolean) = setSaveLyricTranslation(enable)
+
+    fun setMediaCacheLimitGb(limitGb: Int) {
+        val clamped = limitGb.coerceAtLeast(0)
+        _settings.value = _settings.value.copy(mediaCacheLimitGb = clamped)
+        prefs?.edit()?.putInt(KEY_MEDIA_CACHE_LIMIT_GB, clamped)?.apply()
+        onMediaCacheLimitChangedListener?.invoke(clamped)
+    }
+
+    fun updateMediaCacheLimitGb(limitGb: Int) = setMediaCacheLimitGb(limitGb)
 
     fun setPreferredQualityTier(tier: AudioQualityTier) {
         _settings.value = _settings.value.copy(preferredQualityTier = tier)
@@ -516,6 +554,18 @@ object AppSettingsManager {
         prefs?.edit()?.putBoolean(KEY_AMOLED_DARK, enable)?.apply()
     }
 
+    fun setStartupTab(tab: StartupTab) {
+        _settings.value = _settings.value.copy(startupTab = tab)
+        prefs?.edit()?.putString(KEY_STARTUP_TAB, tab.name)?.apply()
+    }
+
+    fun setShowTabBarLabels(enable: Boolean) {
+        _settings.value = _settings.value.copy(showTabBarLabels = enable)
+        prefs?.edit()?.putBoolean(KEY_SHOW_TAB_BAR_LABELS, enable)?.apply()
+    }
+
+    fun updateStartupTab(tab: StartupTab) = setStartupTab(tab)
+
     var mediaCacheSizeProvider: (() -> Long)? = null
     var mediaQuotaProvider: (() -> Long)? = null
     var cachedTrackCountProvider: (() -> Int)? = null
@@ -604,7 +654,7 @@ object AppSettingsManager {
     }
 
     /**
-     * 清理媒体音频切片与非必要图片缓存（保留本地/WebDAV 歌曲封面、匹配歌词和登录持久化数据）。
+     * 清理媒体音频切片与非必要图片缓存（保留本地歌曲封面、匹配歌词和登录持久化数据）。
      *
      * @return 清理完成返回 true，发生异常或未初始化返回 false
      */
@@ -624,11 +674,9 @@ object AppSettingsManager {
                 }
                 File(cacheDir, "covers").mkdirs()
                 File(cacheDir, "local_covers").mkdirs()
-                File(cacheDir, "webdav").mkdirs()
                 File(cacheDir, "lyrics").mkdirs()
                 File(cacheDir, "matched_lyrics").mkdirs()
                 LocalMusicManager.onCacheCleared()
-                WebDavManager.onCacheCleared()
                 LocalMusicManager.healMissingCovers()
                 refreshCacheUsage()
                 mediaCleared && imageCleared
@@ -660,14 +708,12 @@ object AppSettingsManager {
                 }
                 File(cacheDir, "covers").mkdirs()
                 File(cacheDir, "local_covers").mkdirs()
-                File(cacheDir, "webdav").mkdirs()
                 File(cacheDir, "lyrics").mkdirs()
                 File(cacheDir, "matched_lyrics").mkdirs()
                 File(cacheDir, "image_cache").mkdirs()
                 File(cacheDir, "media_cache").mkdirs()
                 cleanStaleInstallers()
                 LocalMusicManager.onCacheCleared()
-                WebDavManager.onCacheCleared()
                 LocalMusicManager.healMissingCovers()
                 refreshCacheUsage()
                 mediaCleared && imageCleared

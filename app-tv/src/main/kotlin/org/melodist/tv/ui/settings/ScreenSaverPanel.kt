@@ -56,8 +56,8 @@ import org.melodist.data.AppSettingsManager
 import org.melodist.data.ScreenSaverBrightness
 import org.melodist.data.ScreenSaverTimeout
 import org.melodist.playback.PlaybackManager
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
@@ -116,21 +116,21 @@ fun ScreenSaverPanel(menuRequester: FocusRequester) {
                         modifier = btnModifier,
                         shape =
                             ButtonDefaults.shape(
-                                shape = MelodistShapes.ButtonCorner,
-                                focusedShape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
+                                focusedShape = QQMusicShapes.ButtonCorner,
                             ),
                         colors =
                             ButtonDefaults.colors(
                                 containerColor =
                                     if (isSelected) {
-                                        MelodistColors.AccentGreen.copy(
+                                        QQMusicColors.AccentGreen.copy(
                                             alpha = 0.22f,
                                         )
                                     } else {
                                         Color.White.copy(alpha = 0.05f)
                                     },
                                 focusedContainerColor = Color.White,
-                                contentColor = if (isSelected) MelodistColors.AccentGreen else Color.White,
+                                contentColor = if (isSelected) QQMusicColors.AccentGreen else Color.White,
                                 focusedContentColor = Color.Black,
                             ),
                         border =
@@ -139,16 +139,16 @@ fun ScreenSaverPanel(menuRequester: FocusRequester) {
                                     Border(
                                         border =
                                             if (isSelected) {
-                                                BorderStroke(1.5.dp, MelodistColors.AccentGreen)
+                                                BorderStroke(1.5.dp, QQMusicColors.AccentGreen)
                                             } else {
                                                 BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
                                             },
-                                        shape = MelodistShapes.ButtonCorner,
+                                        shape = QQMusicShapes.ButtonCorner,
                                     ),
                                 focusedBorder =
                                     Border(
-                                        border = BorderStroke(2.dp, MelodistColors.FocusTeal),
-                                        shape = MelodistShapes.ButtonCorner,
+                                        border = BorderStroke(2.dp, QQMusicColors.FocusTeal),
+                                        shape = QQMusicShapes.ButtonCorner,
                                     ),
                             ),
                         scale = ButtonDefaults.scale(focusedScale = 1.04f),
@@ -194,21 +194,21 @@ fun ScreenSaverPanel(menuRequester: FocusRequester) {
                         modifier = btnModifier,
                         shape =
                             ButtonDefaults.shape(
-                                shape = MelodistShapes.ButtonCorner,
-                                focusedShape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
+                                focusedShape = QQMusicShapes.ButtonCorner,
                             ),
                         colors =
                             ButtonDefaults.colors(
                                 containerColor =
                                     if (isSelected) {
-                                        MelodistColors.AccentGreen.copy(
+                                        QQMusicColors.AccentGreen.copy(
                                             alpha = 0.22f,
                                         )
                                     } else {
                                         Color.White.copy(alpha = 0.05f)
                                     },
                                 focusedContainerColor = Color.White,
-                                contentColor = if (isSelected) MelodistColors.AccentGreen else Color.White,
+                                contentColor = if (isSelected) QQMusicColors.AccentGreen else Color.White,
                                 focusedContentColor = Color.Black,
                             ),
                         border =
@@ -217,16 +217,16 @@ fun ScreenSaverPanel(menuRequester: FocusRequester) {
                                     Border(
                                         border =
                                             if (isSelected) {
-                                                BorderStroke(1.5.dp, MelodistColors.AccentGreen)
+                                                BorderStroke(1.5.dp, QQMusicColors.AccentGreen)
                                             } else {
                                                 BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
                                             },
-                                        shape = MelodistShapes.ButtonCorner,
+                                        shape = QQMusicShapes.ButtonCorner,
                                     ),
                                 focusedBorder =
                                     Border(
-                                        border = BorderStroke(2.dp, MelodistColors.FocusTeal),
-                                        shape = MelodistShapes.ButtonCorner,
+                                        border = BorderStroke(2.dp, QQMusicColors.FocusTeal),
+                                        shape = QQMusicShapes.ButtonCorner,
                                     ),
                             ),
                         scale = ButtonDefaults.scale(focusedScale = 1.04f),
@@ -273,8 +273,8 @@ fun ScreenSaverPanel(menuRequester: FocusRequester) {
                     .focusProperties { left = menuRequester },
             shape =
                 ButtonDefaults.shape(
-                    shape = MelodistShapes.ButtonCorner,
-                    focusedShape = MelodistShapes.ButtonCorner,
+                    shape = QQMusicShapes.ButtonCorner,
+                    focusedShape = QQMusicShapes.ButtonCorner,
                 ),
             colors =
                 ButtonDefaults.colors(
@@ -288,12 +288,12 @@ fun ScreenSaverPanel(menuRequester: FocusRequester) {
                     border =
                         Border(
                             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-                            shape = MelodistShapes.ButtonCorner,
+                            shape = QQMusicShapes.ButtonCorner,
                         ),
                     focusedBorder =
                         Border(
-                            border = BorderStroke(2.dp, MelodistColors.FocusTeal),
-                            shape = MelodistShapes.ButtonCorner,
+                            border = BorderStroke(2.dp, QQMusicColors.FocusTeal),
+                            shape = QQMusicShapes.ButtonCorner,
                         ),
                 ),
             scale = ButtonDefaults.scale(focusedScale = 1.02f),

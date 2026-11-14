@@ -30,10 +30,10 @@ import org.melodist.model.ArtistDetail
 import org.melodist.model.Song
 import org.melodist.playback.PlaybackManager
 import org.melodist.tv.ui.components.MediaDetailTvScaffold
-import org.melodist.tv.ui.components.MelodistAsyncImage
+import org.melodist.tv.ui.components.QQMusicAsyncImage
 import org.melodist.tv.ui.components.SongArtistAlbumDialog
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 
 private enum class ArtistSubMode {
     Songs,
@@ -240,8 +240,8 @@ fun ArtistTvScreen(
                             .height(38.dp),
                     shape =
                         ButtonDefaults.shape(
-                            shape = MelodistShapes.CardCorner,
-                            focusedShape = MelodistShapes.CardCorner,
+                            shape = QQMusicShapes.CardCorner,
+                            focusedShape = QQMusicShapes.CardCorner,
                         ),
                     colors =
                         ButtonDefaults.colors(
@@ -249,12 +249,12 @@ fun ArtistTvScreen(
                                 if (!isHotOrder &&
                                     subMode == ArtistSubMode.Songs
                                 ) {
-                                    MelodistColors.AccentGreen.copy(alpha = 0.22f)
+                                    QQMusicColors.AccentGreen.copy(alpha = 0.22f)
                                 } else {
                                     Color.White.copy(alpha = 0.08f)
                                 },
                             focusedContainerColor = Color.White,
-                            contentColor = if (!isHotOrder && subMode == ArtistSubMode.Songs) MelodistColors.AccentGreen else Color.White,
+                            contentColor = if (!isHotOrder && subMode == ArtistSubMode.Songs) QQMusicColors.AccentGreen else Color.White,
                             focusedContentColor = Color.Black,
                         ),
                     border =
@@ -267,17 +267,17 @@ fun ArtistTvScreen(
                                             if (!isHotOrder &&
                                                 subMode == ArtistSubMode.Songs
                                             ) {
-                                                MelodistColors.AccentGreen.copy(alpha = 0.45f)
+                                                QQMusicColors.AccentGreen.copy(alpha = 0.45f)
                                             } else {
                                                 Color.White.copy(alpha = 0.15f)
                                             },
                                         ),
-                                    shape = MelodistShapes.CardCorner,
+                                    shape = QQMusicShapes.CardCorner,
                                 ),
                             focusedBorder =
                                 Border(
-                                    border = BorderStroke(2.dp, MelodistColors.FocusTeal),
-                                    shape = MelodistShapes.CardCorner,
+                                    border = BorderStroke(2.dp, QQMusicColors.FocusTeal),
+                                    shape = QQMusicShapes.CardCorner,
                                 ),
                         ),
                     scale = ButtonDefaults.scale(focusedScale = 1.0f),
@@ -295,7 +295,7 @@ fun ArtistTvScreen(
 
                 val followBorderColor =
                     if (isFollowed) {
-                        MelodistColors.AccentGreen.copy(alpha = 0.45f)
+                        QQMusicColors.AccentGreen.copy(alpha = 0.45f)
                     } else {
                         Color.White.copy(alpha = 0.15f)
                     }
@@ -309,21 +309,21 @@ fun ArtistTvScreen(
                             .height(38.dp),
                     shape =
                         ButtonDefaults.shape(
-                            shape = MelodistShapes.CardCorner,
-                            focusedShape = MelodistShapes.CardCorner,
+                            shape = QQMusicShapes.CardCorner,
+                            focusedShape = QQMusicShapes.CardCorner,
                         ),
                     colors =
                         ButtonDefaults.colors(
                             containerColor =
                                 if (isFollowed) {
-                                    MelodistColors.AccentGreen.copy(
+                                    QQMusicColors.AccentGreen.copy(
                                         alpha = 0.22f,
                                     )
                                 } else {
                                     Color.White.copy(alpha = 0.08f)
                                 },
                             focusedContainerColor = Color.White,
-                            contentColor = if (isFollowed) MelodistColors.AccentGreen else Color.White,
+                            contentColor = if (isFollowed) QQMusicColors.AccentGreen else Color.White,
                             focusedContentColor = Color.Black,
                         ),
                     border =
@@ -331,12 +331,12 @@ fun ArtistTvScreen(
                             border =
                                 Border(
                                     border = BorderStroke(1.dp, followBorderColor),
-                                    shape = MelodistShapes.CardCorner,
+                                    shape = QQMusicShapes.CardCorner,
                                 ),
                             focusedBorder =
                                 Border(
-                                    border = BorderStroke(2.dp, MelodistColors.FocusTeal),
-                                    shape = MelodistShapes.CardCorner,
+                                    border = BorderStroke(2.dp, QQMusicColors.FocusTeal),
+                                    shape = QQMusicShapes.CardCorner,
                                 ),
                         ),
                     scale = ButtonDefaults.scale(focusedScale = 1.0f),
@@ -374,8 +374,8 @@ fun ArtistTvScreen(
                             .height(38.dp),
                     shape =
                         ButtonDefaults.shape(
-                            shape = MelodistShapes.CardCorner,
-                            focusedShape = MelodistShapes.CardCorner,
+                            shape = QQMusicShapes.CardCorner,
+                            focusedShape = QQMusicShapes.CardCorner,
                         ),
                     colors =
                         ButtonDefaults.colors(
@@ -383,12 +383,12 @@ fun ArtistTvScreen(
                                 if (subMode ==
                                     ArtistSubMode.Albums
                                 ) {
-                                    MelodistColors.AccentGreen.copy(alpha = 0.22f)
+                                    QQMusicColors.AccentGreen.copy(alpha = 0.22f)
                                 } else {
                                     Color.White.copy(alpha = 0.08f)
                                 },
                             focusedContainerColor = Color.White,
-                            contentColor = if (subMode == ArtistSubMode.Albums) MelodistColors.AccentGreen else Color.White,
+                            contentColor = if (subMode == ArtistSubMode.Albums) QQMusicColors.AccentGreen else Color.White,
                             focusedContentColor = Color.Black,
                         ),
                     border =
@@ -401,17 +401,17 @@ fun ArtistTvScreen(
                                             if (subMode ==
                                                 ArtistSubMode.Albums
                                             ) {
-                                                MelodistColors.AccentGreen.copy(alpha = 0.45f)
+                                                QQMusicColors.AccentGreen.copy(alpha = 0.45f)
                                             } else {
                                                 Color.White.copy(alpha = 0.15f)
                                             },
                                         ),
-                                    shape = MelodistShapes.CardCorner,
+                                    shape = QQMusicShapes.CardCorner,
                                 ),
                             focusedBorder =
                                 Border(
-                                    border = BorderStroke(2.dp, MelodistColors.FocusTeal),
-                                    shape = MelodistShapes.CardCorner,
+                                    border = BorderStroke(2.dp, QQMusicColors.FocusTeal),
+                                    shape = QQMusicShapes.CardCorner,
                                 ),
                         ),
                     scale = ButtonDefaults.scale(focusedScale = 1.0f),
@@ -538,7 +538,7 @@ fun ArtistTvScreen(
                                         ) {
                                             Text(
                                                 text = "正在载入更多专辑...",
-                                                color = MelodistColors.TextSecondary,
+                                                color = QQMusicColors.TextSecondary,
                                                 fontSize = 13.sp,
                                             )
                                         }
@@ -590,8 +590,8 @@ private fun ArtistAlbumGridItem(
                 .onFocusChanged { isFocused = it.isFocused },
         shape =
             CardDefaults.shape(
-                shape = MelodistShapes.CardCorner,
-                focusedShape = MelodistShapes.CardCorner,
+                shape = QQMusicShapes.CardCorner,
+                focusedShape = QQMusicShapes.CardCorner,
             ),
         colors =
             CardDefaults.colors(
@@ -603,12 +603,12 @@ private fun ArtistAlbumGridItem(
                 border =
                     Border(
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                        shape = MelodistShapes.CardCorner,
+                        shape = QQMusicShapes.CardCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.CardCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.CardCorner,
                     ),
             ),
         scale = CardDefaults.scale(focusedScale = 1.05f),
@@ -630,7 +630,7 @@ private fun ArtistAlbumGridItem(
                 contentAlignment = Alignment.Center,
             ) {
                 if (album.mid.isNotBlank()) {
-                    MelodistAsyncImage(
+                    QQMusicAsyncImage(
                         coverUrl = album.coverUrl,
                         albumMid = album.mid,
                         contentDescription = album.title,
@@ -640,7 +640,7 @@ private fun ArtistAlbumGridItem(
                             Icon(
                                 imageVector = Icons.Filled.Album,
                                 contentDescription = null,
-                                tint = MelodistColors.TextMuted,
+                                tint = QQMusicColors.TextMuted,
                                 modifier = Modifier.size(40.dp),
                             )
                         },
@@ -649,7 +649,7 @@ private fun ArtistAlbumGridItem(
                     Icon(
                         imageVector = Icons.Filled.Album,
                         contentDescription = null,
-                        tint = MelodistColors.TextMuted,
+                        tint = QQMusicColors.TextMuted,
                         modifier = Modifier.size(40.dp),
                     )
                 }
@@ -679,7 +679,7 @@ private fun ArtistAlbumGridItem(
                     text = album.title,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isFocused) Color(0xFF12141A) else MelodistColors.TextPrimary,
+                    color = if (isFocused) Color(0xFF12141A) else QQMusicColors.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.melodist.api.PlaybackCredentialsManager
 import org.melodist.api.PlaybackVipTier
 import org.melodist.model.Song
@@ -46,6 +50,7 @@ import org.melodist.playback.ListenTogetherManager
 
 private val CoverShape = RoundedCornerShape(8.dp)
 private val VipBadgeShape = RoundedCornerShape(3.dp)
+private val FavoriteRedColor = Color(0xFFEC4433)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -55,14 +60,17 @@ fun SongItemRow(
     modifier: Modifier = Modifier,
     highlightQuery: String = "",
     showLocalBadge: Boolean = true,
-    showWebDavBadge: Boolean = true,
     showQualityBadge: Boolean = false,
+    lyricSnippet: String? = null,
     isMultiSelectMode: Boolean = false,
     isSelected: Boolean = false,
+    isFavorite: Boolean? = null,
+    favoriteCount: Int? = null,
     onClick: () -> Unit,
     onSelectToggle: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     onMoreClick: (() -> Unit)? = null,
+    onFavoriteToggle: (() -> Unit)? = null,
 ) {
     Row(
         modifier =
@@ -80,6 +88,14 @@ fun SongItemRow(
                 ).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (!isMultiSelectMode && isFavorite != null && onFavoriteToggle != null) {
+            FavoriteToggleButton(
+                isFavorite = isFavorite,
+                countText = formatFavCount(favoriteCount),
+                onClick = onFavoriteToggle,
+            )
+        }
+
         Box(
             modifier =
                 Modifier
@@ -257,9 +273,10 @@ fun SongItemRow(
                                 ).padding(horizontal = 4.dp, vertical = 1.dp),
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                } else if (showWebDavBadge && song.isWebDav) {
+                }
+                if (!lyricSnippet.isNullOrBlank()) {
                     Text(
-                        text = "WebDAV",
+                        text = "歌词",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
                         fontWeight = FontWeight.SemiBold,
@@ -280,6 +297,17 @@ fun SongItemRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+
+            if (!lyricSnippet.isNullOrBlank()) {
+                Text(
+                    text = lyricSnippet,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 1.dp),
+                )
+            }
         }
 
         if (!isMultiSelectMode && onMoreClick != null) {
@@ -293,6 +321,67 @@ fun SongItemRow(
         }
     }
 }
+
+/**
+ * 行首收藏按钮：爱心 + 下方收藏数。
+ * 已收藏显示红心，未收藏显示灰心；收藏数未知时仅占位不显示数字。
+ */
+@Composable
+private fun FavoriteToggleButton(
+    isFavorite: Boolean,
+    countText: String,
+    onClick: () -> Unit,
+) {
+    val tint =
+        if (isFavorite) {
+            FavoriteRedColor
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    Column(
+        modifier =
+            Modifier
+                .width(38.dp)
+                .padding(end = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                contentDescription = if (isFavorite) "取消收藏" else "收藏",
+                tint = tint,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Text(
+            text = countText,
+            style = MaterialTheme.typography.labelSmall,
+            fontSize = 9.sp,
+            lineHeight = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
+        )
+    }
+}
+
+/**
+ * 格式化收藏数：>999 显示 "999+"，未知（null）显示空串，其余原样显示。
+ */
+internal fun formatFavCount(count: Int?): String =
+    when {
+        count == null || count < 0 -> ""
+        count > 999 -> "999+"
+        else -> count.toString()
+    }
 
 /**
  * 构建带有子串高亮样式的 AnnotatedString。

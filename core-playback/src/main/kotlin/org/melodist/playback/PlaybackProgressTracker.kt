@@ -99,20 +99,16 @@ class PlaybackProgressTracker(
                             val isLocal = currSong.isLocal || mid.startsWith("local_") || !currSong.localFilePath.isNullOrBlank()
                             if (isLocal || isCurrentTrackFromCache()) {
                                 onFileCacheFractionUpdated(1f)
-                            } else if (mid.startsWith("webdav_") || currSong.isWebDav) {
-                                val dur = player.duration.takeIf { it > 0L } ?: getDurationMs()
-                                val streamBufFraction = if (dur > 0L) (currentBuf.toFloat() / dur).coerceIn(0f, 1f) else 0f
-                                onFileCacheFractionUpdated(streamBufFraction)
                             } else {
                                 val dur = player.duration.takeIf { it > 0L } ?: getDurationMs()
                                 val streamBufFraction = if (dur > 0L) (currentBuf.toFloat() / dur).coerceIn(0f, 1f) else 0f
-                                val fileProgress = MelodistCacheManager.getSongFileCacheProgress(mid, curTier)
+                                val fileProgress = QQMusicCacheManager.getSongFileCacheProgress(mid, curTier)
                                 val combinedFraction = maxOf(fileProgress.fraction, streamBufFraction)
                                 onFileCacheFractionUpdated(combinedFraction)
                                 if (fileProgress.isFullyCached) {
                                     onFileCacheFractionUpdated(1f)
                                     onTrackFromCacheConfirmed()
-                                    MelodistCacheManager.confirmCacheRetention(mid, curTier)
+                                    QQMusicCacheManager.confirmCacheRetention(mid, curTier)
                                 }
                             }
                         }
@@ -133,15 +129,15 @@ class PlaybackProgressTracker(
                             if (dur > 0L) {
                                 onDurationUpdated(dur)
                                 if (!mid.isNullOrBlank()) {
-                                    MelodistCacheManager.recordPlayProgress(mid, pos, dur)
+                                    QQMusicCacheManager.recordPlayProgress(mid, pos, dur)
                                     val curTier = getCurrentTier()
                                     if (!isCurrentTrackFromCache()) {
                                         val isFav = isSongFavorite(mid)
-                                        if (MelodistCacheManager.shouldCacheSong(mid, isFav, curTier)) {
-                                            val thresholdMs = MelodistCacheManager.currentProfile.getTrialThresholdMs(dur)
+                                        if (QQMusicCacheManager.shouldCacheSong(mid, isFav, curTier)) {
+                                            val thresholdMs = QQMusicCacheManager.currentProfile.getTrialThresholdMs(dur)
                                             if (pos >= thresholdMs) {
-                                                MelodistCacheManager.confirmCacheRetention(mid, curTier)
-                                                if (MelodistCacheManager.isSongTierFullyCached(mid, curTier)) {
+                                                QQMusicCacheManager.confirmCacheRetention(mid, curTier)
+                                                if (QQMusicCacheManager.isSongTierFullyCached(mid, curTier)) {
                                                     onTrackFromCacheConfirmed()
                                                     onFileCacheFractionUpdated(1f)
                                                 }

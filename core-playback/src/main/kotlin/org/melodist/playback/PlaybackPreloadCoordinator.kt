@@ -14,7 +14,6 @@ import org.melodist.api.MusicApiService
 import org.melodist.api.QualityResult
 import org.melodist.api.getPlayUrl
 import org.melodist.data.LocalMusicManager
-import org.melodist.data.WebDavManager
 import org.melodist.model.AudioQualityTier
 import org.melodist.model.Song
 import java.util.concurrent.ConcurrentHashMap
@@ -104,23 +103,22 @@ class PlaybackPreloadCoordinator(
                                 .data(coverUrl)
                                 .build()
                         imageLoader.enqueue(req)
-                        Log.d("MelodistPlayback", "Prefetched next song cover: ${nextSong.name}")
+                        Log.d("QQMusicPlayback", "Prefetched next song cover: ${nextSong.name}")
                     } catch (e: Exception) {
-                        Log.w("MelodistPlayback", "Failed to prefetch cover for ${nextSong.name}", e)
+                        Log.w("QQMusicPlayback", "Failed to prefetch cover for ${nextSong.name}", e)
                     }
                 }
 
-                // 本地纯文件歌曲或 WebDAV 歌曲：无需预取在线播放数据
-                val isPureLocal = !nextSong.localFilePath.isNullOrBlank() && !nextSong.songMid.startsWith("webdav_")
-                val isWebDav = nextSong.isWebDav || nextSong.songMid.startsWith("webdav_")
-                if (isPureLocal || isWebDav) return@launch
+                // 本地纯文件歌曲：无需预取在线播放数据
+                val isPureLocal = !nextSong.localFilePath.isNullOrBlank()
+                if (isPureLocal) return@launch
 
                 // 在线歌曲：若本地已有完整缓存，直接跳过网络预取
                 val rawTargetTier = getPreferredTier()
                 val targetTier = clampCellularTier(rawTargetTier, nextSong)
-                val higherStereoTier = MelodistCacheManager.findHigherOrEqualStereoCachedTier(nextSong.songMid, targetTier)
+                val higherStereoTier = QQMusicCacheManager.findHigherOrEqualStereoCachedTier(nextSong.songMid, targetTier)
                 if (higherStereoTier != null) {
-                    Log.d("MelodistPlayback", "Next song already cached locally ($higherStereoTier) for ${nextSong.name}, skip prefetch")
+                    Log.d("QQMusicPlayback", "Next song already cached locally ($higherStereoTier) for ${nextSong.name}, skip prefetch")
                     return@launch
                 }
 
@@ -130,11 +128,11 @@ class PlaybackPreloadCoordinator(
                     val playUrl = playUrlInfo.url
                     if (!playUrl.isNullOrBlank()) {
                         prefetchedUrlInfo = Pair(nextSong.songMid, playUrlInfo)
-                        Log.i("MelodistPlayback", "Prefetched next song URL: ${nextSong.name}, tier: ${playUrlInfo.tier}")
+                        Log.i("QQMusicPlayback", "Prefetched next song URL: ${nextSong.name}, tier: ${playUrlInfo.tier}")
                     }
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.w("MelodistPlayback", "Prefetch next song failed for ${nextSong.name}", e)
+                    Log.w("QQMusicPlayback", "Prefetch next song failed for ${nextSong.name}", e)
                 }
             }
     }
@@ -156,34 +154,9 @@ class PlaybackPreloadCoordinator(
                 }
                 if (!prefetchingTargetMids.add(target.songMid)) continue
                 try {
-                    val isWebDav = target.isWebDav || target.songMid.startsWith("webdav_")
                     val isLocal = target.isLocal || !target.localFilePath.isNullOrBlank() || target.songMid.startsWith("local_")
 
-                    if (isWebDav) {
-                        val server = WebDavManager.getActiveServer() ?: continue
-                        val relativeHref = target.mediaMid.ifBlank { target.localFilePath ?: "" }
-                        if (relativeHref.isBlank()) continue
-
-                        val existingRaw = WebDavManager.getSongRawCoverPath(server.id, relativeHref)
-                        if (existingRaw != null) {
-                            withContext(Dispatchers.Main) {
-                                queueManager.updateSongInPlaylist(target.copy(rawCoverUrl = existingRaw))
-                            }
-                            continue
-                        }
-
-                        val meta = WebDavManager.extractPlaybackMetadata(server, target)
-                        val versionedCover = meta.coverUrl?.let { "${it.substringBefore('?')}?t=${System.currentTimeMillis()}" }
-                        withContext(Dispatchers.Main) {
-                            val updated =
-                                target.copy(
-                                    coverUrl = versionedCover ?: target.coverUrl,
-                                    rawCoverUrl = meta.rawCoverUrl ?: target.rawCoverUrl,
-                                    currentTier = meta.inferredTier ?: target.currentTier,
-                                )
-                            queueManager.updateSongInPlaylist(updated)
-                        }
-                    } else if (isLocal) {
+                    if (isLocal) {
                         val rawCover = LocalMusicManager.ensureRawCover(target)
                         if (!rawCover.isNullOrBlank() && rawCover != target.rawCoverUrl) {
                             withContext(Dispatchers.Main) {
@@ -192,7 +165,7 @@ class PlaybackPreloadCoordinator(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w("MelodistPlayback", "Error prefetching cover and metadata for ${target.name}", e)
+                    Log.w("QQMusicPlayback", "Error prefetching cover and metadata for ${target.name}", e)
                 } finally {
                     prefetchingTargetMids.remove(target.songMid)
                 }

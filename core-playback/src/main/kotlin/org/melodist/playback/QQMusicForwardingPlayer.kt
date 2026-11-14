@@ -9,7 +9,7 @@ import androidx.media3.common.Timeline
 import androidx.media3.exoplayer.source.SinglePeriodTimeline
 import java.util.concurrent.CopyOnWriteArraySet
 
-class MelodistForwardingPlayer(
+class QQMusicForwardingPlayer(
     player: Player,
 ) : ForwardingPlayer(player) {
     private val extraListeners = CopyOnWriteArraySet<Player.Listener>()
@@ -52,7 +52,7 @@ class MelodistForwardingPlayer(
                 listener.onRepeatModeChanged(repeat)
                 listener.onShuffleModeEnabledChanged(shuffle)
             } catch (e: Exception) {
-                Log.w("MelodistForwardingPlayer", "Operation failed", e)
+                Log.w("QQMusicForwardingPlayer", "Operation failed", e)
             }
         }
     }
@@ -297,7 +297,7 @@ class MelodistForwardingPlayer(
                 listener.onRepeatModeChanged(repeat)
                 listener.onShuffleModeEnabledChanged(shuffle)
             } catch (e: Exception) {
-                Log.w("MelodistForwardingPlayer", "Operation failed", e)
+                Log.w("QQMusicForwardingPlayer", "Operation failed", e)
             }
         }
     }

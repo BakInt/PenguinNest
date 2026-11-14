@@ -54,7 +54,6 @@ fun HomeTvScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToAcr: () -> Unit = {},
     onNavigateToSearch: () -> Unit = {},
-    onNavigateToWebDav: () -> Unit = {},
     onNavigateToLocalMusic: () -> Unit = {},
     onNavigateToConnect: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
@@ -83,7 +82,7 @@ fun HomeTvScreen(
             mid != null && favoriteSongMids.contains(mid)
         }
 
-    val navTabRequesters = remember { List(7) { FocusRequester() } }
+    val navTabRequesters = remember { List(6) { FocusRequester() } }
     val coreCardRequesters = remember { List(7) { FocusRequester() } }
     val feedCardRequesters = remember { List(6) { FocusRequester() } }
     val coreRowRequester = remember { FocusRequester() }
@@ -169,12 +168,11 @@ fun HomeTvScreen(
                 },
                 onItemSelected = { index ->
                     when (index) {
-                        1 -> onNavigateToWebDav()
-                        2 -> onNavigateToLocalMusic()
-                        3 -> onNavigateToConnect()
-                        4 -> onNavigateToAcr()
-                        5 -> onNavigateToSearch()
-                        6 -> onNavigateToSettings()
+                        1 -> onNavigateToLocalMusic()
+                        2 -> onNavigateToConnect()
+                        3 -> onNavigateToAcr()
+                        4 -> onNavigateToSearch()
+                        5 -> onNavigateToSettings()
                         else -> selectedNavIndex = index
                     }
                 },

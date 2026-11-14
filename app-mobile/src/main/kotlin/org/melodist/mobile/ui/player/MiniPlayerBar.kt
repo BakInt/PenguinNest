@@ -34,8 +34,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Computer
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -336,10 +338,10 @@ fun MiniPlayerBar(
                     )
                 }.clickable(onClick = onClick),
         shape = cardShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        tonalElevation = 4.dp,
-        shadowElevation = 3.dp,
+        tonalElevation = 2.dp,
+        shadowElevation = 0.dp,
     ) {
         Box(
             modifier =
@@ -469,6 +471,22 @@ fun MiniPlayerBar(
                     Spacer(modifier = Modifier.width(4.dp))
                 }
 
+                // MusicFree MusicBar：播放/下一首
+                if (currentNextSong != null) {
+                    IconButton(
+                        onClick = { currentOnPlayNext() },
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipNext,
+                            contentDescription = "下一首",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(2.dp))
+                }
+
                 FilledIconButton(
                     onClick = onTogglePlayPause,
                     interactionSource = playPauseInteractionSource,
@@ -586,7 +604,7 @@ private fun MiniPlayerSongContent(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = song?.singer ?: "Melodist",
+                text = song?.singer ?: "QQMusic",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

@@ -81,7 +81,6 @@ fun RecentPlaybackScreen(
             songs = recentSongs,
             deleteType = SongListDeleteType.RecentHistory,
             showLocalBadge = true,
-            showWebDavBadge = true,
             onDeleteSelected = { songs -> RecentPlaybackManager.removeSongs(songs) },
             onDeleteLocalFile = { song -> RecentPlaybackManager.removeSong(song.songMid) },
             contentPadding =

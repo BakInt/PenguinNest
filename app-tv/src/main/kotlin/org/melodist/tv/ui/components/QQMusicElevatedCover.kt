@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
  * 封面展示组件，支持投影阴影与边框样式
  */
 @Composable
-fun MelodistElevatedCover(
+fun QQMusicElevatedCover(
     coverUrl: String,
     modifier: Modifier = Modifier,
     albumMid: String = "",
@@ -70,7 +70,7 @@ fun MelodistElevatedCover(
                 ),
         contentAlignment = Alignment.Center,
     ) {
-        MelodistAsyncImage(
+        QQMusicAsyncImage(
             coverUrl = coverUrl,
             albumMid = albumMid,
             visualMid = visualMid,

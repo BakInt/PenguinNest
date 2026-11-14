@@ -1,4 +1,4 @@
-package org.melodist.mobile.ui.settings.sections
+﻿package org.melodist.mobile.ui.settings.sections
 
 import android.os.Environment
 import android.widget.Toast
@@ -49,11 +49,29 @@ import org.melodist.data.CacheUsageDetail
 import org.melodist.data.LyricSaveMode
 import org.melodist.data.download.DownloadManager
 import org.melodist.mobile.ui.components.SettingsClickableRow
+import org.melodist.mobile.ui.components.SettingsCollapsibleGroup
 import org.melodist.mobile.ui.components.SettingsDivider
 import org.melodist.mobile.ui.components.SettingsGroupCard
-import org.melodist.mobile.ui.components.SettingsGroupTitle
 import org.melodist.mobile.ui.components.SettingsSwitchRow
+import org.melodist.mobile.ui.components.rememberSettingsSectionExpandedState
 import java.io.File
+
+private data class CacheLimitOption(
+    val gb: Int,
+    val label: String,
+)
+
+private val CACHE_LIMIT_OPTIONS =
+    listOf(
+        CacheLimitOption(0, "默认（自适应）"),
+        CacheLimitOption(1, "1 GB"),
+        CacheLimitOption(2, "2 GB"),
+        CacheLimitOption(4, "4 GB"),
+        CacheLimitOption(6, "6 GB"),
+        CacheLimitOption(8, "8 GB"),
+        CacheLimitOption(16, "16 GB"),
+        CacheLimitOption(32, "32 GB"),
+    )
 
 @Composable
 fun SettingsStorageSection(
@@ -66,103 +84,122 @@ fun SettingsStorageSection(
     var isCleaningCache by remember { mutableStateOf(false) }
     var showDownloadDirDialog by remember { mutableStateOf(false) }
     var showLyricSaveModeDialog by remember { mutableStateOf(false) }
+    var showCacheLimitDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier) {
-        SettingsGroupTitle(title = "下载与存储")
-        SettingsGroupCard {
-            SettingsClickableRow(
-                icon = Icons.Rounded.Download,
-                title = "歌曲下载目录",
-                subtitle = AppSettingsManager.getEffectiveDownloadDirectory().absolutePath,
-                onClick = { showDownloadDirDialog = true },
-            )
-
-            SettingsDivider()
-
-            SettingsClickableRow(
-                icon = Icons.Rounded.Subtitles,
-                title = "歌词保存方式",
-                subtitle = settings.lyricSaveMode.label,
-                onClick = { showLyricSaveModeDialog = true },
-            )
-
-            SettingsDivider()
-
-            SettingsSwitchRow(
-                icon = Icons.Rounded.Translate,
-                title = "保存歌词翻译",
-                subtitle = "开启后内嵌和 LRC 会保存翻译",
-                checked = settings.saveLyricTranslation,
-                onCheckedChange = { AppSettingsManager.setSaveLyricTranslation(it) },
-            )
-
-            SettingsDivider()
-
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Storage,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp),
+        val storageExpanded = rememberSettingsSectionExpandedState("settings_section_storage")
+        SettingsCollapsibleGroup(
+            title = "下载与存储",
+            expanded = storageExpanded.value,
+            onExpandedChange = { storageExpanded.value = it },
+        ) {
+            SettingsGroupCard {
+                SettingsClickableRow(
+                    icon = Icons.Rounded.Download,
+                    title = "歌曲下载目录",
+                    subtitle = AppSettingsManager.getEffectiveDownloadDirectory().absolutePath,
+                    onClick = { showDownloadDirDialog = true },
                 )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "本地缓存占用",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
+
+                SettingsDivider()
+
+                SettingsClickableRow(
+                    icon = Icons.Rounded.Subtitles,
+                    title = "歌词保存方式",
+                    subtitle = settings.lyricSaveMode.label,
+                    onClick = { showLyricSaveModeDialog = true },
+                )
+
+                SettingsDivider()
+
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.Translate,
+                    title = "保存歌词翻译",
+                    subtitle = "开启后内嵌和 LRC 会保存翻译",
+                    checked = settings.saveLyricTranslation,
+                    onCheckedChange = { AppSettingsManager.setSaveLyricTranslation(it) },
+                )
+
+                SettingsDivider()
+
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Storage,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "共 ${cacheUsage.totalFormatted} (封面 ${cacheUsage.imageFormatted} / 媒体 ${cacheUsage.mediaFormatted})",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (cacheUsage.mediaQuotaBytes > 0L) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        val percent = (cacheUsage.mediaUsageFraction * 100).toInt()
-                        val trackDesc = if (cacheUsage.cachedTrackCount > 0) "，已缓存 ${cacheUsage.cachedTrackCount} 首歌曲" else ""
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .clickable { showCacheLimitDialog = true },
+                    ) {
                         Text(
-                            text = "音频配额: ${cacheUsage.mediaFormatted} / ${cacheUsage.mediaQuotaFormatted} ($percent%$trackDesc)",
+                            text = "本地缓存占用",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "共 ${cacheUsage.totalFormatted} (封面 ${cacheUsage.imageFormatted} / 媒体 ${cacheUsage.mediaFormatted})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text =
+                                "音频缓存上限：${if (settings.mediaCacheLimitGb > 0) "${settings.mediaCacheLimitGb} GB" else "默认（自适应）"}，点击可修改",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { cacheUsage.mediaUsageFraction },
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(4.dp),
-                        )
-                    }
-                }
-                FilledTonalButton(
-                    onClick = {
-                        scope.launch {
-                            isCleaningCache = true
-                            AppSettingsManager.clearAllCacheData()
-                            AppSettingsManager.refreshCacheUsage(context)
-                            isCleaningCache = false
-                            Toast.makeText(context, "缓存已清理", Toast.LENGTH_SHORT).show()
+                        if (cacheUsage.mediaQuotaBytes > 0L) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            val percent = (cacheUsage.mediaUsageFraction * 100).toInt()
+                            val trackDesc = if (cacheUsage.cachedTrackCount > 0) "，已缓存 ${cacheUsage.cachedTrackCount} 首歌曲" else ""
+                            Text(
+                                text = "音频配额: ${cacheUsage.mediaFormatted} / ${cacheUsage.mediaQuotaFormatted} ($percent%$trackDesc)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { cacheUsage.mediaUsageFraction },
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp),
+                            )
                         }
-                    },
-                    enabled = !isCleaningCache,
-                    contentPadding = PaddingValues(horizontal = 14.dp),
-                ) {
-                    if (isCleaningCache) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                        )
-                    } else {
-                        Text("清理")
+                    }
+                    FilledTonalButton(
+                        onClick = {
+                            scope.launch {
+                                isCleaningCache = true
+                                AppSettingsManager.clearAllCacheData()
+                                AppSettingsManager.refreshCacheUsage(context)
+                                isCleaningCache = false
+                                Toast.makeText(context, "缓存已清理", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        enabled = !isCleaningCache,
+                        contentPadding = PaddingValues(horizontal = 14.dp),
+                    ) {
+                        if (isCleaningCache) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text("清理")
+                        }
                     }
                 }
             }
@@ -206,7 +243,7 @@ fun SettingsStorageSection(
                         OutlinedButton(
                             onClick = {
                                 val dlDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                                inputPath = File(dlDir, "Melodist").absolutePath
+                                inputPath = File(dlDir, "QQMusic").absolutePath
                             },
                             modifier = Modifier.weight(1f),
                             contentPadding = PaddingValues(horizontal = 4.dp),
@@ -296,6 +333,56 @@ fun SettingsStorageSection(
             confirmButton = {
                 TextButton(onClick = { showLyricSaveModeDialog = false }) {
                     Text("完成")
+                }
+            },
+        )
+    }
+
+    if (showCacheLimitDialog) {
+        AlertDialog(
+            onDismissRequest = { showCacheLimitDialog = false },
+            title = { Text("音频缓存上限") },
+            text = {
+                Column {
+                    Text(
+                        text = "超过上限后自动删除最先缓存的整首缓存（正在播放的除外）。实际生效配额受剩余存储空间限制，封面缓存不在此限额内。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    CACHE_LIMIT_OPTIONS.forEach { option ->
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        AppSettingsManager.setMediaCacheLimitGb(option.gb)
+                                        Toast
+                                            .makeText(
+                                                context,
+                                                if (option.gb > 0) "音频缓存上限已设为 ${option.gb} GB" else "已恢复默认自适应配额",
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                        showCacheLimitDialog = false
+                                    }.padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = settings.mediaCacheLimitGb == option.gb,
+                                onClick = null,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = option.label,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCacheLimitDialog = false }) {
+                    Text("关闭")
                 }
             },
         )

@@ -29,7 +29,7 @@ class PlaybackExoPlayerPipeline(
                 audioTrackConfig: AudioSink.AudioTrackConfig,
             ) {
                 Log.i(
-                    "MelodistPlayback",
+                    "QQMusicPlayback",
                     "AudioTrack initialized: rate=${audioTrackConfig.sampleRate}, enc=${audioTrackConfig.encoding}, ch=${audioTrackConfig.channelConfig}, offload=${audioTrackConfig.offload}",
                 )
             }
@@ -73,7 +73,7 @@ class PlaybackExoPlayerPipeline(
             }
         onPlayerCreated(exoPlayer!!)
         updateUsbExclusiveRouting()
-        Log.i("MelodistPlayback", "Player pipeline reset with updated audio configuration (restoreMediaItem=$restoreMediaItem)")
+        Log.i("QQMusicPlayback", "Player pipeline reset with updated audio configuration (restoreMediaItem=$restoreMediaItem)")
     }
 
     fun reloadAudioPipeline() {
@@ -86,7 +86,7 @@ class PlaybackExoPlayerPipeline(
         if (wasPlaying) {
             p.play()
         }
-        Log.i("MelodistPlayback", "Audio pipeline reloaded at position: $pos ms (playing: $wasPlaying)")
+        Log.i("QQMusicPlayback", "Audio pipeline reloaded at position: $pos ms (playing: $wasPlaying)")
     }
 
     fun updateUsbExclusiveRouting(

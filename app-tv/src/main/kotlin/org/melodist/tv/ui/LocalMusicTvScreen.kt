@@ -45,9 +45,9 @@ import org.melodist.data.LocalMusicManager
 import org.melodist.data.StorageDrive
 import org.melodist.model.Song
 import org.melodist.playback.PlaybackManager
-import org.melodist.tv.ui.components.MelodistElevatedCover
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.components.QQMusicElevatedCover
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberTvWindowMetrics
 import java.io.File
 
@@ -231,7 +231,7 @@ fun LocalMusicTvScreen(
                     Icon(
                         imageVector = Icons.Filled.Info,
                         contentDescription = null,
-                        tint = MelodistColors.AccentGreen,
+                        tint = QQMusicColors.AccentGreen,
                         modifier = Modifier.size(16.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -537,7 +537,7 @@ private fun LocalMusicLibrarySongRow(
                     border =
                         BorderStroke(
                             width = if (isFocused) 2.dp else 0.dp,
-                            color = if (isFocused) MelodistColors.FocusTeal else Color.Transparent,
+                            color = if (isFocused) QQMusicColors.FocusTeal else Color.Transparent,
                         ),
                     shape = RoundedCornerShape(8.dp),
                 ).background(
@@ -559,7 +559,7 @@ private fun LocalMusicLibrarySongRow(
             modifier = Modifier.weight(0.42f),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MelodistElevatedCover(
+            QQMusicElevatedCover(
                 coverUrl = song.coverUrl,
                 modifier = Modifier.size(38.dp),
             )
@@ -618,7 +618,7 @@ private fun LocalMusicParentFolderRow(
                     border =
                         BorderStroke(
                             width = if (isFocused) 2.dp else 1.dp,
-                            color = if (isFocused) MelodistColors.FocusTeal else Color.White.copy(alpha = 0.10f),
+                            color = if (isFocused) QQMusicColors.FocusTeal else Color.White.copy(alpha = 0.10f),
                         ),
                     shape = RoundedCornerShape(8.dp),
                 ).background(
@@ -630,7 +630,7 @@ private fun LocalMusicParentFolderRow(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.DriveFileMove,
             contentDescription = null,
-            tint = if (isFocused) Color.Black else MelodistColors.FocusTeal,
+            tint = if (isFocused) Color.Black else QQMusicColors.FocusTeal,
             modifier = Modifier.size(24.dp),
         )
         Spacer(modifier = Modifier.width(14.dp))
@@ -665,7 +665,7 @@ private fun LocalMusicItemRow(
                     border =
                         BorderStroke(
                             width = if (isFocused) 2.dp else 0.dp,
-                            color = if (isFocused) MelodistColors.FocusTeal else Color.Transparent,
+                            color = if (isFocused) QQMusicColors.FocusTeal else Color.Transparent,
                         ),
                     shape = RoundedCornerShape(8.dp),
                 ).background(
@@ -684,7 +684,7 @@ private fun LocalMusicItemRow(
                 when {
                     isFocused -> Color.Black
                     item.isDirectory -> Color(0xFFFFCA28)
-                    else -> MelodistColors.AccentGreen
+                    else -> QQMusicColors.AccentGreen
                 }
             Icon(
                 imageVector = icon,
@@ -739,21 +739,21 @@ private fun LocalMusicNavButton(
 
     val baseBgColor =
         if (isAccent) {
-            MelodistColors.AccentGreen.copy(alpha = 0.22f)
+            QQMusicColors.AccentGreen.copy(alpha = 0.22f)
         } else {
             Color.White.copy(alpha = 0.08f)
         }
     val baseBorderColor =
         if (isAccent) {
-            MelodistColors.AccentGreen.copy(alpha = 0.50f)
+            QQMusicColors.AccentGreen.copy(alpha = 0.50f)
         } else {
             Color.White.copy(alpha = 0.14f)
         }
     val baseContentColor =
         if (isAccent) {
-            MelodistColors.AccentGreen
+            QQMusicColors.AccentGreen
         } else {
-            MelodistColors.TextPrimary
+            QQMusicColors.TextPrimary
         }
 
     Row(
@@ -766,12 +766,12 @@ private fun LocalMusicNavButton(
                     border =
                         BorderStroke(
                             width = if (isFocused) 2.dp else 1.dp,
-                            color = if (isFocused) MelodistColors.FocusTeal else baseBorderColor,
+                            color = if (isFocused) QQMusicColors.FocusTeal else baseBorderColor,
                         ),
-                    shape = MelodistShapes.ButtonCorner,
+                    shape = QQMusicShapes.ButtonCorner,
                 ).background(
                     color = if (isFocused) Color.White else baseBgColor,
-                    shape = MelodistShapes.ButtonCorner,
+                    shape = QQMusicShapes.ButtonCorner,
                 ).padding(horizontal = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -869,9 +869,9 @@ private fun StorageDriveSelectDialog(
                                                     width = if (isFocused) 2.5.dp else 1.dp,
                                                     color =
                                                         if (isFocused) {
-                                                            MelodistColors.FocusTeal
+                                                            QQMusicColors.FocusTeal
                                                         } else if (isCurrent) {
-                                                            MelodistColors.FocusTeal.copy(alpha = 0.4f)
+                                                            QQMusicColors.FocusTeal.copy(alpha = 0.4f)
                                                         } else {
                                                             Color.White.copy(alpha = 0.10f)
                                                         },
@@ -882,7 +882,7 @@ private fun StorageDriveSelectDialog(
                                                 if (isFocused) {
                                                     Color.White
                                                 } else if (isCurrent) {
-                                                    MelodistColors.FocusTeal.copy(alpha = 0.15f)
+                                                    QQMusicColors.FocusTeal.copy(alpha = 0.15f)
                                                 } else {
                                                     Color.White.copy(alpha = 0.05f)
                                                 },
@@ -903,7 +903,7 @@ private fun StorageDriveSelectDialog(
                                             if (isFocused) {
                                                 Color.Black
                                             } else if (drive.isRemovable) {
-                                                MelodistColors.AccentGreen
+                                                QQMusicColors.AccentGreen
                                             } else {
                                                 Color.White.copy(alpha = 0.7f)
                                             },
@@ -931,7 +931,7 @@ private fun StorageDriveSelectDialog(
                                     Icon(
                                         imageVector = Icons.Filled.Check,
                                         contentDescription = "当前所在",
-                                        tint = if (isFocused) Color.Black else MelodistColors.FocusTeal,
+                                        tint = if (isFocused) Color.Black else QQMusicColors.FocusTeal,
                                         modifier = Modifier.size(18.dp),
                                     )
                                 }

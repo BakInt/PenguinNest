@@ -80,8 +80,8 @@ fun RemoteControlMobileScreen(contentPadding: PaddingValues = PaddingValues(0.dp
     val curTvSong = tvPlayerState?.currentSong
     LaunchedEffect(showTvQualitySheet, curTvSong?.songMid) {
         if (showTvQualitySheet && curTvSong != null) {
-            val isLocalOrWebDav = curTvSong.isLocal || curTvSong.isWebDav
-            if (!isLocalOrWebDav) {
+            val isLocal = curTvSong.isLocal || !curTvSong.localFilePath.isNullOrBlank()
+            if (!isLocal) {
                 isTvProbingQuality = true
                 try {
                     val probed =

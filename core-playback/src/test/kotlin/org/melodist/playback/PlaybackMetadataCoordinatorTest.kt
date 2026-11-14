@@ -35,13 +35,15 @@ class PlaybackMetadataCoordinatorTest {
             )
         assertTrue(PlaybackMetadataCoordinator.needsEnrichment(localSongUnknown))
 
-        val webDavSongUnknown =
+        val localSongUnknownAlbum =
             Song(
-                songMid = "webdav_server_123",
+                songMid = "local_789",
                 name = "BLUE (蓝色)",
-                singer = "WebDAV 音频",
+                singer = "BIGBANG",
+                album = "本地音频",
+                localFilePath = "/storage/emulated/0/Music/02. BLUE (蓝色).flac",
             )
-        assertTrue(PlaybackMetadataCoordinator.needsEnrichment(webDavSongUnknown))
+        assertTrue(PlaybackMetadataCoordinator.needsEnrichment(localSongUnknownAlbum))
 
         val completeSong =
             Song(
@@ -96,19 +98,20 @@ class PlaybackMetadataCoordinatorTest {
     }
 
     @Test
-    fun testEnrichSongMetadataForWebDav() {
-        val webDavSong =
+    fun testEnrichSongMetadataForLocalFile() {
+        val localSong =
             Song(
-                songMid = "webdav_server1_loser",
+                songMid = "local_server1_loser",
                 name = "01. LOSER",
-                singer = "WebDAV 音频",
-                album = "WebDAV 云盘",
-                mediaMid = "/dav/Music/01. LOSER.flac",
+                singer = "未知歌手",
+                album = "本地音频",
+                mediaMid = "/storage/emulated/0/Music/01. LOSER.flac",
+                localFilePath = "/storage/emulated/0/Music/01. LOSER.flac",
             )
 
         val enriched =
             PlaybackMetadataCoordinator.enrichSongMetadata(
-                currentSong = webDavSong,
+                currentSong = localSong,
                 title = "LOSER",
                 artist = "BIGBANG",
                 album = "MADE",

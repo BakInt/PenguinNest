@@ -21,8 +21,13 @@ class AudioRecordingManager {
         const val SAMPLE_RATE = 16000
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
+
+        // stop() 等待读取线程退出的上限；超时后不释放录音器，改由读取线程退出时自行释放
+        private const val STOP_JOIN_TIMEOUT_MS = 500L
     }
 
+    // 读取线程会不加锁读取该引用，且 stop() 会并发写 null，故需 volatile 保证可见性
+    @Volatile
     private var audioRecord: AudioRecord? = null
     private var recordingThread: Thread? = null
     private val isRecording = AtomicBoolean(false)
@@ -100,8 +105,7 @@ class AudioRecordingManager {
                 return true
             } catch (e: Exception) {
                 android.util.Log.e("AudioRecordingManager", "AudioRecord start failed: ${e.message}", e)
-                initializedRecord.release()
-                audioRecord = null
+                releaseRecordLocked(initializedRecord)
                 isRecording.set(false)
                 return false
             }
@@ -110,27 +114,62 @@ class AudioRecordingManager {
 
     private fun recordLoop(bufferSize: Int) {
         val shortBuffer = ShortArray(bufferSize / 2)
-        while (isRecording.get()) {
-            val record = audioRecord ?: break
-            val readCount = record.read(shortBuffer, 0, shortBuffer.size)
-            if (readCount > 0) {
-                var sumSquares = 0L
-                synchronized(lock) {
-                    for (i in 0 until readCount) {
-                        val s = shortBuffer[i]
-                        pcmBuffer.add(s)
-                        sumSquares += s.toLong() * s.toLong()
+        var activeRecord: AudioRecord? = null
+        try {
+            while (isRecording.get()) {
+                val record = audioRecord ?: break
+                activeRecord = record
+                // read() 必须在 try 内：release 与 read 并发时会抛 IllegalStateException，
+                // 异常一旦逃出该线程就是进程级崩溃（FATAL EXCEPTION: MicRecordThread）
+                val readCount =
+                    try {
+                        record.read(shortBuffer, 0, shortBuffer.size)
+                    } catch (e: Exception) {
+                        if (isRecording.get()) {
+                            android.util.Log.e("AudioRecordingManager", "AudioRecord.read failed: ${e.message}", e)
+                        }
+                        break
                     }
-                }
+                if (readCount > 0) {
+                    var sumSquares = 0L
+                    synchronized(lock) {
+                        for (i in 0 until readCount) {
+                            val s = shortBuffer[i]
+                            pcmBuffer.add(s)
+                            sumSquares += s.toLong() * s.toLong()
+                        }
+                    }
 
-                val rms = sqrt((sumSquares.toDouble() / readCount))
-                val normalizedEnergy = (rms / 2500.0).coerceIn(0.0, 1.0).toFloat()
-                _audioEnergy.value = normalizedEnergy
-            } else if (readCount < 0) {
-                if (isRecording.get()) {
-                    android.util.Log.e("AudioRecordingManager", "AudioRecord.read error: $readCount")
+                    val rms = sqrt((sumSquares.toDouble() / readCount))
+                    val normalizedEnergy = (rms / 2500.0).coerceIn(0.0, 1.0).toFloat()
+                    _audioEnergy.value = normalizedEnergy
+                } else if (readCount < 0) {
+                    if (isRecording.get()) {
+                        android.util.Log.e("AudioRecordingManager", "AudioRecord.read error: $readCount")
+                    }
+                    break
                 }
-                break
+            }
+        } finally {
+            // 线程退出后由自己释放：stop() 若在 join 超时后直接 release，
+            // 就可能与仍在阻塞的 read() 竞争，导致 native 崩溃
+            releaseRecordLocked(activeRecord)
+        }
+    }
+
+    /**
+     * 释放录音器。仅在线程安全时调用（读取线程已退出），且只释放期望的那个实例，
+     * 避免上一轮的延迟释放误伤新一轮已启动的录音器。
+     */
+    private fun releaseRecordLocked(expected: AudioRecord?) {
+        synchronized(lock) {
+            val record = audioRecord
+            if (record == null || record !== expected) return
+            audioRecord = null
+            try {
+                record.release()
+            } catch (e: Exception) {
+                Log.w("AudioRecordingManager", "AudioRecord release failed", e)
             }
         }
     }
@@ -242,27 +281,36 @@ class AudioRecordingManager {
         isRecording.set(false)
         _audioEnergy.value = 0f
 
+        val record = audioRecord
         try {
-            audioRecord?.stop()
+            // stop() 是让阻塞中的 read() 尽快返回的官方手段
+            record?.stop()
         } catch (e: Exception) {
             Log.w("AudioRecordingManager", "Operation failed", e)
         }
 
         val thread = recordingThread
         recordingThread = null
-        try {
-            thread?.join(600)
-        } catch (e: Exception) {
-            Log.w("AudioRecordingManager", "Operation failed", e)
-        }
-
-        synchronized(lock) {
+        val threadFinished =
             try {
-                audioRecord?.release()
+                if (thread == null) {
+                    true
+                } else {
+                    if (thread.isAlive) thread.join(STOP_JOIN_TIMEOUT_MS)
+                    !thread.isAlive
+                }
             } catch (e: Exception) {
                 Log.w("AudioRecordingManager", "Operation failed", e)
+                false
             }
-            audioRecord = null
+
+        if (threadFinished) {
+            // 读取线程已退出（或从未启动），此时释放不会与 read() 竞争
+            releaseRecordLocked(record)
+        } else {
+            // 读取线程仍阻塞在 read()：宁可短暂泄漏一个录音器，也不能与 read() 竞争，
+            // 否则会抛 IllegalStateException 甚至触发 native 崩溃；由该线程退出时自行释放
+            Log.w("AudioRecordingManager", "record thread still alive after join timeout, deferring release")
         }
     }
 }

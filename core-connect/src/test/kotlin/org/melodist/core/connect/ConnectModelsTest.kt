@@ -147,11 +147,10 @@ class ConnectModelsTest {
     }
 
     @Test
-    fun `AudioSourceType 包含三种类型`() {
+    fun `AudioSourceType 包含两种类型`() {
         val types = AudioSourceType.entries.map { it.name }
         assertTrue(types.contains("DIRECT_API"))
         assertTrue(types.contains("STREAM_PROXY"))
-        assertTrue(types.contains("DIRECT_WEBDAV"))
     }
 
     // ── PairRequestPayload / PairResponsePayload ───────────────────

@@ -7,69 +7,69 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
-class MelodistCacheManagerTest {
+class QQMusicCacheManagerTest {
     @Test
     fun `formatBytes formats various byte sizes correctly`() {
-        assertEquals("0 B", MelodistCacheManager.formatBytes(0L))
-        assertEquals("0 B", MelodistCacheManager.formatBytes(-100L))
-        assertEquals("512 B", MelodistCacheManager.formatBytes(512L))
-        assertEquals("1 KB", MelodistCacheManager.formatBytes(1024L))
-        assertEquals("1.5 MB", MelodistCacheManager.formatBytes((1.5 * 1024 * 1024).toLong()))
-        assertEquals("256 MB", MelodistCacheManager.formatBytes(256L * 1024L * 1024L))
-        assertEquals("1 GB", MelodistCacheManager.formatBytes(1024L * 1024L * 1024L))
-        assertEquals("2 GB", MelodistCacheManager.formatBytes(2048L * 1024L * 1024L))
+        assertEquals("0 B", QQMusicCacheManager.formatBytes(0L))
+        assertEquals("0 B", QQMusicCacheManager.formatBytes(-100L))
+        assertEquals("512 B", QQMusicCacheManager.formatBytes(512L))
+        assertEquals("1 KB", QQMusicCacheManager.formatBytes(1024L))
+        assertEquals("1.5 MB", QQMusicCacheManager.formatBytes((1.5 * 1024 * 1024).toLong()))
+        assertEquals("256 MB", QQMusicCacheManager.formatBytes(256L * 1024L * 1024L))
+        assertEquals("1 GB", QQMusicCacheManager.formatBytes(1024L * 1024L * 1024L))
+        assertEquals("2 GB", QQMusicCacheManager.formatBytes(2048L * 1024L * 1024L))
     }
 
     @Test
     fun `calculateAdaptiveCacheQuotaBytes clamps to safe boundaries`(
         @TempDir tempDir: File,
     ) {
-        val calculated = MelodistCacheManager.calculateAdaptiveCacheQuotaBytes(tempDir)
+        val calculated = QQMusicCacheManager.calculateAdaptiveCacheQuotaBytes(tempDir)
         // 验证计算结果在安全边界内：介于 128MB 与 2GB 之间
-        assertTrue(calculated >= MelodistCacheManager.MIN_PROTECT_QUOTA_BYTES)
-        assertTrue(calculated <= MelodistCacheManager.DEFAULT_MAX_QUOTA_BYTES)
+        assertTrue(calculated >= QQMusicCacheManager.MIN_PROTECT_QUOTA_BYTES)
+        assertTrue(calculated <= QQMusicCacheManager.DEFAULT_MAX_QUOTA_BYTES)
     }
 
     @Test
     fun `calculateAdaptiveCacheQuotaBytes gracefully handles nonexistent path`() {
         val nonExistent = File("/path/to/nonexistent/directory/test")
-        val fallback = MelodistCacheManager.calculateAdaptiveCacheQuotaBytes(nonExistent)
-        assertEquals(MelodistCacheManager.MIN_PROTECT_QUOTA_BYTES, fallback)
+        val fallback = QQMusicCacheManager.calculateAdaptiveCacheQuotaBytes(nonExistent)
+        assertEquals(QQMusicCacheManager.MIN_PROTECT_QUOTA_BYTES, fallback)
     }
 
     @Test
     fun `smart admission rules distinguish favorite vs ordinary songs`() {
         val songMid = "test_song_mid_001"
-        MelodistCacheManager.onNewSongStarted(songMid)
+        QQMusicCacheManager.onNewSongStarted(songMid)
 
         // 初始状态：0次有效播放
-        assertFalse(MelodistCacheManager.shouldCacheSong(songMid, isFavorite = false))
-        assertFalse(MelodistCacheManager.shouldCacheSong(songMid, isFavorite = true))
+        assertFalse(QQMusicCacheManager.shouldCacheSong(songMid, isFavorite = false))
+        assertFalse(QQMusicCacheManager.shouldCacheSong(songMid, isFavorite = true))
 
         // 模拟播放未满 80% (例如 10s / 200s = 5%)
-        MelodistCacheManager.recordPlayProgress(songMid, positionMs = 10_000L, durationMs = 200_000L)
-        assertEquals(0, MelodistCacheManager.getPlayCount(songMid))
+        QQMusicCacheManager.recordPlayProgress(songMid, positionMs = 10_000L, durationMs = 200_000L)
+        assertEquals(0, QQMusicCacheManager.getPlayCount(songMid))
 
         // 模拟播放达到 85% (170s / 200s = 85%) -> 计为第 1 次有效播放
-        MelodistCacheManager.recordPlayProgress(songMid, positionMs = 170_000L, durationMs = 200_000L)
-        assertEquals(1, MelodistCacheManager.getPlayCount(songMid))
+        QQMusicCacheManager.recordPlayProgress(songMid, positionMs = 170_000L, durationMs = 200_000L)
+        assertEquals(1, QQMusicCacheManager.getPlayCount(songMid))
 
         // 同一次会话中重复触发不重复加计数
-        MelodistCacheManager.recordPlayProgress(songMid, positionMs = 180_000L, durationMs = 200_000L)
-        assertEquals(1, MelodistCacheManager.getPlayCount(songMid))
+        QQMusicCacheManager.recordPlayProgress(songMid, positionMs = 180_000L, durationMs = 200_000L)
+        assertEquals(1, QQMusicCacheManager.getPlayCount(songMid))
 
         // 达到 1 次：收藏曲目准入成功，普通曲目仍不准入
-        assertTrue(MelodistCacheManager.shouldCacheSong(songMid, isFavorite = true))
-        assertFalse(MelodistCacheManager.shouldCacheSong(songMid, isFavorite = false))
+        assertTrue(QQMusicCacheManager.shouldCacheSong(songMid, isFavorite = true))
+        assertFalse(QQMusicCacheManager.shouldCacheSong(songMid, isFavorite = false))
 
         // 开启新一轮播放会话，并再次播完 80%
-        MelodistCacheManager.onNewSongStarted(songMid)
-        MelodistCacheManager.recordPlayProgress(songMid, positionMs = 165_000L, durationMs = 200_000L)
-        assertEquals(2, MelodistCacheManager.getPlayCount(songMid))
+        QQMusicCacheManager.onNewSongStarted(songMid)
+        QQMusicCacheManager.recordPlayProgress(songMid, positionMs = 165_000L, durationMs = 200_000L)
+        assertEquals(2, QQMusicCacheManager.getPlayCount(songMid))
 
         // 达到 2 次：普通曲目也准入成功
-        assertTrue(MelodistCacheManager.shouldCacheSong(songMid, isFavorite = true))
-        assertTrue(MelodistCacheManager.shouldCacheSong(songMid, isFavorite = false))
+        assertTrue(QQMusicCacheManager.shouldCacheSong(songMid, isFavorite = true))
+        assertTrue(QQMusicCacheManager.shouldCacheSong(songMid, isFavorite = false))
     }
 
     @Test
@@ -95,27 +95,27 @@ class MelodistCacheManagerTest {
 
     @Test
     fun `getCacheKey generates normalized format`() {
-        assertEquals("melodist_001_HQ", MelodistCacheManager.getCacheKey("001", org.melodist.model.AudioQualityTier.HQ))
-        assertEquals("melodist_001_HiRes", MelodistCacheManager.getCacheKey("001", org.melodist.model.AudioQualityTier.HiRes))
-        assertEquals("melodist_001", MelodistCacheManager.getCacheKey("001", null))
+        assertEquals("qqmusic_001_HQ", QQMusicCacheManager.getCacheKey("001", org.melodist.model.AudioQualityTier.HQ))
+        assertEquals("qqmusic_001_HiRes", QQMusicCacheManager.getCacheKey("001", org.melodist.model.AudioQualityTier.HiRes))
+        assertEquals("qqmusic_001", QQMusicCacheManager.getCacheKey("001", null))
     }
 
     @Test
     fun `master tier is strictly stream-only when allowMasterDiskCache is false`() {
         val songMid = "test_master_song"
-        MelodistCacheManager.onNewSongStarted(songMid)
-        MelodistCacheManager.recordPlayProgress(songMid, positionMs = 180_000L, durationMs = 200_000L)
-        MelodistCacheManager.onNewSongStarted(songMid)
-        MelodistCacheManager.recordPlayProgress(songMid, positionMs = 180_000L, durationMs = 200_000L)
-        assertEquals(2, MelodistCacheManager.getPlayCount(songMid))
+        QQMusicCacheManager.onNewSongStarted(songMid)
+        QQMusicCacheManager.recordPlayProgress(songMid, positionMs = 180_000L, durationMs = 200_000L)
+        QQMusicCacheManager.onNewSongStarted(songMid)
+        QQMusicCacheManager.recordPlayProgress(songMid, positionMs = 180_000L, durationMs = 200_000L)
+        assertEquals(2, QQMusicCacheManager.getPlayCount(songMid))
 
-        MelodistCacheManager.currentProfile = PlaybackProfile.TV
-        assertFalse(MelodistCacheManager.shouldCacheSong(songMid, isFavorite = true, tier = org.melodist.model.AudioQualityTier.Master))
+        QQMusicCacheManager.currentProfile = PlaybackProfile.TV
+        assertFalse(QQMusicCacheManager.shouldCacheSong(songMid, isFavorite = true, tier = org.melodist.model.AudioQualityTier.Master))
         // 非 Master 音质在 TV 端准入成功
-        assertTrue(MelodistCacheManager.shouldCacheSong(songMid, isFavorite = true, tier = org.melodist.model.AudioQualityTier.HiRes))
+        assertTrue(QQMusicCacheManager.shouldCacheSong(songMid, isFavorite = true, tier = org.melodist.model.AudioQualityTier.HiRes))
 
-        MelodistCacheManager.currentProfile = PlaybackProfile.Mobile
-        assertTrue(MelodistCacheManager.shouldCacheSong(songMid, isFavorite = true, tier = org.melodist.model.AudioQualityTier.Master))
+        QQMusicCacheManager.currentProfile = PlaybackProfile.Mobile
+        assertTrue(QQMusicCacheManager.shouldCacheSong(songMid, isFavorite = true, tier = org.melodist.model.AudioQualityTier.Master))
     }
 
     @Test
@@ -148,14 +148,14 @@ class MelodistCacheManagerTest {
 
     @Test
     fun `uninitialized cache manager returns safe defaults`() {
-        assertEquals(0L, MelodistCacheManager.getCacheSizeBytes())
-        assertEquals(0, MelodistCacheManager.getCachedKeyCount())
-        assertFalse(MelodistCacheManager.isKeyCached("test_key"))
-        assertFalse(MelodistCacheManager.isKeyFullyCached("test_key"))
-        assertFalse(MelodistCacheManager.isSongTierCached("test_mid", org.melodist.model.AudioQualityTier.SQ))
-        assertFalse(MelodistCacheManager.isSongTierFullyCached("test_mid", org.melodist.model.AudioQualityTier.SQ))
-        assertFalse(MelodistCacheManager.isTierFullyCached("test_mid", org.melodist.model.AudioQualityTier.SQ))
-        assertFalse(MelodistCacheManager.isUriCached("https://example.com/audio.flac"))
+        assertEquals(0L, QQMusicCacheManager.getCacheSizeBytes())
+        assertEquals(0, QQMusicCacheManager.getCachedKeyCount())
+        assertFalse(QQMusicCacheManager.isKeyCached("test_key"))
+        assertFalse(QQMusicCacheManager.isKeyFullyCached("test_key"))
+        assertFalse(QQMusicCacheManager.isSongTierCached("test_mid", org.melodist.model.AudioQualityTier.SQ))
+        assertFalse(QQMusicCacheManager.isSongTierFullyCached("test_mid", org.melodist.model.AudioQualityTier.SQ))
+        assertFalse(QQMusicCacheManager.isTierFullyCached("test_mid", org.melodist.model.AudioQualityTier.SQ))
+        assertFalse(QQMusicCacheManager.isUriCached("https://example.com/audio.flac"))
     }
 
     @Test
@@ -166,7 +166,7 @@ class MelodistCacheManagerTest {
             File(tempDir, "sample.flac").apply {
                 writeBytes(byteArrayOf(0x66, 0x4C, 0x61, 0x43) + ByteArray(32))
             }
-        assertEquals("flac", MelodistCacheManager.detectAudioExtension(file))
+        assertEquals("flac", QQMusicCacheManager.detectAudioExtension(file))
     }
 
     @Test
@@ -177,7 +177,7 @@ class MelodistCacheManagerTest {
             File(tempDir, "sample.mp3").apply {
                 writeBytes(byteArrayOf(0x49, 0x44, 0x33, 0x03, 0x00) + ByteArray(32))
             }
-        assertEquals("mp3", MelodistCacheManager.detectAudioExtension(file))
+        assertEquals("mp3", QQMusicCacheManager.detectAudioExtension(file))
     }
 
     @Test
@@ -188,7 +188,7 @@ class MelodistCacheManagerTest {
             File(tempDir, "sample_raw.mp3").apply {
                 writeBytes(byteArrayOf(0xFF.toByte(), 0xFB.toByte(), 0x90.toByte(), 0x64.toByte()) + ByteArray(32))
             }
-        assertEquals("mp3", MelodistCacheManager.detectAudioExtension(file))
+        assertEquals("mp3", QQMusicCacheManager.detectAudioExtension(file))
     }
 
     @Test
@@ -199,7 +199,7 @@ class MelodistCacheManagerTest {
             File(tempDir, "sample.m4a").apply {
                 writeBytes(byteArrayOf(0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70) + ByteArray(32))
             }
-        assertEquals("m4a", MelodistCacheManager.detectAudioExtension(file))
+        assertEquals("m4a", QQMusicCacheManager.detectAudioExtension(file))
     }
 
     @Test
@@ -210,7 +210,7 @@ class MelodistCacheManagerTest {
             File(tempDir, "sample.wav").apply {
                 writeBytes(byteArrayOf(0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45) + ByteArray(32))
             }
-        assertEquals("wav", MelodistCacheManager.detectAudioExtension(file))
+        assertEquals("wav", QQMusicCacheManager.detectAudioExtension(file))
     }
 
     @Test
@@ -221,7 +221,7 @@ class MelodistCacheManagerTest {
             File(tempDir, "sample.ogg").apply {
                 writeBytes(byteArrayOf(0x4F, 0x67, 0x67, 0x53) + ByteArray(32))
             }
-        assertEquals("ogg", MelodistCacheManager.detectAudioExtension(file))
+        assertEquals("ogg", QQMusicCacheManager.detectAudioExtension(file))
     }
 
     @Test
@@ -232,13 +232,13 @@ class MelodistCacheManagerTest {
             File(tempDir, "error.html").apply {
                 writeText("<html><body>404 Not Found</body></html>")
             }
-        assertEquals(null, MelodistCacheManager.detectAudioExtension(htmlFile))
+        assertEquals(null, QQMusicCacheManager.detectAudioExtension(htmlFile))
 
         val shortFile =
             File(tempDir, "short.bin").apply {
                 writeBytes(byteArrayOf(0x01, 0x02))
             }
-        assertEquals(null, MelodistCacheManager.detectAudioExtension(shortFile))
+        assertEquals(null, QQMusicCacheManager.detectAudioExtension(shortFile))
     }
 
     @Test
@@ -246,7 +246,7 @@ class MelodistCacheManagerTest {
         @TempDir tempDir: File,
     ) {
         val result =
-            MelodistCacheManager.exportCompleteCachedSong(
+            QQMusicCacheManager.exportCompleteCachedSong(
                 songMid = "non_existent_mid",
                 tier = org.melodist.model.AudioQualityTier.SQ,
                 targetDir = tempDir,
@@ -257,8 +257,8 @@ class MelodistCacheManagerTest {
 
     @Test
     fun `isKeyFullyCached returns false for blank key or uninitialized cache`() {
-        assertFalse(MelodistCacheManager.isKeyFullyCached(null))
-        assertFalse(MelodistCacheManager.isKeyFullyCached(""))
-        assertFalse(MelodistCacheManager.isKeyFullyCached("non_existent_key"))
+        assertFalse(QQMusicCacheManager.isKeyFullyCached(null))
+        assertFalse(QQMusicCacheManager.isKeyFullyCached(""))
+        assertFalse(QQMusicCacheManager.isKeyFullyCached("non_existent_key"))
     }
 }

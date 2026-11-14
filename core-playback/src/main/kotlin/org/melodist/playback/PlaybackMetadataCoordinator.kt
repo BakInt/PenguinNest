@@ -4,7 +4,7 @@ import androidx.media3.common.MediaMetadata
 import org.melodist.model.Song
 
 /**
- * 本地与 WebDAV 音频元数据轻量清洗与合并器。
+ * 本地音频元数据轻量清洗与合并器。
  * 纯内存轻量处理 ExoPlayer 原生解出的 MediaMetadata，无额外网络与文件 I/O 开销。
  */
 object PlaybackMetadataCoordinator {
@@ -39,11 +39,11 @@ object PlaybackMetadataCoordinator {
      * 判定歌曲是否需要富化或修正元数据
      */
     fun needsEnrichment(song: Song): Boolean {
-        val isLocalOrWebDav = song.isLocal || !song.localFilePath.isNullOrBlank() || song.songMid.startsWith("webdav_")
-        if (!isLocalOrWebDav) return false
+        val isLocal = song.isLocal || !song.localFilePath.isNullOrBlank()
+        if (!isLocal) return false
 
-        val hasUnknownArtist = song.singer.isBlank() || song.singer == "未知歌手" || song.singer == "WebDAV 音频" || song.singer.equals("Unknown", ignoreCase = true)
-        val hasUnknownAlbum = song.album.isBlank() || song.album == "本地音频" || song.album == "WebDAV 云盘" || song.album == "本地音乐" || song.album == "WebDAV 专辑"
+        val hasUnknownArtist = song.singer.isBlank() || song.singer == "未知歌手" || song.singer.equals("Unknown", ignoreCase = true)
+        val hasUnknownAlbum = song.album.isBlank() || song.album == "本地音频" || song.album == "本地音乐"
         val hasTrackNumberInTitle = isTrackNumberPrefixed(song.name)
 
         return hasUnknownArtist || hasUnknownAlbum || hasTrackNumberInTitle
@@ -66,11 +66,10 @@ object PlaybackMetadataCoordinator {
         val isUnknownArtist =
             currentSong.singer.isBlank() ||
                 currentSong.singer == "未知歌手" ||
-                currentSong.singer == "WebDAV 音频" ||
                 currentSong.singer.equals("Unknown", ignoreCase = true)
         val hasTrackNumber = isTrackNumberPrefixed(currentSong.name)
 
-        val candidateArtist = if (!rawArtist.isNullOrBlank() && rawArtist != "未知歌手" && rawArtist != "WebDAV 音频") rawArtist else null
+        val candidateArtist = if (!rawArtist.isNullOrBlank() && rawArtist != "未知歌手") rawArtist else null
         val candidateTitle =
             if (!rawTitle.isNullOrBlank()) {
                 cleanTrackNumber(rawTitle)

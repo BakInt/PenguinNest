@@ -48,7 +48,7 @@ fun SettingsCredentialsDialogs(
     var showExportDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     var exportPassword by remember { mutableStateOf("") }
-    var exportAllowRefresh by remember { mutableStateOf(false) }
+    var exportAllowRefresh by remember { mutableStateOf(true) }
     var exportedTokenResult by remember { mutableStateOf<String?>(null) }
     var importTokenText by remember { mutableStateOf("") }
     var importPassword by remember { mutableStateOf("") }
@@ -97,7 +97,7 @@ fun SettingsCredentialsDialogs(
                         onClick = {
                             onDismissCredsDialog()
                             exportPassword = ""
-                            exportAllowRefresh = false
+                            exportAllowRefresh = true
                             exportedTokenResult = null
                             showExportDialog = true
                         },

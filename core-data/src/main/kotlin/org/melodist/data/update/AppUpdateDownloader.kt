@@ -88,8 +88,8 @@ object AppUpdateDownloader {
             emit(UpdateDownloadState.Idle)
             val dir = getUpdatesDir(context)
             val cleanTag = tagName.removePrefix("v").replace(Regex("[^a-zA-Z0-9._-]"), "_")
-            val finalApk = File(dir, "melodist_$cleanTag.apk")
-            val tmpApk = File(dir, "melodist_$cleanTag.apk.tmp")
+            val finalApk = File(dir, "qqmusic_$cleanTag.apk")
+            val tmpApk = File(dir, "qqmusic_$cleanTag.apk.tmp")
 
             // 若当前已经存在完整同名 APK（且大小大于 1MB），直接复用
             if (finalApk.exists() && finalApk.length() > 1024 * 1024) {
@@ -111,7 +111,7 @@ object AppUpdateDownloader {
                     Request
                         .Builder()
                         .url(url)
-                        .header("User-Agent", "Melodist-UpdateDownloader")
+                        .header("User-Agent", "QQMusic-UpdateDownloader")
                         .build()
 
                 try {

@@ -34,8 +34,8 @@ import org.melodist.data.update.AppUpdateDownloader
 import org.melodist.data.update.UpdateChecker
 import org.melodist.data.update.UpdateDownloadState
 import org.melodist.data.update.UpdateResult
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberMonetSurfaceColor
 import org.melodist.tv.ui.theme.toMonetContainer
 import java.util.Locale
@@ -111,9 +111,9 @@ fun NewVersionTvDialog(
                 Modifier
                     .width(580.dp)
                     .wrapContentHeight()
-                    .clip(MelodistShapes.DialogCorner)
+                    .clip(QQMusicShapes.DialogCorner)
                     .background(dialogBackgroundColor)
-                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), MelodistShapes.DialogCorner)
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), QQMusicShapes.DialogCorner)
                     .padding(horizontal = 28.dp, vertical = 24.dp),
         ) {
             Column(
@@ -144,7 +144,7 @@ fun NewVersionTvDialog(
                         Modifier
                             .fillMaxWidth()
                             .heightIn(max = 180.dp)
-                            .clip(MelodistShapes.ButtonCorner)
+                            .clip(QQMusicShapes.ButtonCorner)
                             .background(Color.White.copy(alpha = 0.06f))
                             .padding(14.dp)
                             .verticalScroll(rememberScrollState()),
@@ -222,7 +222,7 @@ fun NewVersionTvDialog(
                         Text(
                             text = "安装包已下载完毕，按确认键直接调起系统安装器。",
                             fontSize = 12.sp,
-                            color = MelodistColors.AccentGreen,
+                            color = QQMusicColors.AccentGreen,
                         )
                     }
 
@@ -249,8 +249,8 @@ fun NewVersionTvDialog(
                         },
                         shape =
                             ButtonDefaults.shape(
-                                shape = MelodistShapes.ButtonCorner,
-                                focusedShape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
+                                focusedShape = QQMusicShapes.ButtonCorner,
                             ),
                         colors =
                             ButtonDefaults.colors(
@@ -264,7 +264,7 @@ fun NewVersionTvDialog(
                                 border =
                                     Border(
                                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                                        shape = MelodistShapes.ButtonCorner,
+                                        shape = QQMusicShapes.ButtonCorner,
                                     ),
                                 focusedBorder = Border.None,
                             ),
@@ -292,8 +292,8 @@ fun NewVersionTvDialog(
                         },
                         shape =
                             ButtonDefaults.shape(
-                                shape = MelodistShapes.ButtonCorner,
-                                focusedShape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
+                                focusedShape = QQMusicShapes.ButtonCorner,
                             ),
                         colors =
                             ButtonDefaults.colors(
@@ -307,7 +307,7 @@ fun NewVersionTvDialog(
                                 border =
                                     Border(
                                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                                        shape = MelodistShapes.ButtonCorner,
+                                        shape = QQMusicShapes.ButtonCorner,
                                     ),
                                 focusedBorder = Border.None,
                             ),
@@ -328,8 +328,8 @@ fun NewVersionTvDialog(
                                 modifier = Modifier.focusRequester(confirmFocusRequester),
                                 shape =
                                     ButtonDefaults.shape(
-                                        shape = MelodistShapes.ButtonCorner,
-                                        focusedShape = MelodistShapes.ButtonCorner,
+                                        shape = QQMusicShapes.ButtonCorner,
+                                        focusedShape = QQMusicShapes.ButtonCorner,
                                     ),
                                 colors =
                                     ButtonDefaults.colors(
@@ -343,7 +343,7 @@ fun NewVersionTvDialog(
                                         border =
                                             Border(
                                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
-                                                shape = MelodistShapes.ButtonCorner,
+                                                shape = QQMusicShapes.ButtonCorner,
                                             ),
                                         focusedBorder = Border.None,
                                     ),
@@ -362,8 +362,8 @@ fun NewVersionTvDialog(
                                 enabled = false,
                                 shape =
                                     ButtonDefaults.shape(
-                                        shape = MelodistShapes.ButtonCorner,
-                                        focusedShape = MelodistShapes.ButtonCorner,
+                                        shape = QQMusicShapes.ButtonCorner,
+                                        focusedShape = QQMusicShapes.ButtonCorner,
                                     ),
                                 colors =
                                     ButtonDefaults.colors(
@@ -392,8 +392,8 @@ fun NewVersionTvDialog(
                                 modifier = Modifier.focusRequester(confirmFocusRequester),
                                 shape =
                                     ButtonDefaults.shape(
-                                        shape = MelodistShapes.ButtonCorner,
-                                        focusedShape = MelodistShapes.ButtonCorner,
+                                        shape = QQMusicShapes.ButtonCorner,
+                                        focusedShape = QQMusicShapes.ButtonCorner,
                                     ),
                                 colors =
                                     ButtonDefaults.colors(
@@ -407,7 +407,7 @@ fun NewVersionTvDialog(
                                         border =
                                             Border(
                                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                                                shape = MelodistShapes.ButtonCorner,
+                                                shape = QQMusicShapes.ButtonCorner,
                                             ),
                                         focusedBorder = Border.None,
                                     ),
@@ -444,8 +444,8 @@ fun NewVersionTvDialog(
                                 modifier = Modifier.focusRequester(confirmFocusRequester),
                                 shape =
                                     ButtonDefaults.shape(
-                                        shape = MelodistShapes.ButtonCorner,
-                                        focusedShape = MelodistShapes.ButtonCorner,
+                                        shape = QQMusicShapes.ButtonCorner,
+                                        focusedShape = QQMusicShapes.ButtonCorner,
                                     ),
                                 colors =
                                     ButtonDefaults.colors(
@@ -459,7 +459,7 @@ fun NewVersionTvDialog(
                                         border =
                                             Border(
                                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                                                shape = MelodistShapes.ButtonCorner,
+                                                shape = QQMusicShapes.ButtonCorner,
                                             ),
                                         focusedBorder = Border.None,
                                     ),

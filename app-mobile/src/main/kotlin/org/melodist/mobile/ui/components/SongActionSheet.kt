@@ -165,7 +165,7 @@ fun SongActionSheet(
     var commentCount by remember(song.songId) { mutableStateOf(SongCommentCountCache.get(song.songId)) }
 
     LaunchedEffect(song.songId) {
-        if (!song.isLocal && !song.isWebDav && song.songId > 0L) {
+        if (!song.isLocal && song.songId > 0L) {
             val cached = SongCommentCountCache.get(song.songId)
             if (cached != null) {
                 commentCount = cached
@@ -183,7 +183,7 @@ fun SongActionSheet(
         if (showDownloadQualityDialog) {
             val isPureLocal =
                 org.melodist.playback.PlaybackSourceResolver
-                    .isPureLocalOrWebDav(song)
+                    .isPureLocalSong(song)
             if (isPureLocal) {
                 return@LaunchedEffect
             }
@@ -263,12 +263,12 @@ fun SongActionSheet(
             }
         }
 
-    val isWebDavOrLocal =
-        song.isWebDav || song.isLocal || (!song.localFilePath.isNullOrBlank() && song.albumMid.isBlank() && song.singerList.none { it.mid.isNotBlank() })
+    val isLocalPlayback =
+        song.isLocal || (!song.localFilePath.isNullOrBlank() && song.albumMid.isBlank() && song.singerList.none { it.mid.isNotBlank() })
 
     val canShowArtistAction =
-        remember(isSingleArtistCurrentPage, artists, song, isWebDavOrLocal) {
-            if (isWebDavOrLocal || isSingleArtistCurrentPage) {
+        remember(isSingleArtistCurrentPage, artists, song, isLocalPlayback) {
+            if (isLocalPlayback || isSingleArtistCurrentPage) {
                 false
             } else {
                 artists.isNotEmpty() || song.singer.isNotBlank()
@@ -359,9 +359,9 @@ fun SongActionSheet(
 
             val hasQuickActions =
                 onViewCover != null ||
-                    (showFavorite && !isWebDavOrLocal) ||
+                    (showFavorite && !isLocalPlayback) ||
                     showTvCast ||
-                    (!song.isLocal && !song.isWebDav)
+                    (!song.isLocal)
 
             if (hasQuickActions) {
                 Spacer(modifier = Modifier.height(10.dp))
@@ -375,7 +375,7 @@ fun SongActionSheet(
                             .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    if (showFavorite && !isWebDavOrLocal) {
+                    if (showFavorite && !isLocalPlayback) {
                         QuickActionButton(
                             icon = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             title = if (isFavorite) "取消收藏" else "收藏",
@@ -424,7 +424,7 @@ fun SongActionSheet(
                                             pairedDevice.name.substringAfter("(").substringBeforeLast(")")
                                         } else {
                                             pairedDevice.name
-                                                .removePrefix("Melodist TV")
+                                                .removePrefix("QQMusic TV")
                                                 .trim()
                                                 .ifBlank { pairedDevice.name }
                                         }
@@ -614,7 +614,7 @@ fun SongActionSheet(
                         )
                     }
 
-                    if (!song.isLocal && !song.isWebDav) {
+                    if (!song.isLocal) {
                         val isDownloaded = localFilePath != null
                         QuickActionButton(
                             icon = if (isDownloaded) Icons.Rounded.FileDownloadDone else Icons.Rounded.Download,
@@ -626,7 +626,7 @@ fun SongActionSheet(
                         )
                     }
 
-                    if (!song.isLocal && !song.isWebDav) {
+                    if (!song.isLocal) {
                         QuickActionButton(
                             icon = Icons.AutoMirrored.Rounded.QueueMusic,
                             title = "添加歌单",
@@ -693,7 +693,7 @@ fun SongActionSheet(
                 )
             }
 
-            if (!isWebDavOrLocal && !isCurrentAlbumPage && (song.albumMid.isNotBlank() || song.album.isNotBlank())) {
+            if (!isLocalPlayback && !isCurrentAlbumPage && (song.albumMid.isNotBlank() || song.album.isNotBlank())) {
                 ActionSheetItem(
                     icon = Icons.Rounded.Album,
                     title = "查看专辑",
@@ -711,7 +711,7 @@ fun SongActionSheet(
                 )
             }
 
-            if (!song.isLocal && !song.isWebDav) {
+            if (!song.isLocal) {
                 val commentSubtitle =
                     commentCount?.takeIf { it > 0 }?.let { count ->
                         when {
@@ -730,7 +730,7 @@ fun SongActionSheet(
                 )
             }
 
-            if (showTogether && !song.isLocal && !song.isWebDav && song.songMid.isNotBlank() && UserSession.isLoggedIn) {
+            if (showTogether && !song.isLocal && song.songMid.isNotBlank() && UserSession.isLoggedIn) {
                 ActionSheetItem(
                     icon = Icons.Rounded.Headphones,
                     title = "一起听",
@@ -741,7 +741,7 @@ fun SongActionSheet(
                 )
             }
 
-            if (!song.isLocal && !song.isWebDav && song.songMid.isNotBlank() && UserSession.isLoggedIn) {
+            if (!song.isLocal && song.songMid.isNotBlank() && UserSession.isLoggedIn) {
                 ActionSheetItem(
                     icon = Icons.Rounded.History,
                     title = "歌曲回忆",
@@ -768,7 +768,7 @@ fun SongActionSheet(
                     val content =
                         buildString {
                             append("${song.name} - ${song.singer}")
-                            if (!song.isLocal && !song.isWebDav && song.songMid.isNotBlank()) {
+                            if (!song.isLocal && song.songMid.isNotBlank()) {
                                 append("\nhttps://y.qq.com/n/ryqq/songDetail/${song.songMid}")
                             }
                         }

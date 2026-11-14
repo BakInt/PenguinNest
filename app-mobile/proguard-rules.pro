@@ -21,6 +21,19 @@
     <fields>;
 }
 
+# Room（WorkManager 的 WorkDatabase 依赖 Room 生成的 *_Impl）
+# Room.getGeneratedImplementation() 走 Class.forName(... + "_Impl").getDeclaredConstructor().newInstance()
+# 反射实例化，R8 看不到任何直接调用点，会把生成的 *_Impl 无参构造当无用代码删掉。debug 不裁剪所以正常，
+# release 包则启动即崩（崩溃发生在 Application.onCreate 之前，CrashGuard 抓不到）：
+#   Unable to get provider androidx.startup.InitializationProvider:
+#   java.lang.NoSuchMethodException: androidx.work.impl.WorkDatabase_Impl.<init> []
+-keep class * extends androidx.room.RoomDatabase {
+    <init>();
+}
+-keepclassmembers class * extends androidx.room.RoomDatabase {
+    <init>();
+}
+
 # Media3 & ExoPlayer（保留跨进程 Session 与 AIDL，移除对 Extractor/Decoder 的全量通配）
 -keep class androidx.media3.session.MediaSession* { *; }
 -keep interface androidx.media3.session.MediaSession* { *; }

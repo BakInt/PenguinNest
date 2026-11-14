@@ -11,7 +11,6 @@ import org.melodist.api.MusicApiService
 import org.melodist.api.getLyrics
 import org.melodist.data.LocalMusicManager
 import org.melodist.data.LyricCacheManager
-import org.melodist.data.WebDavManager
 import org.melodist.model.LyricLine
 import org.melodist.model.Song
 import java.io.File
@@ -40,48 +39,7 @@ class PlaybackLyricsCoordinator(
         lyricLoadJob =
             scope.launch(Dispatchers.IO) {
                 try {
-                    if (song.songMid.startsWith("webdav_")) {
-                        val lrcText = WebDavManager.getSongLyrics(song)
-                        val baseLyrics =
-                            if (!lrcText.isNullOrBlank()) {
-                                LyricParser.parseMergedLyrics(lrcText, null)
-                            } else {
-                                emptyList()
-                            }
-                        if (currentSongProvider()?.songMid == song.songMid && baseLyrics.isNotEmpty()) {
-                            val current = LyricCacheManager.getLyrics(song.songMid).orEmpty()
-                            if (LyricCacheManager.isBetterQuality(baseLyrics, current)) {
-                                onLyricsUpdated(baseLyrics)
-                                LyricCacheManager.saveLyrics(song.songMid, baseLyrics)
-                                onLyricsLoadedBroadcast(song to baseLyrics)
-                            }
-                        }
-                        val server = WebDavManager.getActiveServer()
-                        val relativeHref = song.mediaMid.ifBlank { song.localFilePath ?: "" }
-                        val validFile =
-                            if (server != null && relativeHref.isNotBlank()) {
-                                WebDavManager.fetchAudioSliceSample(server, relativeHref)
-                            } else {
-                                null
-                            }
-
-                        val matched = LocalLyricAutoMatcher.matchLyricsAsync(song, validFile, baseLyrics)
-                        if (matched != null && matched.isNotEmpty() && currentSongProvider()?.songMid == song.songMid) {
-                            Log.i("MelodistPlayback", "Applied auto-matched lyrics for WebDAV song: ${song.name}")
-                            val current = LyricCacheManager.getLyrics(song.songMid).orEmpty()
-                            if (LyricCacheManager.isBetterQuality(matched, current)) {
-                                onLyricsUpdated(matched)
-                                LyricCacheManager.saveLyrics(song.songMid, matched)
-                                onLyricsLoadedBroadcast(song to matched)
-                            }
-                        }
-                        if (!LyricCacheManager.hasLyricOffsetRecord(song.songMid)) {
-                            val calibratedOffset = LocalLyricAutoMatcher.calibrateOffsetAsync(song, validFile)
-                            if (currentSongProvider()?.songMid == song.songMid) {
-                                onOffsetCalibrated(calibratedOffset)
-                            }
-                        }
-                    } else if (!song.localFilePath.isNullOrBlank() || song.isLocal) {
+                    if (!song.localFilePath.isNullOrBlank() || song.isLocal) {
                         val lrcText = LocalMusicManager.getSongLyrics(song)
                         val baseLyrics =
                             if (!lrcText.isNullOrBlank()) {
@@ -102,7 +60,7 @@ class PlaybackLyricsCoordinator(
                         val validFile = if (directFile != null && directFile.exists() && directFile.isFile) directFile else null
                         val matched = LocalLyricAutoMatcher.matchLyricsAsync(song, validFile, baseLyrics)
                         if (matched != null && matched.isNotEmpty() && currentSongProvider()?.songMid == song.songMid) {
-                            Log.i("MelodistPlayback", "Applied auto-matched lyrics for local song: ${song.name}")
+                            Log.i("QQMusicPlayback", "Applied auto-matched lyrics for local song: ${song.name}")
                             val current = LyricCacheManager.getLyrics(song.songMid).orEmpty()
                             if (LyricCacheManager.isBetterQuality(matched, current)) {
                                 onLyricsUpdated(matched)
@@ -134,7 +92,7 @@ class PlaybackLyricsCoordinator(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w("MelodistPlayback", "Error loading lyrics for ${song.name}", e)
+                    Log.w("QQMusicPlayback", "Error loading lyrics for ${song.name}", e)
                 }
             }
     }
@@ -160,15 +118,7 @@ class PlaybackLyricsCoordinator(
         if (!cached.isNullOrEmpty()) return
 
         try {
-            if (song.songMid.startsWith("webdav_")) {
-                val lrcText = WebDavManager.getSongLyrics(song)
-                if (!lrcText.isNullOrBlank()) {
-                    val baseLyrics = LyricParser.parseMergedLyrics(lrcText, null)
-                    if (baseLyrics.isNotEmpty()) {
-                        LyricCacheManager.saveLyrics(song.songMid, baseLyrics)
-                    }
-                }
-            } else if (!song.localFilePath.isNullOrBlank() || song.isLocal) {
+            if (!song.localFilePath.isNullOrBlank() || song.isLocal) {
                 val lrcText = LocalMusicManager.getSongLyrics(song)
                 if (!lrcText.isNullOrBlank()) {
                     val baseLyrics = LyricParser.parseMergedLyrics(lrcText, null)
@@ -190,7 +140,7 @@ class PlaybackLyricsCoordinator(
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            Log.w("MelodistPlayback", "Error prefetching lyrics for ${song.name}", e)
+            Log.w("QQMusicPlayback", "Error prefetching lyrics for ${song.name}", e)
         }
     }
 

@@ -101,7 +101,7 @@ object AudioQualityAuditor {
                 return@withContext AudioAuditResult(
                     verdict = AudioQualityVerdict.INDETERMINATE,
                     description = "无法获取音频流进行频谱分析",
-                    details = "未找到可读取的本地文件、WebDAV 流或可用流媒体直链。",
+                    details = "未找到可读取的本地文件或可用流媒体直链。",
                 )
             }
 
@@ -167,28 +167,6 @@ object AudioQualityAuditor {
             return AudioSourceTarget(localPath, isLocal = true)
         }
 
-        // WebDAV 歌曲路径与流解析
-        if (song.songMid.startsWith("webdav_")) {
-            val server =
-                org.melodist.data.WebDavManager
-                    .getActiveServer()
-            val relativeHref = song.mediaMid.ifBlank { song.localFilePath ?: "" }
-            if (server != null && relativeHref.isNotBlank()) {
-                val cached =
-                    org.melodist.data.WebDavManager
-                        .getLocalCacheFile(server.id, relativeHref)
-                if (cached.exists() && cached.length() > 0L) {
-                    return AudioSourceTarget(cached.absolutePath, isLocal = true)
-                }
-                val (streamUrl, authHeader) =
-                    org.melodist.data.WebDavManager
-                        .resolvePlaybackUrl(server, relativeHref)
-                if (streamUrl.isNotBlank()) {
-                    return AudioSourceTarget(streamUrl, authHeader = authHeader, isLocal = false)
-                }
-            }
-        }
-
         // 当前播放器已解析的试听/播放直链
         val currentPlaySong = PlaybackManager.currentSong.value
         if (currentPlaySong?.songMid == song.songMid) {
@@ -239,7 +217,7 @@ object AudioQualityAuditor {
                     .Builder()
                     .url(url)
                     .header("Range", "bytes=0-2621439") // 2.5MB 探针切片，避开内嵌封面与前置元数据
-                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) MelodistMobile/1.0")
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) QQMusicMobile/1.0")
 
             if (!authHeader.isNullOrBlank()) {
                 requestBuilder.header("Authorization", authHeader)

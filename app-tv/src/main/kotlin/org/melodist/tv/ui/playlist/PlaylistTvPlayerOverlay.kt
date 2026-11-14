@@ -38,7 +38,7 @@ import org.melodist.playback.PlaybackLoopMode
 import org.melodist.playback.PlaybackManager
 import org.melodist.tv.ui.components.BottomPlayerBar
 import org.melodist.tv.ui.components.CenterAlignedKaraokeLyricsView
-import org.melodist.tv.ui.theme.MelodistColors
+import org.melodist.tv.ui.theme.QQMusicColors
 
 @Composable
 fun PlaylistTvLyricsOverlay(
@@ -68,14 +68,14 @@ fun PlaylistTvLyricsOverlay(
             } else if (isPlaybackLoading) {
                 Text(
                     text = "正在拉取直链与同步歌词...",
-                    color = MelodistColors.TextSecondary,
+                    color = QQMusicColors.TextSecondary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Medium,
                 )
             } else {
                 Text(
                     text = "暂无同步歌词",
-                    color = MelodistColors.TextMuted,
+                    color = QQMusicColors.TextMuted,
                     fontSize = 18.sp,
                 )
             }
@@ -129,7 +129,7 @@ fun PlaylistTvBottomBar(
             } else {
                 activePlayingSong?.durationSeconds?.toLong()?.times(1000L) ?: 240000L
             }
-        val canChangeQuality = !PlaybackManager.isPureLocalOrWebDavSong(activePlayingSong)
+        val canChangeQuality = !PlaybackManager.isPureLocalSong(activePlayingSong)
 
         BottomPlayerBar(
             modifier = Modifier.fillMaxWidth(),

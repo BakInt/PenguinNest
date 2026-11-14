@@ -140,15 +140,14 @@ class PlaybackAudioTrackResolver(
                     )
 
                 val currentMid = currentSong?.songMid.orEmpty()
-                val isLocalOrWebDav =
-                    currentMid.startsWith("webdav_") ||
-                        currentMid.startsWith("local_") ||
+                val isLocal =
+                    currentMid.startsWith("local_") ||
                         !currentSong?.localFilePath.isNullOrBlank()
 
                 return ResolvedAudioTrack(
                     trackSpec = trackSpec,
                     detectedTier = detectedTier,
-                    shouldApplyTierToSong = isLocalOrWebDav,
+                    shouldApplyTierToSong = isLocal,
                 )
             }
         }

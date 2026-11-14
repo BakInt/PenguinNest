@@ -34,8 +34,8 @@ import org.melodist.api.MusicApiService
 import org.melodist.api.search
 import org.melodist.model.Artist
 import org.melodist.model.Song
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberMonetSurfaceColor
 import org.melodist.tv.ui.theme.toMonetContainer
 
@@ -96,9 +96,9 @@ fun SongArtistAlbumDialog(
                 Modifier
                     .width(680.dp)
                     .wrapContentHeight()
-                    .clip(MelodistShapes.DialogCorner)
+                    .clip(QQMusicShapes.DialogCorner)
                     .background(dialogBackgroundColor)
-                    .border(1.dp, Color.White.copy(alpha = 0.18f), MelodistShapes.DialogCorner)
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), QQMusicShapes.DialogCorner)
                     .onPreviewKeyEvent { event ->
                         val elapsed = System.currentTimeMillis() - dialogOpenTime
                         if (elapsed < 500L) {
@@ -232,7 +232,7 @@ private fun ArtistActionCard(
                 .width(160.dp)
                 .height(196.dp)
                 .onFocusChanged { isFocused = it.isFocused },
-        shape = CardDefaults.shape(MelodistShapes.CardCorner),
+        shape = CardDefaults.shape(QQMusicShapes.CardCorner),
         colors =
             CardDefaults.colors(
                 containerColor = Color.White.copy(alpha = 0.08f),
@@ -240,8 +240,8 @@ private fun ArtistActionCard(
             ),
         border =
             CardDefaults.border(
-                border = Border(border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)), shape = MelodistShapes.CardCorner),
-                focusedBorder = Border(border = BorderStroke(2.5.dp, MelodistColors.FocusTeal), shape = MelodistShapes.CardCorner),
+                border = Border(border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)), shape = QQMusicShapes.CardCorner),
+                focusedBorder = Border(border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal), shape = QQMusicShapes.CardCorner),
             ),
         scale = CardDefaults.scale(focusedScale = 1.06f),
     ) {
@@ -267,7 +267,7 @@ private fun ArtistActionCard(
                         ),
                 contentAlignment = Alignment.Center,
             ) {
-                MelodistAsyncImage(
+                QQMusicAsyncImage(
                     coverUrl = avatarUrl,
                     artistMid = resolvedMid,
                     contentDescription = artist.name,
@@ -329,7 +329,7 @@ private fun AlbumActionCard(
                 .width(160.dp)
                 .height(196.dp)
                 .onFocusChanged { isFocused = it.isFocused },
-        shape = CardDefaults.shape(MelodistShapes.CardCorner),
+        shape = CardDefaults.shape(QQMusicShapes.CardCorner),
         colors =
             CardDefaults.colors(
                 containerColor = Color.White.copy(alpha = 0.08f),
@@ -337,8 +337,8 @@ private fun AlbumActionCard(
             ),
         border =
             CardDefaults.border(
-                border = Border(border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)), shape = MelodistShapes.CardCorner),
-                focusedBorder = Border(border = BorderStroke(2.5.dp, MelodistColors.FocusTeal), shape = MelodistShapes.CardCorner),
+                border = Border(border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)), shape = QQMusicShapes.CardCorner),
+                focusedBorder = Border(border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal), shape = QQMusicShapes.CardCorner),
             ),
         scale = CardDefaults.scale(focusedScale = 1.06f),
     ) {
@@ -355,20 +355,20 @@ private fun AlbumActionCard(
                 modifier =
                     Modifier
                         .size(100.dp)
-                        .clip(MelodistShapes.CardCorner)
+                        .clip(QQMusicShapes.CardCorner)
                         .background(if (isFocused) Color.Black.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.08f))
                         .border(
                             1.dp,
                             if (isFocused) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.22f),
-                            MelodistShapes.CardCorner,
+                            QQMusicShapes.CardCorner,
                         ),
                 contentAlignment = Alignment.Center,
             ) {
-                MelodistAsyncImage(
+                QQMusicAsyncImage(
                     coverUrl = resolvedCover,
                     albumMid = albumMid,
                     contentDescription = albumTitle,
-                    shape = MelodistShapes.CardCorner,
+                    shape = QQMusicShapes.CardCorner,
                     modifier = Modifier.fillMaxSize(),
                     errorContent = {
                         Icon(

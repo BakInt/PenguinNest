@@ -65,7 +65,7 @@ object DeviceReportHelper {
                 null
             }
 
-        val rawModel = Build.MODEL.takeIf { !it.isNullOrBlank() } ?: "Melodist"
+        val rawModel = Build.MODEL.takeIf { !it.isNullOrBlank() } ?: "QQMusic"
         val isModelNonCompliant = isNonCompliantModel(rawModel)
         val isIdNonCompliant = isNonCompliantAndroidId(rawAndroidId)
         val isNonCompliant = isModelNonCompliant || isIdNonCompliant

@@ -25,17 +25,18 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import org.melodist.data.CrashGuard
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
-    private var forwardingPlayer: MelodistForwardingPlayer? = null
+    private var forwardingPlayer: QQMusicForwardingPlayer? = null
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     companion object {
         const val ACTION_TOGGLE_FAVORITE = "org.melodist.playback.ACTION_TOGGLE_FAVORITE"
         const val EXTRA_START_FOREGROUND = "org.melodist.playback.EXTRA_START_FOREGROUND"
-        const val CHANNEL_ID = "melodist_playback_channel_v3"
+        const val CHANNEL_ID = "qqmusic_playback_channel_v3"
         const val NOTIFICATION_ID = 1001
     }
 
@@ -78,16 +79,29 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        // 服务初始化里的每一步都可能抛（通知渠道、唤醒锁、MediaSession.Builder 的
+        // IllegalArgumentException、播放器创建失败……）。这里不兜底的话，异常会在
+        // 系统进程里冒泡成 FATAL EXCEPTION，表现为「一点播放就闪退」。
+        try {
+            setupSession()
+        } catch (t: Throwable) {
+            Log.e("PlaybackService", "onCreate failed, stopping service", t)
+            CrashGuard.record("PlaybackService.onCreate", t)
+            stopSelf()
+        }
+    }
+
+    private fun setupSession() {
         setupNotificationChannel()
 
         val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
-        wakeLock = powerManager?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Melodist:PlaybackWakeLock")
+        wakeLock = powerManager?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "QQMusic:PlaybackWakeLock")
 
-        val notificationProvider = MelodistNotificationProvider(this)
+        val notificationProvider = QQMusicNotificationProvider(this)
         setMediaNotificationProvider(notificationProvider)
 
         val player = PlaybackManager.getOrCreatePlayer(this)
-        val forwarding = MelodistForwardingPlayer(player)
+        val forwarding = QQMusicForwardingPlayer(player)
         forwardingPlayer = forwarding
 
         val launchIntent =
@@ -109,7 +123,7 @@ class PlaybackService : MediaSessionService() {
         val session =
             MediaSession
                 .Builder(this, forwarding)
-                .setId("MelodistPlaybackSession")
+                .setId("QQMusicPlaybackSession")
                 .setSessionActivity(sessionActivity)
                 .setCallback(sessionCallback)
                 .setCustomLayout(listOf(createFavoriteButton(isFav)))
@@ -180,20 +194,30 @@ class PlaybackService : MediaSessionService() {
         flags: Int,
         startId: Int,
     ): Int {
-        val result = super.onStartCommand(intent, flags, startId)
+        // startForeground 要越早越好：startForegroundService() 之后 5 秒内没进前台，
+        // 系统会抛 ForegroundServiceDidNotStartInTimeException 直接杀进程（doc/14 §7.3）。
+        // 所以先抢前台，再做其它事；抢不到就自己收摊，别等着被系统杀。
         val isExplicitForeground = intent?.getBooleanExtra(EXTRA_START_FOREGROUND, false) == true
-        if (isExplicitForeground) {
-            ensureForegroundStarted()
+        if (isExplicitForeground && !ensureForegroundStarted()) {
+            stopSelf(startId)
+            return START_NOT_STICKY
         }
-        mediaSession?.let { session ->
-            if (PlaybackManager.shouldHoldForeground()) {
-                onUpdateNotification(session, true)
+        val result = super.onStartCommand(intent, flags, startId)
+        try {
+            mediaSession?.let { session ->
+                if (PlaybackManager.shouldHoldForeground()) {
+                    onUpdateNotification(session, true)
+                }
             }
+        } catch (t: Throwable) {
+            Log.w("PlaybackService", "Failed to refresh notification on start", t)
+            CrashGuard.record("PlaybackService.onStartCommand", t)
         }
         return result
     }
 
-    private fun ensureForegroundStarted() {
+    /** @return 是否成功进入前台。失败时不抛，由调用方决定收敛方式。 */
+    private fun ensureForegroundStarted(): Boolean =
         try {
             val notification = createForegroundPlaceholderNotification()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -205,10 +229,12 @@ class PlaybackService : MediaSessionService() {
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
-        } catch (e: Exception) {
-            Log.w("PlaybackService", "Failed to startForeground: $e")
+            true
+        } catch (t: Throwable) {
+            Log.w("PlaybackService", "Failed to startForeground: $t")
+            CrashGuard.record("PlaybackService.startForeground", t)
+            false
         }
-    }
 
     private fun createForegroundPlaceholderNotification(): Notification {
         setupNotificationChannel()
@@ -385,8 +411,10 @@ class PlaybackService : MediaSessionService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(NotificationManager::class.java)
             try {
+                // 清理旧版本（Melodist）遗留的通知渠道，避免升级后残留失效渠道
                 manager?.deleteNotificationChannel("melodist_playback_channel")
                 manager?.deleteNotificationChannel("melodist_playback_channel_v2")
+                manager?.deleteNotificationChannel("melodist_playback_channel_v3")
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 Log.w("PlaybackService", "Operation failed", e)

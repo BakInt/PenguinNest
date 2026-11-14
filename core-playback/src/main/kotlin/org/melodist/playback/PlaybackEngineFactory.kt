@@ -97,7 +97,7 @@ object PlaybackEngineFactory {
 
         val defaultDataSourceFactory = DefaultDataSource.Factory(context.applicationContext, httpDataSourceFactory)
         val cachedDataSourceFactory =
-            MelodistCacheManager.buildCacheDataSourceFactory(context.applicationContext, defaultDataSourceFactory)
+            QQMusicCacheManager.buildCacheDataSourceFactory(context.applicationContext, defaultDataSourceFactory)
 
         val mediaSourceFactory =
             DefaultMediaSourceFactory(context.applicationContext, createExtractorsFactory())

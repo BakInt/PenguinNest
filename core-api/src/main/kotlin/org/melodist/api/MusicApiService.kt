@@ -1,4 +1,4 @@
-package org.melodist.api
+﻿package org.melodist.api
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,7 +26,7 @@ class MusicApiService(
         private const val API_ENDPOINT = "https://u.y.qq.com/cgi-bin/musicu.fcg"
         private const val AG1_ENDPOINT = "https://u6.y.qq.com/cgi-bin/musics.fcg"
         const val APP_USER_AGENT = "QQMusic 14090008(android 14)"
-        const val WEB_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; MelodistTV) AppleWebKit/537.36"
+        const val WEB_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; QQMusicTV) AppleWebKit/537.36"
 
         /**
          * 构建客户端 App 渠道的通用 comm 协议体
@@ -213,7 +213,7 @@ class MusicApiService(
                     .Builder()
                     .url(url)
                     .post(body)
-                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; MelodistTV) AppleWebKit/537.36")
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; QQMusicTV) AppleWebKit/537.36")
                     .header("Referer", "https://y.qq.com/")
                     .header("Origin", "https://y.qq.com")
 
@@ -248,7 +248,7 @@ class MusicApiService(
                     .Builder()
                     .url(url)
                     .post(body)
-                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; MelodistTV) AppleWebKit/537.36")
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; QQMusicTV) AppleWebKit/537.36")
                     .header("Referer", "https://y.qq.com/")
                     .header("Origin", "https://y.qq.com")
 
@@ -307,7 +307,7 @@ class MusicApiService(
                     .Builder()
                     .url(url)
                     .get()
-                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; MelodistTV) AppleWebKit/537.36")
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; QQMusicTV) AppleWebKit/537.36")
                     .header("Referer", "https://y.qq.com/")
 
             val cookieHeader = UserSession.getCookieHeader()
@@ -324,11 +324,38 @@ class MusicApiService(
         }
 
     /**
+     * 发起 c.y.qq.com 明文 GET 请求（对齐开源方案 Rain120/qq-music-api 的 y_common 请求层，
+     * 供搜索联想与歌词搜索等无需登录的公开接口使用）
+     */
+    suspend fun getYqqPlainGateway(url: String): String =
+        withContext(Dispatchers.IO) {
+            val requestBuilder =
+                Request
+                    .Builder()
+                    .url(url)
+                    .get()
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; QQMusicTV) AppleWebKit/537.36")
+                    .header("Referer", "https://c.y.qq.com/")
+
+            val cookieHeader = UserSession.getCookieHeader()
+            if (cookieHeader.isNotBlank()) {
+                requestBuilder.header("Cookie", cookieHeader)
+            }
+
+            client.newCall(requestBuilder.build()).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("YQQ plain gateway error: HTTP ${response.code}")
+                }
+                response.body.string()
+            }
+        }
+
+    /**
      * 安全地确保 MusicKey 有效，自动透传协程取消并记录日志
      */
     suspend fun ensureMusicKeySafe(forceRefresh: Boolean = false): Boolean =
         try {
-            LoginApiService().ensureMusicKey(forceRefresh)
+            LoginApiService.shared.ensureMusicKey(forceRefresh)
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             ApiLogger.w("MusicApiService", "Failed to ensure music key", e)

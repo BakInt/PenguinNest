@@ -171,25 +171,12 @@ object MobileConnectManager {
 
         scope.launch {
             client.playerState.collect { state ->
-                val resolvedState =
-                    if (state != null) {
-                        val resolvedSong = state.currentSong?.let { resolveWebDavCoverLocally(it) }
-                        val resolvedPrev = state.prevSong?.let { resolveWebDavCoverLocally(it) }
-                        val resolvedNext = state.nextSong?.let { resolveWebDavCoverLocally(it) }
-                        state.copy(
-                            currentSong = resolvedSong,
-                            prevSong = resolvedPrev,
-                            nextSong = resolvedNext,
-                        )
-                    } else {
-                        null
-                    }
-                _tvPlayerState.value = resolvedState
+                _tvPlayerState.value = state
                 if (remoteControlMode.value == RemoteControlMode.TAKEOVER && isTvOnline) {
-                    if (resolvedState != null) {
-                        val tvSong = resolvedState.currentSong
-                        val isPlaying = resolvedState.isPlaying
-                        val tvPos = resolvedState.positionMs
+                    if (state != null) {
+                        val tvSong = state.currentSong
+                        val isPlaying = state.isPlaying
+                        val tvPos = state.positionMs
 
                         val shouldSyncToLocalPlayer = isPlaying || PlaybackManager.isRemoteActive.value
                         if (shouldSyncToLocalPlayer) {
@@ -212,22 +199,22 @@ object MobileConnectManager {
                             val pairedName = (connectionState.value as? MobileConnectionState.Paired)?.targetDevice?.name
                             appContext?.let { PlaybackManager.startPlaybackService(it) }
                             PlaybackManager.setRemoteActive(true, pairedName)
-                            val effectiveRadioMode = PlaybackManager.isRadioMode.value || resolvedState.isRadioMode
+                            val effectiveRadioMode = PlaybackManager.isRadioMode.value || state.isRadioMode
                             PlaybackManager.syncRemotePlaybackState(
                                 song = tvSong,
                                 isPlaying = isPlaying,
                                 positionMs = tvPos,
-                                durationMs = resolvedState.durationMs,
-                                currentIndex = resolvedState.currentIndex,
-                                loopModeName = resolvedState.loopMode,
-                                prevSong = resolvedState.prevSong,
-                                nextSong = resolvedState.nextSong,
-                                currentTier = resolvedState.currentTier,
-                                availableTiers = resolvedState.availableTiers,
+                                durationMs = state.durationMs,
+                                currentIndex = state.currentIndex,
+                                loopModeName = state.loopMode,
+                                prevSong = state.prevSong,
+                                nextSong = state.nextSong,
+                                currentTier = state.currentTier,
+                                availableTiers = state.availableTiers,
                                 isRadioMode = effectiveRadioMode,
-                                lyricOffsetMs = resolvedState.lyricOffsetMs,
+                                lyricOffsetMs = state.lyricOffsetMs,
                             )
-                            checkAndExpandRadioQueue(resolvedState.currentIndex)
+                            checkAndExpandRadioQueue(state.currentIndex)
 
                             if (localMute.value) {
                                 // 开启本地静音：保持静音保活且不发声，仅同步 UI 与系统媒体控制通知
@@ -334,10 +321,10 @@ object MobileConnectManager {
                                 }
                             }
                             val curMid = tvSong?.songMid.orEmpty()
-                            if (curMid.isNotBlank() && !curMid.startsWith("webdav_")) {
+                            if (curMid.isNotBlank()) {
                                 val localFav = PlaybackManager.isSongFavorite(curMid)
-                                if (localFav != resolvedState.isFavorite) {
-                                    PlaybackManager.setSongFavoriteState(curMid, resolvedState.isFavorite)
+                                if (localFav != state.isFavorite) {
+                                    PlaybackManager.setSongFavoriteState(curMid, state.isFavorite)
                                 }
                             }
                         }
@@ -358,7 +345,7 @@ object MobileConnectManager {
                         return@collect
                     }
                     if (PlaybackManager.isRemoteActive.value || tvPlayerState.value?.isPlaying == true) {
-                        val resolvedQueue = qState.queue.map { resolveWebDavCoverLocally(it) }
+                        val resolvedQueue = qState.queue
                         if (PlaybackManager.isRadioMode.value && resolvedQueue.size < PlaybackManager.playlist.value.size) {
                             return@collect
                         }
@@ -1116,8 +1103,8 @@ object MobileConnectManager {
     }
 
     private fun prepareSongForTv(song: Song): Song {
-        val server = streamServer ?: return resolveWebDavCoverLocally(song)
-        var updated = resolveWebDavCoverLocally(song)
+        val server = streamServer ?: return song
+        var updated = song
         val isOfflineMode = tvOfflineProxy.value
         val coverUrl = updated.coverUrl
         if (coverUrl.isNotBlank()) {
@@ -1128,7 +1115,6 @@ object MobileConnectManager {
             }
         }
         val isTrueLocal = updated.isLocal || updated.songMid.startsWith("local_")
-        val isWebDavSong = updated.isWebDav || updated.songMid.startsWith("webdav_")
         if (isTrueLocal) {
             if (updated.mediaMid.startsWith("http://") || updated.mediaMid.startsWith("https://")) {
                 return updated
@@ -1147,53 +1133,12 @@ object MobileConnectManager {
                         mediaMid = streamUrl,
                     )
             }
-        } else if (isWebDavSong) {
-            if (!updated.mediaMid.startsWith("http://") && !updated.mediaMid.startsWith("https://")) {
-                val serverId = updated.songMid.removePrefix("webdav_").substringBeforeLast('_')
-                val href = updated.mediaMid.ifBlank { updated.localFilePath.orEmpty() }
-                if (serverId.isNotBlank() && href.isNotBlank()) {
-                    val streamUrl = server.buildWebDavStreamUrl(serverId, href)
-                    updated = updated.copy(mediaMid = streamUrl)
-                }
-            }
         } else {
             if (updated.localFilePath != null) {
                 updated = updated.copy(localFilePath = null)
             }
         }
         return updated
-    }
-
-    private fun resolveWebDavCoverLocally(song: Song): Song {
-        if (!song.isWebDav) return song
-        val coverUrl = song.coverUrl
-        if (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) {
-            return song
-        }
-        if (coverUrl.startsWith("file://")) {
-            val f = java.io.File(coverUrl.removePrefix("file://"))
-            if (f.exists() && f.length() > 0L) return song
-        }
-        val serverId = song.songMid.removePrefix("webdav_").substringBeforeLast('_')
-        val href = song.mediaMid.ifBlank { song.localFilePath.orEmpty() }
-        val servers =
-            org.melodist.data.WebDavManager
-                .getServers()
-        val server =
-            servers.find { it.id == serverId }
-                ?: org.melodist.data.WebDavManager
-                    .getActiveServer()
-                ?: servers.firstOrNull()
-                ?: return song
-        if (href.isNotBlank()) {
-            val cachedCover =
-                org.melodist.data.WebDavManager
-                    .getSongCoverPath(server.id, href)
-            if (!cachedCover.isNullOrBlank()) {
-                return song.copy(coverUrl = cachedCover)
-            }
-        }
-        return song
     }
 
     private suspend fun resolveAudioSource(
@@ -1226,17 +1171,6 @@ object MobileConnectManager {
                 sourceType = AudioSourceType.STREAM_PROXY,
                 streamUrl = server.buildLocalAudioStreamUrl(filePath),
             )
-        }
-
-        if (song.isWebDav && server != null) {
-            val serverId = song.songMid.removePrefix("webdav_").substringBeforeLast('_')
-            val href = song.mediaMid.ifBlank { song.localFilePath.orEmpty() }
-            if (serverId.isNotBlank() && href.isNotBlank()) {
-                return AudioSourceDescriptor(
-                    sourceType = AudioSourceType.STREAM_PROXY,
-                    streamUrl = server.buildWebDavStreamUrl(serverId, href),
-                )
-            }
         }
 
         if (isOfflineMode && server != null) {
@@ -1273,7 +1207,7 @@ object MobileConnectManager {
                 val lyrics =
                     if (!cached.isNullOrEmpty()) {
                         cached
-                    } else if (!song.isLocal && !song.songMid.startsWith("local_") && !song.isWebDav) {
+                    } else if (!song.isLocal && !song.songMid.startsWith("local_")) {
                         val fetched = apiService.getLyrics(song.songMid, song.songId, songName = song.name, singer = song.singer)
                         if (fetched.isNotEmpty()) {
                             LyricCacheManager.saveLyrics(song.songMid, fetched)

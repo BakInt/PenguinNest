@@ -15,13 +15,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 
 private val NavItems =
     listOf(
         "主页",
-        "WebDAV",
         "本地音乐",
         "远程控制",
         "听歌识曲",
@@ -78,8 +77,8 @@ fun TopNavBar(
                 modifier = itemModifier,
                 shape =
                     ButtonDefaults.shape(
-                        shape = MelodistShapes.PillCorner,
-                        focusedShape = MelodistShapes.PillCorner,
+                        shape = QQMusicShapes.PillCorner,
+                        focusedShape = QQMusicShapes.PillCorner,
                     ),
                 colors =
                     ButtonDefaults.colors(
@@ -98,12 +97,12 @@ fun TopNavBar(
                                     } else {
                                         BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
                                     },
-                                shape = MelodistShapes.PillCorner,
+                                shape = QQMusicShapes.PillCorner,
                             ),
                         focusedBorder =
                             Border(
-                                border = BorderStroke(2.dp, MelodistColors.FocusTeal),
-                                shape = MelodistShapes.PillCorner,
+                                border = BorderStroke(2.dp, QQMusicColors.FocusTeal),
+                                shape = QQMusicShapes.PillCorner,
                             ),
                     ),
                 scale =

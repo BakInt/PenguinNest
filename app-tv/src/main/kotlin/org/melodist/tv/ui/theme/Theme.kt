@@ -33,13 +33,13 @@ import kotlin.math.sin
 @OptIn(ExperimentalTvMaterial3Api::class)
 private val DarkColorPalette =
     darkColorScheme(
-        primary = MelodistColors.AccentGreen,
+        primary = QQMusicColors.AccentGreen,
         onPrimary = Color.Black,
-        surface = MelodistColors.SurfaceDark,
-        onSurface = MelodistColors.TextPrimary,
-        surfaceVariant = MelodistColors.ContainerDark,
-        onSurfaceVariant = MelodistColors.TextSecondary,
-        border = MelodistColors.FocusTeal,
+        surface = QQMusicColors.SurfaceDark,
+        onSurface = QQMusicColors.TextPrimary,
+        surfaceVariant = QQMusicColors.ContainerDark,
+        onSurfaceVariant = QQMusicColors.TextSecondary,
+        border = QQMusicColors.FocusTeal,
     )
 
 /**
@@ -301,7 +301,7 @@ val LocalMonetSurface = compositionLocalOf { MonetColorExtractor.DefaultSurfaceC
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun MelodistTvTheme(content: @Composable () -> Unit) {
+fun QQMusicTvTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = DarkColorPalette,
         content = content,

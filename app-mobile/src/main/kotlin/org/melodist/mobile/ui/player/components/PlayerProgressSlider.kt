@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import org.melodist.model.ChorusDetector
 import org.melodist.playback.PlaybackManager
 
 /**
@@ -48,6 +49,7 @@ fun PlayerProgressSlider(
     val sliderPositionMs by PlaybackManager.currentPositionMs.collectAsState()
     val isFromCache by PlaybackManager.isCurrentTrackFromCache.collectAsState()
     val fileCacheFraction by PlaybackManager.fileCacheFraction.collectAsState()
+    val chorusSections by PlaybackManager.chorusSections.collectAsState()
     var isDraggingSlider by remember { mutableStateOf(false) }
     var draggingSliderValue by remember { mutableFloatStateOf(0f) }
     val interactionSource = remember { MutableInteractionSource() }
@@ -160,6 +162,16 @@ fun PlayerProgressSlider(
                             end = Offset(activeWidth, centerY),
                             strokeWidth = trackHeightPx,
                             cap = StrokeCap.Round,
+                        )
+                    }
+
+                    // 副歌（高潮）标记点
+                    chorusSections.forEach { section ->
+                        val chorusFraction = (section.startMs.toFloat() / durationSafe).coerceIn(0f, 1f)
+                        drawCircle(
+                            color = textColor,
+                            radius = 2.dp.toPx(),
+                            center = Offset(size.width * chorusFraction, centerY),
                         )
                     }
 

@@ -11,7 +11,7 @@ import com.google.common.collect.ImmutableList
 import org.melodist.core.playback.R
 
 @OptIn(UnstableApi::class)
-class MelodistNotificationProvider(
+class QQMusicNotificationProvider(
     context: Context,
 ) : DefaultMediaNotificationProvider(
         context,

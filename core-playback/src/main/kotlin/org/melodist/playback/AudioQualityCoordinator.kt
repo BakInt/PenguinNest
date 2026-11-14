@@ -66,7 +66,7 @@ class AudioQualityCoordinator(
             blacklistedSongMid = song.songMid
             blacklistedTiers.clear()
         }
-        val isPureLocal = PlaybackSourceResolver.isPureLocalOrWebDav(song)
+        val isPureLocal = PlaybackSourceResolver.isPureLocalSong(song)
         if (isPureLocal) {
             val actualTier = song.currentTier
             val isSupported = DeviceAudioCapability.isTierSupported(actualTier)
@@ -180,8 +180,7 @@ class AudioQualityCoordinator(
         onAutoUpgrade: ((AudioQualityTier) -> Unit)? = null,
     ) {
         if (song == null) return
-        val isLocalOrWebDav = song.songMid.startsWith("webdav_") || !song.localFilePath.isNullOrBlank()
-        if (isLocalOrWebDav) return
+        if (!song.localFilePath.isNullOrBlank()) return
         if (probedSongMid == song.songMid && _probedQualityOptions.value.isNotEmpty()) return
         probeJob?.cancel()
         launchProbeJob(

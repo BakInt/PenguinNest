@@ -233,9 +233,9 @@ object AudioMetadataWriter {
         if (payload.artist.isNotBlank()) comments.add("ARTIST=${payload.artist}")
         if (payload.album.isNotBlank()) comments.add("ALBUM=${payload.album}")
         if (!payload.lyrics.isNullOrBlank()) comments.add("LYRICS=${payload.lyrics}")
-        comments.add("ENCODER=Melodist")
+        comments.add("ENCODER=QQMusic")
 
-        val vendor = "Melodist FLAC Writer".toByteArray(Charsets.UTF_8)
+        val vendor = "QQMusic FLAC Writer".toByteArray(Charsets.UTF_8)
         val baos = ByteArrayOutputStream()
 
         // 32-bit little-endian vendor length + vendor

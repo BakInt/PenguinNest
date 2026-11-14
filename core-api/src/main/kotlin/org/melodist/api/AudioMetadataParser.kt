@@ -43,6 +43,17 @@ data class ParsedAudioMetadata(
  */
 object AudioMetadataParser {
     /**
+     * 从音频二进制流切片中解析内嵌歌词（支持 Vorbis Comment 与 ID3v2 USLT）。
+     *
+     * @param bytes 音频文件前导或局部二进制数据
+     * @return 提取出的歌词纯文本，未解析到返回 null
+     */
+    fun extractEmbeddedLyricsFromBytes(bytes: ByteArray): String? {
+        if (bytes.size < 64) return null
+        return parse(bytes).lyrics
+    }
+
+    /**
      * 解析音频二进制流前导字节提取内嵌 ID3v2/FLAC 元数据与封面。
      *
      * @param bytes 音频前导字节切片

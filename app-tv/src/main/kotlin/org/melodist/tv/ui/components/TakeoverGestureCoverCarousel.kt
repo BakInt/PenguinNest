@@ -38,7 +38,7 @@ import org.melodist.core.connect.model.GestureSwipeState
 import org.melodist.model.Song
 import org.melodist.playback.PlaybackManager
 import org.melodist.tv.connect.TakeoverGestureState
-import org.melodist.tv.ui.theme.MelodistColors
+import org.melodist.tv.ui.theme.QQMusicColors
 import kotlin.math.abs
 
 /**
@@ -74,12 +74,12 @@ fun TakeoverGestureCoverCarousel(
             PlaybackManager.getNextSong()
         }
 
-    // 后台预加载前后歌曲封面并在缺少封面时触发 WebDAV 预提取
+    // 后台预加载前后歌曲封面
     LaunchedEffect(prevSong?.songMid, nextSong?.songMid, prevSong?.coverUrl, nextSong?.coverUrl) {
-        val prevNeedPrefetch = prevSong != null && (prevSong.isWebDav || prevSong.songMid.startsWith("webdav_")) && prevSong.coverUrl.isBlank()
-        val nextNeedPrefetch = nextSong != null && (nextSong.isWebDav || nextSong.songMid.startsWith("webdav_")) && nextSong.coverUrl.isBlank()
+        val prevNeedPrefetch = prevSong != null && prevSong.coverUrl.isBlank()
+        val nextNeedPrefetch = nextSong != null && nextSong.coverUrl.isBlank()
         if (prevNeedPrefetch || nextNeedPrefetch) {
-            PlaybackManager.prefetchAdjacentWebDavCovers()
+            PlaybackManager.prefetchAdjacentCoversAndMetadata()
         }
 
         val imageLoader = SingletonImageLoader.get(context)
@@ -204,12 +204,12 @@ fun TakeoverGestureCoverCarousel(
                     Modifier
                         .fillMaxSize()
                         .clip(shape)
-                        .background(MelodistColors.ContainerDark),
+                        .background(QQMusicColors.ContainerDark),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "Melodist 4K",
-                    color = MelodistColors.TextMuted,
+                    text = "QQMusic 4K",
+                    color = QQMusicColors.TextMuted,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                 )
@@ -292,7 +292,7 @@ fun TakeoverGestureCoverCarousel(
                                 }
                             }
 
-                        MelodistElevatedCover(
+                        QQMusicElevatedCover(
                             coverUrl = slotSong.coverUrl,
                             albumMid = slotSong.albumMid,
                             visualMid = slotSong.visualMid,

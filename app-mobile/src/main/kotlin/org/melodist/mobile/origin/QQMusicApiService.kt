@@ -621,17 +621,6 @@ open class QQMusicApiService : Service() {
                 rawUrl =
                     org.melodist.data.LocalMusicManager
                         .resolveCoverUrl(localPath, "")
-            } else if (song.songMid.startsWith("webdav_")) {
-                val server =
-                    org.melodist.data.WebDavManager
-                        .getActiveServer()
-                val relativeHref = song.mediaMid.ifBlank { song.localFilePath ?: "" }
-                if (server != null && relativeHref.isNotBlank()) {
-                    rawUrl =
-                        org.melodist.data.WebDavManager
-                            .getSongCoverPath(server.id, relativeHref)
-                            .orEmpty()
-                }
             }
         }
 
@@ -695,7 +684,7 @@ open class QQMusicApiService : Service() {
     }
 
     companion object {
-        private const val TAG = "MelodistQQMusicApi"
+        private const val TAG = "QQMusicQQMusicApi"
 
         private const val PLAY_STATUS_STOPPED = 3
         private const val PLAY_STATUS_STARTED = 4

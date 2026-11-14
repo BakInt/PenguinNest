@@ -46,9 +46,9 @@ import androidx.tv.material3.Text
 import org.melodist.model.Album
 import org.melodist.model.Playlist
 import org.melodist.model.Song
-import org.melodist.tv.ui.components.MelodistElevatedCover
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.components.QQMusicElevatedCover
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 
 @Composable
 fun PlaylistTvLeftPanel(
@@ -84,7 +84,7 @@ fun PlaylistTvLeftPanel(
 
         // 大屏大封面展示
         if (effectiveCoverUrl.isNotEmpty() || effectiveAlbumMid.isNotEmpty()) {
-            MelodistElevatedCover(
+            QQMusicElevatedCover(
                 coverUrl = effectiveCoverUrl,
                 albumMid = effectiveAlbumMid,
                 visualMid = if (isPlayerMode) activePlayingSong?.visualMid.orEmpty() else "",
@@ -115,11 +115,11 @@ fun PlaylistTvLeftPanel(
                     Icon(
                         imageVector = Icons.Filled.Favorite,
                         contentDescription = "我喜欢",
-                        tint = MelodistColors.FavoriteRed,
+                        tint = QQMusicColors.FavoriteRed,
                         modifier = Modifier.size(96.dp),
                     )
                     Text(
-                        text = "MELODIST FAVORITES",
+                        text = "QQMUSIC FAVORITES",
                         color = Color.White.copy(alpha = 0.6f),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
@@ -138,13 +138,13 @@ fun PlaylistTvLeftPanel(
                             ambientColor = Color.Black.copy(alpha = 0.25f),
                             spotColor = Color.Black.copy(alpha = 0.45f),
                         ).clip(RoundedCornerShape(6.dp))
-                        .background(MelodistColors.ContainerDarkSecondary)
+                        .background(QQMusicColors.ContainerDarkSecondary)
                         .border(BorderStroke(0.75.dp, Color.White.copy(alpha = 0.12f)), RoundedCornerShape(6.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "Melodist TV",
-                    color = MelodistColors.TextMuted,
+                    text = "QQMusic TV",
+                    color = QQMusicColors.TextMuted,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                 )
@@ -164,7 +164,7 @@ fun PlaylistTvLeftPanel(
                         text = activePlayingSong?.name?.ifBlank { "未选择曲目" } ?: "正在载入曲目...",
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MelodistColors.TextPrimary,
+                        color = QQMusicColors.TextPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -172,7 +172,7 @@ fun PlaylistTvLeftPanel(
                     Text(
                         text = if (activePlayingSong != null) "${activePlayingSong.singer} · ${activePlayingSong.album}" else "正在同步曲目信息...",
                         fontSize = 15.sp,
-                        color = MelodistColors.TextSecondary,
+                        color = QQMusicColors.TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -196,14 +196,14 @@ fun PlaylistTvLeftPanel(
                             text = resolvedTitle,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MelodistColors.TextPrimary,
+                            color = QQMusicColors.TextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = displaySubtitle,
                             fontSize = 13.sp,
-                            color = MelodistColors.TextSecondary,
+                            color = QQMusicColors.TextSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -226,13 +226,13 @@ fun PlaylistTvLeftPanel(
                                 ),
                         shape =
                             ButtonDefaults.shape(
-                                shape = MelodistShapes.CardCorner,
-                                focusedShape = MelodistShapes.CardCorner,
+                                shape = QQMusicShapes.CardCorner,
+                                focusedShape = QQMusicShapes.CardCorner,
                             ),
                         colors =
                             ButtonDefaults.colors(
                                 containerColor = Color.White.copy(alpha = 0.08f),
-                                focusedContainerColor = MelodistColors.AccentGreen,
+                                focusedContainerColor = QQMusicColors.AccentGreen,
                                 contentColor = Color.White,
                                 focusedContentColor = Color.Black,
                             ),
@@ -241,12 +241,12 @@ fun PlaylistTvLeftPanel(
                                 border =
                                     Border(
                                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                                        shape = MelodistShapes.CardCorner,
+                                        shape = QQMusicShapes.CardCorner,
                                     ),
                                 focusedBorder =
                                     Border(
-                                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                        shape = MelodistShapes.CardCorner,
+                                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                        shape = QQMusicShapes.CardCorner,
                                     ),
                             ),
                         scale = ButtonDefaults.scale(focusedScale = 1.0f),
@@ -333,17 +333,17 @@ fun PlaylistFilterChip(
 ) {
     Button(
         onClick = onClick,
-        shape = ButtonDefaults.shape(MelodistShapes.PillCorner),
+        shape = ButtonDefaults.shape(QQMusicShapes.PillCorner),
         colors =
             ButtonDefaults.colors(
                 containerColor =
                     if (isSelected) {
-                        MelodistColors.AccentGreen.copy(alpha = 0.25f)
+                        QQMusicColors.AccentGreen.copy(alpha = 0.25f)
                     } else {
-                        MelodistColors.ContainerDarkSecondary
+                        QQMusicColors.ContainerDarkSecondary
                     },
                 focusedContainerColor = Color.White,
-                contentColor = if (isSelected) MelodistColors.AccentGreen else MelodistColors.TextSecondary,
+                contentColor = if (isSelected) QQMusicColors.AccentGreen else QQMusicColors.TextSecondary,
                 focusedContentColor = Color.Black,
             ),
         border =
@@ -353,14 +353,14 @@ fun PlaylistFilterChip(
                         border =
                             BorderStroke(
                                 1.dp,
-                                if (isSelected) MelodistColors.AccentGreen else Color.White.copy(alpha = 0.1f),
+                                if (isSelected) QQMusicColors.AccentGreen else Color.White.copy(alpha = 0.1f),
                             ),
-                        shape = MelodistShapes.PillCorner,
+                        shape = QQMusicShapes.PillCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.PillCorner,
+                        border = BorderStroke(2.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.PillCorner,
                     ),
             ),
         scale = ButtonDefaults.scale(focusedScale = 1.05f),

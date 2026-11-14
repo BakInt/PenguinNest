@@ -69,7 +69,7 @@ object PlaybackMediaItemFactory {
             MediaItem
                 .Builder()
                 .setMediaId(song.songMid)
-                .setCustomCacheKey(MelodistCacheManager.getCacheKey(song.songMid, tier))
+                .setCustomCacheKey(QQMusicCacheManager.getCacheKey(song.songMid, tier))
                 .setMediaMetadata(buildMediaMetadata(song, lyrics = lyrics))
         if (uri != null) {
             builder.setUri(uri)

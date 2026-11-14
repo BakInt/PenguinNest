@@ -271,7 +271,7 @@ fun PlaylistTvScreen(
                     }
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
-                    android.util.Log.e("MelodistPlaylist", "Failed to sync full playlist", e)
+                    android.util.Log.e("QQMusicPlaylist", "Failed to sync full playlist", e)
                 }
             }
     }
@@ -583,7 +583,7 @@ fun PlaylistTvScreen(
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("MelodistPlaylist", "Failed to load category $categoryId", e)
+            android.util.Log.e("QQMusicPlaylist", "Failed to load category $categoryId", e)
             loadError = e.message
         } finally {
             isLoading = false
@@ -1046,7 +1046,7 @@ fun PlaylistTvScreen(
                 onNextClick = { PlaybackManager.playNext() },
                 onLoopClick = { PlaybackManager.cycleLoopMode() },
                 onQualityClick = {
-                    if (!PlaybackManager.isLocalOrWebDavSong(currentSong)) {
+                    if (!PlaybackManager.isLocalPlaybackSong(currentSong)) {
                         showQualityDialog = true
                     }
                 },

@@ -111,8 +111,9 @@ object PlaybackCredentialsManager {
      * @return 优先返回自定义凭证中的 UIN；不存在时返回用户登录会话 UIN，未登录返回 `"0"`
      */
     fun getActiveUin(): String {
-        val customUin = _credentialsFlow.value?.uin
-        return if (!customUin.isNullOrBlank()) customUin else UserSession.profile.uin.ifBlank { "0" }
+        val customUin = _credentialsFlow.value?.uin?.trimStart('o')?.takeIf { it.isNotBlank() }
+        if (customUin != null) return customUin
+        return UserSession.profile.uin.trimStart('o').ifBlank { "0" }
     }
 
     /**
@@ -190,6 +191,24 @@ object PlaybackCredentialsManager {
             return parsed < now
         }
         return false
+    }
+
+    /**
+     * 判断播放凭据里的 `musicKey` 是否已超出新鲜窗口（**软信号**，不等于凭据失效）。
+     *
+     * [isCredentialExpired] 只看会员到期时间，无法反映 `musicKey` 自身的短效特性：
+     * 导入的凭据即使会员还有一年，`musicKey` 也可能在 1–2 小时后被服务端拒绝。
+     * 本函数用于"该提醒用户重新导入/开启自动续签"的场景，不参与有效性判定，
+     * 以免把仍可用的长效 key 误判成失效。
+     *
+     * @param creds 待校验的播放凭据
+     * @return key 已超过新鲜窗口返回 `true`
+     */
+    fun isCredentialKeyStale(creds: PlaybackCredentials): Boolean {
+        if (creds.musicKey.isBlank()) return false
+        val issuedAt = if (creds.updateTime > 0L) creds.updateTime else creds.expireTimestamp
+        if (issuedAt <= 0L) return false
+        return System.currentTimeMillis() - issuedAt >= UserSession.MUSIC_KEY_TTL_MS
     }
 
     fun isCredentialRevoked(creds: PlaybackCredentials? = currentCredentials): Boolean = creds?.isRevoked == true
@@ -288,7 +307,7 @@ object PlaybackCredentialsManager {
             0x56,
         )
 
-    private const val DEFAULT_PASSPHRASE = "melodist-playback-token-vault-v1"
+    private const val DEFAULT_PASSPHRASE = "qqmusic-playback-token-vault-v1"
 
     /**
      * 导出播放凭证为 URL-safe Base64 紧凑文本
@@ -296,7 +315,7 @@ object PlaybackCredentialsManager {
     fun exportToken(
         profile: UserProfile,
         password: String? = null,
-        allowRefresh: Boolean = false,
+        allowRefresh: Boolean = true,
     ): String {
         val cleanCookies =
             profile.cookies.filterKeys {

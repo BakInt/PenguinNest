@@ -242,7 +242,7 @@ class TvConnectServer(
                 try {
                     ws.send(message)
                 } catch (e: Exception) {
-                    Log.w("MelodistConnectServer", "Failed to broadcast data: action=$action", e)
+                    Log.w("QQMusicConnectServer", "Failed to broadcast data: action=$action", e)
                 }
             }
         }
@@ -255,7 +255,7 @@ class TvConnectServer(
                 try {
                     ws.send(message)
                 } catch (e: Exception) {
-                    Log.w("MelodistConnectServer", "Failed to broadcast action: action=$action", e)
+                    Log.w("QQMusicConnectServer", "Failed to broadcast action: action=$action", e)
                 }
             }
         }
@@ -271,7 +271,7 @@ class TvConnectServer(
         try {
             socket.send(message)
         } catch (e: Exception) {
-            Log.w("MelodistConnectServer", "Failed to send data: action=$action", e)
+            Log.w("QQMusicConnectServer", "Failed to send data: action=$action", e)
         }
     }
 
@@ -284,7 +284,7 @@ class TvConnectServer(
         try {
             socket.send(message)
         } catch (e: Exception) {
-            Log.w("MelodistConnectServer", "Failed to send action: action=$action", e)
+            Log.w("QQMusicConnectServer", "Failed to send action: action=$action", e)
         }
     }
 
@@ -295,7 +295,7 @@ class TvConnectServer(
             conn: WebSocket,
             handshake: ClientHandshake,
         ) {
-            android.util.Log.i("MelodistConnectServer", "Client socket opened from ${conn.remoteSocketAddress}")
+            android.util.Log.i("QQMusicConnectServer", "Client socket opened from ${conn.remoteSocketAddress}")
         }
 
         override fun onClose(
@@ -304,7 +304,7 @@ class TvConnectServer(
             reason: String,
             remote: Boolean,
         ) {
-            android.util.Log.i("MelodistConnectServer", "Client socket closed: code=$code, reason=$reason, remote=$remote")
+            android.util.Log.i("QQMusicConnectServer", "Client socket closed: code=$code, reason=$reason, remote=$remote")
             val device = activeClients.remove(conn)
             if (device != null && _connectedDeviceFlow.value?.id == device.id) {
                 _connectedDeviceFlow.value = activeClients.values.firstOrNull()
@@ -315,7 +315,7 @@ class TvConnectServer(
             conn: WebSocket,
             text: String,
         ) {
-            android.util.Log.d("MelodistConnectServer", "Received message from client: $text")
+            android.util.Log.d("QQMusicConnectServer", "Received message from client: $text")
             handleIncomingMessage(conn, text)
         }
 
@@ -323,11 +323,11 @@ class TvConnectServer(
             conn: WebSocket?,
             ex: Exception,
         ) {
-            android.util.Log.e("MelodistConnectServer", "WebSocket error: ${ex.message}", ex)
+            android.util.Log.e("QQMusicConnectServer", "WebSocket error: ${ex.message}", ex)
         }
 
         override fun onStart() {
-            android.util.Log.i("MelodistConnectServer", "TvConnectServer started on port $actualPort")
+            android.util.Log.i("QQMusicConnectServer", "TvConnectServer started on port $actualPort")
         }
     }
 
@@ -339,7 +339,7 @@ class TvConnectServer(
             try {
                 json.decodeFromString<ConnectMessage>(text)
             } catch (e: Exception) {
-                Log.w("MelodistConnectServer", "Failed to parse incoming message: $text", e)
+                Log.w("QQMusicConnectServer", "Failed to parse incoming message: $text", e)
                 return
             }
 

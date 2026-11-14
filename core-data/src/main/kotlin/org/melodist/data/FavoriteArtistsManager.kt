@@ -17,7 +17,7 @@ import org.melodist.api.toggleSingerFollow
 
 object FavoriteArtistsManager {
     private const val TAG = "FavoriteArtistsManager"
-    private const val PREFS_NAME = "melodist_favorite_artists"
+    private const val PREFS_NAME = "qqmusic_favorite_artists"
     private const val KEY_ARTISTS_SET = "favorite_artist_mids"
     private val scope = CoroutineScope(Dispatchers.IO)
     private var appContext: Context? = null

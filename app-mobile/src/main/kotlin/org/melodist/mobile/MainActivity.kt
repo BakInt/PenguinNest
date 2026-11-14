@@ -5,8 +5,12 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import coil3.SingletonImageLoader
@@ -14,23 +18,29 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.melodist.api.ApiLogger
+import org.melodist.api.KeepAliveResult
 import org.melodist.api.MusicApiService
+import org.melodist.api.SessionKeeper
+import org.melodist.api.SessionState
 import org.melodist.api.UserSession
 import org.melodist.api.refreshCurrentUserProfile
+import org.melodist.data.CrashGuard
 import org.melodist.data.DailyRecommendCacheManager
 import org.melodist.data.FavoriteArtistsManager
 import org.melodist.data.LocalMusicManager
+import org.melodist.data.SessionKeepAliveScheduler
 import org.melodist.data.UserLibraryCacheManager
 import org.melodist.data.UserSessionManager
-import org.melodist.data.WebDavManager
 import org.melodist.data.download.DownloadManager
+import org.melodist.mobile.ui.StartupCrashScreen
 import org.melodist.mobile.ui.navigation.MainNavigationScreen
-import org.melodist.mobile.ui.theme.MelodistMobileTheme
+import org.melodist.mobile.ui.theme.QQMusicMobileTheme
 import org.melodist.mobile.util.LocalNetworkPermissionHelper
 import org.melodist.playback.DeviceAudioCapability
 import org.melodist.playback.PlaybackManager
@@ -44,8 +54,15 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        WindowCompat.enableEdgeToEdge(window)
         super.onCreate(savedInstanceState)
+        // enableEdgeToEdge 必须在 super.onCreate 之后调用：窗口尚未 attach 时它要操作的
+        // insets 控制器还未就绪，属于历史遗留的时序隐患。
+        WindowCompat.enableEdgeToEdge(window)
+
+        // 「启动看门狗」：报告由 QQMusicMobileApp.onCreate 在打本次启动标记之前捕获
+        // （Application 阶段崩掉时 MainActivity 根本不会执行，所以取证必须放在 Application）。
+        val startupCrashReport = QQMusicMobileApp.pendingStartupCrash
+        org.melodist.data.CrashGuard.markStartupBegin(this)
 
         val permissionsToRequest = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -66,94 +83,195 @@ class MainActivity : ComponentActivity() {
             requestPermissionsLauncher.launch(permissionsToRequest.toTypedArray())
         }
 
-        lifecycleScope.launch(Dispatchers.Default) {
-            DeviceAudioCapability.init(applicationContext)
-        }
-        UserSessionManager.init(this)
-        DailyRecommendCacheManager.init(this) { urls ->
-            val appContext = applicationContext
-            lifecycleScope.launch(Dispatchers.IO) {
-                // 错峰延迟 1.5 秒，避开冷启动首屏布局、JIT 编译与主线程渲染高峰
-                kotlinx.coroutines.delay(1500)
-                val imageLoader = SingletonImageLoader.get(appContext)
-                val semaphore = kotlinx.coroutines.sync.Semaphore(2)
-                for (url in urls) {
-                    semaphore.withPermit {
-                        try {
-                            val request =
-                                ImageRequest
-                                    .Builder(appContext)
-                                    .data(url)
-                                    .memoryCachePolicy(CachePolicy.DISABLED)
-                                    .diskCachePolicy(CachePolicy.ENABLED)
-                                    .build()
-                            imageLoader.execute(request)
-                        } catch (e: Throwable) {
-                            if (e is CancellationException) throw e
-                            Log.w("MainActivity", "Operation failed", e)
-                        }
-                    }
-                }
-            }
-        }
-        org.melodist.data.AppSettingsManager
-            .init(this)
-        UserLibraryCacheManager.init(this)
-        PlaybackManager.init(this)
-        FavoriteArtistsManager.init(this)
-        WebDavManager.init(this)
-        LocalMusicManager.init(this)
-        DownloadManager.init(this)
-        org.melodist.data.GuessRecommendManager
-            .init(this)
-        org.melodist.data.GuessRecommendManager.isPlayingPredicate = { PlaybackManager.isRadioMode.value }
-        org.melodist.data.RecommendFeedManager
-            .init(this)
-        org.melodist.data.MillionRecommendManager
-            .init(this)
-        org.melodist.data.RecentPlaybackManager
-            .init(this)
-        org.melodist.data.SearchKeywordHistoryManager
-            .init(this)
-        org.melodist.mobile.connect.MobileConnectManager
-            .init(this)
-
-        if (UserSession.isLoggedIn) {
-            lifecycleScope.launch(Dispatchers.IO) {
+        // 启动链路的每一步都单独兜底：任何一步抛异常只降级该功能，不让整个应用"打开就崩"。
+        safeInit("DeviceAudioCapability.init") {
+            lifecycleScope.launch(Dispatchers.Default) {
                 try {
-                    val ok = MusicApiService().refreshCurrentUserProfile()
-                    if (!ok) {
-                        if (MusicApiService().forceRefreshMusicKeySafe()) {
-                            MusicApiService().refreshCurrentUserProfile()
+                    DeviceAudioCapability.init(applicationContext)
+                } catch (e: Throwable) {
+                    if (e is CancellationException) throw e
+                    Log.w(TAG, "DeviceAudioCapability.init failed", e)
+                    CrashGuard.record("DeviceAudioCapability.init", e)
+                }
+            }
+        }
+        safeInit("UserSessionManager.init") { UserSessionManager.init(this) }
+        safeInit("DailyRecommendCacheManager.init") {
+            DailyRecommendCacheManager.init(this) { urls ->
+                val appContext = applicationContext
+                lifecycleScope.launch(Dispatchers.IO) {
+                    // 错峰延迟 1.5 秒，避开冷启动首屏布局、JIT 编译与主线程渲染高峰
+                    kotlinx.coroutines.delay(1500)
+                    val imageLoader = SingletonImageLoader.get(appContext)
+                    val semaphore = kotlinx.coroutines.sync.Semaphore(2)
+                    for (url in urls) {
+                        semaphore.withPermit {
+                            try {
+                                val request =
+                                    ImageRequest
+                                        .Builder(appContext)
+                                        .data(url)
+                                        .memoryCachePolicy(CachePolicy.DISABLED)
+                                        .diskCachePolicy(CachePolicy.ENABLED)
+                                        .build()
+                                imageLoader.execute(request)
+                            } catch (e: Throwable) {
+                                if (e is CancellationException) throw e
+                                Log.w(TAG, "Operation failed", e)
+                            }
                         }
                     }
-                } catch (e: Exception) {
-                    ApiLogger.w("MainActivity", "Failed to refresh user profile on app start", e)
+                }
+            }
+        }
+        safeInit("AppSettingsManager.init") { org.melodist.data.AppSettingsManager.init(this) }
+        safeInit("UserLibraryCacheManager.init") { UserLibraryCacheManager.init(this) }
+        safeInit("PlaybackManager.init") { PlaybackManager.init(this) }
+        safeInit("FavoriteArtistsManager.init") { FavoriteArtistsManager.init(this) }
+        safeInit("LocalMusicManager.init") { LocalMusicManager.init(this) }
+        safeInit("DownloadManager.init") { DownloadManager.init(this) }
+        safeInit("GuessRecommendManager.init") { org.melodist.data.GuessRecommendManager.init(this) }
+        safeInit("GuessRecommendManager.isPlayingPredicate") {
+            org.melodist.data.GuessRecommendManager.isPlayingPredicate = { PlaybackManager.isRadioMode.value }
+        }
+        safeInit("RecommendFeedManager.init") { org.melodist.data.RecommendFeedManager.init(this) }
+        safeInit("MillionRecommendManager.init") { org.melodist.data.MillionRecommendManager.init(this) }
+        safeInit("RecentPlaybackManager.init") { org.melodist.data.RecentPlaybackManager.init(this) }
+        safeInit("SearchKeywordHistoryManager.init") { org.melodist.data.SearchKeywordHistoryManager.init(this) }
+        safeInit("MobileConnectManager.init") { org.melodist.mobile.connect.MobileConnectManager.init(this) }
+
+        // 注册后台登录态保活：12 小时一次，保证长效票据不被"闲置超时"作废。
+        safeInit("SessionKeepAliveScheduler.start") { SessionKeepAliveScheduler.start(this) }
+
+        safeInit("startup-profile-refresh") {
+            if (UserSession.isLoggedIn) {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    // 启动时凭据可能已过期：先做一次强刷，再带指数退避重试同步档案。
+                    // 旧实现只在首次失败后补刷一次就放弃，账号页会一直停留在"未开通"。
+                    val backoffDelays = longArrayOf(0L, 3_000L, 8_000L, 20_000L)
+                    for ((attempt, delayMs) in backoffDelays.withIndex()) {
+                        if (delayMs > 0L) delay(delayMs)
+                        try {
+                            if (attempt == 0) {
+                                // 冷启动先做一次强保活，并按结果分类：只有"服务端明确拒绝/无票据"
+                                // 才停止后续重试；网络问题交给退避与后台任务，不在 20 秒内硬放弃。
+                                when (val outcome = SessionKeeper.keepAlive(force = true)) {
+                                    KeepAliveResult.Success -> Unit
+
+                                    is KeepAliveResult.Transient ->
+                                        ApiLogger.w("MainActivity", "Startup keep-alive transient failure: ${outcome.reason}")
+
+                                    is KeepAliveResult.Rejected, KeepAliveResult.NoTicket -> {
+                                        ApiLogger.w("MainActivity", "Startup keep-alive rejected; user must re-login")
+                                        return@launch
+                                    }
+                                }
+                            }
+                            if (MusicApiService().refreshCurrentUserProfile(force = attempt > 0)) {
+                                if (attempt > 0) {
+                                    ApiLogger.i("MainActivity", "Profile refreshed on startup retry #$attempt")
+                                }
+                                return@launch
+                            }
+                        } catch (e: Throwable) {
+                            // 捕 Throwable：Error（如 ExceptionInInitializerError）同样不能让进程崩掉。
+                            if (e is CancellationException) throw e
+                            ApiLogger.w("MainActivity", "Failed to refresh user profile on app start (attempt $attempt)", e)
+                        }
+                    }
+                    ApiLogger.w("MainActivity", "Giving up profile refresh on app start; user may need to re-login")
                 }
             }
         }
 
-        setContent {
-            val settings by org.melodist.data.AppSettingsManager.settings
-                .collectAsState()
-            MelodistMobileTheme(
-                themeMode = settings.themeMode,
-                dynamicColor = settings.dynamicColor,
-                colorTheme = settings.colorTheme,
-                customColorHex = settings.customColorHex,
-                amoledDark = settings.amoledDark,
-            ) {
-                MainNavigationScreen()
+        try {
+            setContent {
+                var pendingCrash by remember { mutableStateOf(startupCrashReport) }
+                val shownCrash = pendingCrash
+                if (shownCrash != null) {
+                    // 主界面组合之前先把上次的崩溃现场摆出来：release 包被 R8 剥掉了日志，
+                    // 这是用户唯一能拿到、也不需要 adb 的崩溃证据（见 doc/19 §3.4）。
+                    StartupCrashScreen(
+                        text = shownCrash,
+                        onContinue = {
+                            org.melodist.data.CrashGuard.markStartupReady(this@MainActivity)
+                            pendingCrash = null
+                        },
+                        onClearAndContinue = {
+                            org.melodist.data.CrashGuard.clearLogs(this@MainActivity)
+                            org.melodist.data.CrashGuard.markStartupReady(this@MainActivity)
+                            pendingCrash = null
+                        },
+                    )
+                } else {
+                    val settings by org.melodist.data.AppSettingsManager.settings
+                        .collectAsState()
+                    QQMusicMobileTheme(
+                        themeMode = settings.themeMode,
+                        dynamicColor = settings.dynamicColor,
+                        colorTheme = settings.colorTheme,
+                        customColorHex = settings.customColorHex,
+                        amoledDark = settings.amoledDark,
+                    ) {
+                        // 组合成功即视为启动完成，撤掉「启动进行中」标记。
+                        LaunchedEffect(Unit) {
+                            org.melodist.data.CrashGuard.markStartupReady(this@MainActivity)
+                        }
+                        MainNavigationScreen()
+                    }
+                }
+            }
+        } catch (t: Throwable) {
+            // 首帧组合同步抛异常：换一个最小界面把堆栈显示出来，而不是白屏或直接闪退。
+            org.melodist.data.CrashGuard.record("setContent", t)
+            setContent {
+                StartupCrashScreen(
+                    text = org.melodist.data.CrashGuard.renderThrowable(t),
+                    onContinue = { finish() },
+                    onClearAndContinue = {
+                        org.melodist.data.CrashGuard.clearLogs(this)
+                        finish()
+                    },
+                )
             }
         }
 
-        handleIncomingIntent(intent)
+        safeInit("handleIncomingIntent") { handleIncomingIntent(intent) }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // 回前台时若会话不健康（网络异常 / 需重登），立刻补一次保活，不必等 12 小时周期。
+        safeInit("SessionKeeper.state") {
+            if (UserSession.isLoggedIn && SessionKeeper.state != SessionState.Healthy) {
+                SessionKeepAliveScheduler.kick(this)
+            }
+        }
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleIncomingIntent(intent)
+        safeInit("handleIncomingIntent") { handleIncomingIntent(intent) }
+    }
+
+    /**
+     * 启动/前台恢复链路的单步兜底：某一步抛异常只降级该功能并记入启动降级日志，
+     * 不让异常冒到主线程导致进程崩溃。
+     *
+     * 协程取消必须原样抛出，否则会破坏结构化并发。
+     */
+    private inline fun safeInit(
+        step: String,
+        block: () -> Unit,
+    ) {
+        try {
+            block()
+        } catch (e: Throwable) {
+            if (e is CancellationException) throw e
+            Log.w(TAG, "Startup step failed: $step", e)
+            CrashGuard.record(step, e)
+        }
     }
 
     private fun handleIncomingIntent(intent: android.content.Intent?) {
@@ -343,16 +461,23 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        PlaybackManager.savePlaybackState()
-        PlaybackManager.savePlaybackProgress()
+        // 落盘走 SharedPreferences/JSON，磁盘满或状态异常都可能抛；这里不兜底会在退到后台时崩。
+        safeInit("savePlaybackState") { PlaybackManager.savePlaybackState() }
+        safeInit("savePlaybackProgress") { PlaybackManager.savePlaybackProgress() }
     }
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level >= TRIM_MEMORY_UI_HIDDEN) {
-            org.melodist.data.AppLifecycleManager
-                .onTrimMemoryAction
-                ?.invoke(level)
+        safeInit("AppLifecycleManager.onTrimMemory") {
+            if (level >= TRIM_MEMORY_UI_HIDDEN) {
+                org.melodist.data.AppLifecycleManager
+                    .onTrimMemoryAction
+                    ?.invoke(level)
+            }
         }
+    }
+
+    private companion object {
+        private const val TAG = "MainActivity"
     }
 }

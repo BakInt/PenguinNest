@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import org.melodist.model.AudioQualityTier
 import org.melodist.model.Song
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.toMonetContainer
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -41,7 +41,7 @@ import org.melodist.tv.ui.theme.toMonetContainer
 fun NowPlayingHeroCard(
     song: Song?,
     cardHeight: Dp = 250.dp,
-    surfaceColor: Color = MelodistColors.SurfaceDark,
+    surfaceColor: Color = QQMusicColors.SurfaceDark,
     isPlaying: Boolean = false,
     isFavorite: Boolean = false,
     currentTier: AudioQualityTier = AudioQualityTier.Standard,
@@ -142,15 +142,15 @@ fun NowPlayingHeroCard(
                         false
                     }
                 }.focusable()
-                .clip(MelodistShapes.CardCorner)
+                .clip(QQMusicShapes.CardCorner)
                 .background(
                     if (isCardFocused) surfaceColor.toMonetContainer(0.12f) else surfaceColor.toMonetContainer(0.05f),
                 ).border(
                     BorderStroke(
                         width = if (isCardFocused) 3.dp else 1.dp,
-                        color = if (isCardFocused) MelodistColors.FocusTeal else Color.White.copy(alpha = 0.10f),
+                        color = if (isCardFocused) QQMusicColors.FocusTeal else Color.White.copy(alpha = 0.10f),
                     ),
-                    MelodistShapes.CardCorner,
+                    QQMusicShapes.CardCorner,
                 ),
     ) {
         Row(
@@ -177,7 +177,7 @@ fun NowPlayingHeroCard(
                 ) {
                     Text(
                         text = songTitle,
-                        color = MelodistColors.TextPrimary,
+                        color = QQMusicColors.TextPrimary,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -285,7 +285,7 @@ fun NowPlayingHeroCard(
                                     icon = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                                     label = if (isFavorite) "已收藏" else "收藏",
                                     buttonContainerColor = btnBg,
-                                    textColor = if (isFavorite) MelodistColors.FavoriteRed else MelodistColors.TextPrimary,
+                                    textColor = if (isFavorite) QQMusicColors.FavoriteRed else QQMusicColors.TextPrimary,
                                     modifier =
                                         Modifier
                                             .focusRequester(favoriteRequester)
@@ -341,17 +341,17 @@ fun NowPlayingHeroCard(
                                         Modifier
                                             .height(40.dp)
                                             .defaultMinSize(minWidth = 56.dp)
-                                            .clip(MelodistShapes.ButtonCorner)
+                                            .clip(QQMusicShapes.ButtonCorner)
                                             .background(btnBg)
                                             .border(
                                                 BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                                                MelodistShapes.ButtonCorner,
+                                                QQMusicShapes.ButtonCorner,
                                             ).padding(horizontal = 12.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
                                         text = qualityTag,
-                                        color = MelodistColors.QualityGoldText,
+                                        color = QQMusicColors.QualityGoldText,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Bold,
                                     )
@@ -363,11 +363,11 @@ fun NowPlayingHeroCard(
                                     modifier =
                                         Modifier
                                             .height(40.dp)
-                                            .clip(MelodistShapes.ButtonCorner)
+                                            .clip(QQMusicShapes.ButtonCorner)
                                             .background(Color(0xFF2E7D32).copy(alpha = 0.25f))
                                             .border(
                                                 BorderStroke(1.dp, Color(0xFF4CAF50).copy(alpha = 0.6f)),
-                                                MelodistShapes.ButtonCorner,
+                                                QQMusicShapes.ButtonCorner,
                                             ).padding(horizontal = 10.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
@@ -434,12 +434,12 @@ private fun HeroActionButton(
         modifier = modifier.height(40.dp),
         shape =
             ButtonDefaults.shape(
-                shape = MelodistShapes.ButtonCorner,
-                focusedShape = MelodistShapes.ButtonCorner,
+                shape = QQMusicShapes.ButtonCorner,
+                focusedShape = QQMusicShapes.ButtonCorner,
             ),
         colors =
             ButtonDefaults.colors(
-                containerColor = if (isAccent) MelodistColors.AccentGreen else buttonContainerColor,
+                containerColor = if (isAccent) QQMusicColors.AccentGreen else buttonContainerColor,
                 focusedContainerColor = Color.White,
                 contentColor = if (isAccent) Color.Black else textColor,
                 focusedContentColor = Color.Black,
@@ -449,12 +449,12 @@ private fun HeroActionButton(
                 border =
                     Border(
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                        shape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.ButtonCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
             ),
         scale =
@@ -500,15 +500,15 @@ private fun HeroProgressBar(
             modifier
                 .fillMaxWidth()
                 .height(4.dp)
-                .clip(MelodistShapes.PillCorner)
-                .background(MelodistColors.ProgressTrack),
+                .clip(QQMusicShapes.PillCorner)
+                .background(QQMusicColors.ProgressTrack),
     ) {
         Box(
             modifier =
                 Modifier
                     .fillMaxWidth(progressFraction)
                     .fillMaxHeight()
-                    .background(MelodistColors.AccentGreen),
+                    .background(QQMusicColors.AccentGreen),
         )
     }
 }

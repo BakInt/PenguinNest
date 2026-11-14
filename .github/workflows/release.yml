@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: melodist-build-queue
+  group: qqmusic-build-queue
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 permissions:
@@ -103,7 +103,7 @@ jobs:
           # TV 全架构 APK
           if [ "${{ steps.targets.outputs.build_tv }}" = "true" ]; then
             TV_SRC="app-tv/build/outputs/apk/release/app-tv-release.apk"
-            TV_DST="release-assets/melodist-tv-${CLEAN_VERSION}-${VERSION_CODE}.apk"
+            TV_DST="release-assets/qqmusic-tv-${CLEAN_VERSION}-${VERSION_CODE}.apk"
             if [ -f "$TV_SRC" ]; then
               cp "$TV_SRC" "$TV_DST"
             fi
@@ -112,13 +112,13 @@ jobs:
           # Mobile 全架构 APK (标准版与 OriginOS 增强版)
           if [ "${{ steps.targets.outputs.build_mobile }}" = "true" ]; then
             MOBILE_SRC="app-mobile/build/outputs/apk/standard/release/app-mobile-standard-release.apk"
-            MOBILE_DST="release-assets/melodist-mobile-${CLEAN_VERSION}-${VERSION_CODE}.apk"
+            MOBILE_DST="release-assets/qqmusic-mobile-${CLEAN_VERSION}-${VERSION_CODE}.apk"
             if [ -f "$MOBILE_SRC" ]; then
               cp "$MOBILE_SRC" "$MOBILE_DST"
             fi
 
             ORIGINOS_SRC="app-mobile/build/outputs/apk/originOs/release/app-mobile-originOs-release.apk"
-            ORIGINOS_DST="release-assets/melodist-mobile-originos-${CLEAN_VERSION}-${VERSION_CODE}.apk"
+            ORIGINOS_DST="release-assets/qqmusic-mobile-originos-${CLEAN_VERSION}-${VERSION_CODE}.apk"
             if [ -f "$ORIGINOS_SRC" ]; then
               cp "$ORIGINOS_SRC" "$ORIGINOS_DST"
             fi

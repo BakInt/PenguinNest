@@ -73,6 +73,13 @@ object UserLibraryCacheManager {
     private val _isFavSongsLoading = MutableStateFlow(false)
     val isFavSongsLoading: StateFlow<Boolean> = _isFavSongsLoading.asStateFlow()
 
+    /**
+     * 歌单曲目归属版本号。任一歌单的曲目缓存被写入（含新增/移除/全量刷新）时自增，
+     * UI 据此重组"歌曲是否已在某歌单"的归属标记，无需自行轮询缓存。
+     */
+    private val _membershipVersionFlow = MutableStateFlow(0)
+    val membershipVersionFlow: StateFlow<Int> = _membershipVersionFlow.asStateFlow()
+
     private var cacheFile: File? = null
     private var favSongsCacheFile: File? = null
     private var playlistCacheDir: File? = null
@@ -114,6 +121,8 @@ object UserLibraryCacheManager {
                         playlistCacheMap.clear()
                         playlistCacheDir?.deleteRecursively()
                         playlistCacheDir?.mkdirs()
+                        // 账号切换后原账号的归属缓存全部失效，通知 UI 重新计算归属标记
+                        _membershipVersionFlow.value += 1
                         if (currentUin.isBlank()) {
                             _libraryFlow.value = UserLibraryData()
                             _favoriteSongsFlow.value = emptyList()
@@ -735,6 +744,25 @@ object UserLibraryCacheManager {
     ): List<Song>? = getPlaylistSongsCache(dirId, tid)?.songs
 
     /**
+     * 查询指定歌单已缓存曲目的 MID 集合，用于判断某首歌是否已归属该歌单。
+     *
+     * 仅在歌单曲目缓存**有效期内**返回结果；缓存缺失或已过期时返回 `null` 表示"归属未知"，
+     * 调用方必须显式区分"未知"与"不存在"，不得把 `null` 当作空集合处理。
+     *
+     * @param dirId 歌单目录 ID
+     * @param tid 歌单全局唯一 ID
+     * @return 已缓存且未过期时返回该歌单全部曲目 MID 集合；否则返回 null
+     */
+    fun getPlaylistSongMids(
+        dirId: Long,
+        tid: Long,
+    ): Set<String>? {
+        if (!isPlaylistSongsCacheValid(dirId, tid)) return null
+        val songs = getCachedPlaylistSongs(dirId, tid) ?: return null
+        return songs.mapNotNull { it.songMid.takeIf { mid -> mid.isNotBlank() } }.toSet()
+    }
+
+    /**
      * 判定指定歌单的曲目缓存是否处于有效期内。
      *
      * @param dirId 歌单目录 ID
@@ -773,6 +801,7 @@ object UserLibraryCacheManager {
                 accountUin = currentUin,
             )
         playlistCacheMap[getCacheKey(dirId, tid)] = cache
+        _membershipVersionFlow.value += 1
         scope.launch {
             try {
                 val file = getPlaylistCacheFile(dirId, tid) ?: return@launch

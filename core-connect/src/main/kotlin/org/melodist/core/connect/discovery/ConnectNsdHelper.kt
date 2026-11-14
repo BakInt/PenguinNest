@@ -30,7 +30,7 @@ class ConnectNsdHelper(
         unregisterService()
         val serviceInfo =
             NsdServiceInfo().apply {
-                serviceName = "Melodist-TV-${device.id.takeLast(4)}"
+                serviceName = "QQMusic-TV-${device.id.takeLast(4)}"
                 serviceType = SERVICE_TYPE
                 setPort(port)
                 setAttribute("id", device.id)
@@ -45,7 +45,7 @@ class ConnectNsdHelper(
         val listener =
             object : NsdManager.RegistrationListener {
                 override fun onServiceRegistered(info: NsdServiceInfo) {
-                    android.util.Log.i("MelodistNsd", "TV Service registered: ${info.serviceName}, host: ${device.host}:$port")
+                    android.util.Log.i("QQMusicNsd", "TV Service registered: ${info.serviceName}, host: ${device.host}:$port")
                     onRegistered(info.serviceName)
                 }
 
@@ -53,11 +53,11 @@ class ConnectNsdHelper(
                     info: NsdServiceInfo,
                     errorCode: Int,
                 ) {
-                    android.util.Log.e("MelodistNsd", "TV Service register failed, errorCode: $errorCode")
+                    android.util.Log.e("QQMusicNsd", "TV Service register failed, errorCode: $errorCode")
                 }
 
                 override fun onServiceUnregistered(info: NsdServiceInfo) {
-                    android.util.Log.i("MelodistNsd", "TV Service unregistered: ${info.serviceName}")
+                    android.util.Log.i("QQMusicNsd", "TV Service unregistered: ${info.serviceName}")
                 }
 
                 override fun onUnregistrationFailed(
@@ -69,7 +69,7 @@ class ConnectNsdHelper(
         try {
             nsdManager?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, listener)
         } catch (e: Exception) {
-            android.util.Log.e("MelodistNsd", "registerService exception: ${e.message}", e)
+            android.util.Log.e("QQMusicNsd", "registerService exception: ${e.message}", e)
         }
     }
 
@@ -94,7 +94,7 @@ class ConnectNsdHelper(
                     serviceType: String,
                     errorCode: Int,
                 ) {
-                    android.util.Log.e("MelodistNsd", "Discovery start failed: $errorCode")
+                    android.util.Log.e("QQMusicNsd", "Discovery start failed: $errorCode")
                 }
 
                 override fun onStopDiscoveryFailed(
@@ -103,21 +103,21 @@ class ConnectNsdHelper(
                 ) {}
 
                 override fun onDiscoveryStarted(serviceType: String) {
-                    android.util.Log.i("MelodistNsd", "Discovery started for $serviceType")
+                    android.util.Log.i("QQMusicNsd", "Discovery started for $serviceType")
                 }
 
                 override fun onDiscoveryStopped(serviceType: String) {}
 
                 override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                    android.util.Log.i("MelodistNsd", "Service found: ${serviceInfo.serviceName}, type: ${serviceInfo.serviceType}")
-                    if (serviceInfo.serviceType.contains("melodist-connect")) {
+                    android.util.Log.i("QQMusicNsd", "Service found: ${serviceInfo.serviceName}, type: ${serviceInfo.serviceType}")
+                    if (serviceInfo.serviceType.contains("qqmusic-connect")) {
                         resolveService(serviceInfo)
                     }
                 }
 
                 override fun onServiceLost(serviceInfo: NsdServiceInfo) {
                     val serviceName = serviceInfo.serviceName
-                    android.util.Log.i("MelodistNsd", "Service lost: $serviceName")
+                    android.util.Log.i("QQMusicNsd", "Service lost: $serviceName")
                     val current = _discoveredDevices.value.toMutableList()
                     current.removeAll { it.name == serviceName || it.id.endsWith(serviceName.takeLast(4)) }
                     _discoveredDevices.value = current
@@ -127,7 +127,7 @@ class ConnectNsdHelper(
         try {
             nsdManager?.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
         } catch (e: Exception) {
-            android.util.Log.e("MelodistNsd", "discoverServices exception: ${e.message}", e)
+            android.util.Log.e("QQMusicNsd", "discoverServices exception: ${e.message}", e)
         }
     }
 
@@ -141,7 +141,7 @@ class ConnectNsdHelper(
                         serviceInfo: NsdServiceInfo,
                         errorCode: Int,
                     ) {
-                        android.util.Log.e("MelodistNsd", "Resolve failed for ${serviceInfo.serviceName}, code: $errorCode")
+                        android.util.Log.e("QQMusicNsd", "Resolve failed for ${serviceInfo.serviceName}, code: $errorCode")
                     }
 
                     override fun onServiceResolved(resolved: NsdServiceInfo) {
@@ -165,7 +165,7 @@ class ConnectNsdHelper(
                                 ?: resolved.serviceName
                         val token = attributes["token"]?.let { String(it, Charsets.UTF_8) } ?: ""
 
-                        android.util.Log.i("MelodistNsd", "Service resolved: $name -> $host:$port (rawHost: $rawHost, declared: $declaredHost)")
+                        android.util.Log.i("QQMusicNsd", "Service resolved: $name -> $host:$port (rawHost: $rawHost, declared: $declaredHost)")
 
                         val device =
                             ConnectDevice(
@@ -185,7 +185,7 @@ class ConnectNsdHelper(
                 },
             )
         } catch (e: Exception) {
-            android.util.Log.w("MelodistNsd", "Failed to start service discovery", e)
+            android.util.Log.w("QQMusicNsd", "Failed to start service discovery", e)
         }
     }
 
@@ -201,6 +201,6 @@ class ConnectNsdHelper(
     }
 
     companion object {
-        const val SERVICE_TYPE = "_melodist-connect._tcp."
+        const val SERVICE_TYPE = "_qqmusic-connect._tcp."
     }
 }

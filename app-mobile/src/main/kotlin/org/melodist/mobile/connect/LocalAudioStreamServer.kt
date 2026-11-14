@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.melodist.core.connect.util.NetworkUtils
-import org.melodist.data.WebDavManager
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
@@ -85,15 +84,6 @@ class LocalAudioStreamServer(
         return "$serverUrl/cover/local?path=$encoded"
     }
 
-    fun buildWebDavStreamUrl(
-        serverId: String,
-        href: String,
-    ): String {
-        val encServer = Uri.encode(serverId)
-        val encHref = Uri.encode(href)
-        return "$serverUrl/stream/webdav?server=$encServer&href=$encHref"
-    }
-
     fun buildProxyStreamUrl(targetUrl: String): String {
         val encoded = Uri.encode(targetUrl)
         return "$serverUrl/stream/proxy?url=$encoded"
@@ -147,18 +137,6 @@ class LocalAudioStreamServer(
                             return
                         }
                         serveCoverImage(file, output, isHead)
-                    }
-
-                    fullPath.startsWith("/stream/webdav") -> {
-                        val serverParam = extractQueryParam(fullPath, "server")
-                        val hrefParam = extractQueryParam(fullPath, "href")
-                        if (serverParam.isNullOrBlank() || hrefParam.isNullOrBlank()) {
-                            sendNotFound(output)
-                            return
-                        }
-                        val decodedServer = Uri.decode(serverParam)
-                        val decodedHref = Uri.decode(hrefParam)
-                        serveWebDavStream(decodedServer, decodedHref, rangeHeader, output)
                     }
 
                     fullPath.startsWith("/stream/proxy") -> {
@@ -292,53 +270,6 @@ class LocalAudioStreamServer(
             }
         }
         output.flush()
-    }
-
-    private suspend fun serveWebDavStream(
-        serverId: String,
-        href: String,
-        rangeHeader: String?,
-        output: OutputStream,
-    ) {
-        val servers = WebDavManager.getServers()
-        val server =
-            servers.find { it.id == serverId }
-                ?: WebDavManager.getActiveServer()
-                ?: servers.firstOrNull()
-                ?: run {
-                    sendNotFound(output)
-                    return
-                }
-        val (streamUrl, authHeader) = WebDavManager.resolvePlaybackUrl(server, href)
-        val reqBuilder = Request.Builder().url(streamUrl)
-        if (!authHeader.isNullOrBlank()) {
-            reqBuilder.header("Authorization", authHeader)
-        }
-        if (!rangeHeader.isNullOrBlank()) {
-            reqBuilder.header("Range", rangeHeader)
-        }
-
-        val call = okHttpClient.newCall(reqBuilder.build())
-        val resp = call.execute()
-        resp.use { r ->
-            val status = r.code
-            val body =
-                r.body ?: run {
-                    sendNotFound(output)
-                    return
-                }
-            val headerBuilder = StringBuilder("HTTP/1.1 $status ${r.message}\r\n")
-            headerBuilder.append("Content-Type: ${r.header("Content-Type", "audio/mpeg")}\r\n")
-            r.header("Content-Length")?.let { headerBuilder.append("Content-Length: $it\r\n") }
-            r.header("Content-Range")?.let { headerBuilder.append("Content-Range: $it\r\n") }
-            headerBuilder.append("Accept-Ranges: bytes\r\n")
-            headerBuilder.append("Connection: close\r\n\r\n")
-
-            output.write(headerBuilder.toString().toByteArray())
-            body.byteStream().use { ins ->
-                pipeStream(ins, output)
-            }
-        }
     }
 
     private fun serveHttpProxy(

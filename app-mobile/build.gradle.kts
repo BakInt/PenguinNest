@@ -34,7 +34,7 @@ android {
         targetSdk = 37
         versionCode = 175
         versionName = "1.7.5"
-        buildConfigField("String", "MELODIST_VERSION_NAME", "\"$versionName\"")
+        buildConfigField("String", "QQMUSIC_VERSION_NAME", "\"$versionName\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     androidResources {

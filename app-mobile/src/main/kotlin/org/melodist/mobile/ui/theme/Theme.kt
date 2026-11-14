@@ -2,8 +2,10 @@ package org.melodist.mobile.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -12,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
 import org.melodist.data.AppColorTheme
 import org.melodist.data.ThemeMode
@@ -35,18 +38,21 @@ private fun createDarkColorScheme(
         onSecondary = onSecondary,
         secondaryContainer = secondaryContainer,
         onSecondaryContainer = onSecondaryContainer,
-        background = MelodistBackground,
-        onBackground = MelodistOnBackground,
-        surface = MelodistSurface,
-        onSurface = MelodistOnSurface,
-        surfaceVariant = MelodistSurfaceVariant,
-        onSurfaceVariant = MelodistOnSurfaceVariant,
-        surfaceContainer = MelodistSurfaceContainer,
-        surfaceContainerHigh = MelodistSurfaceContainerHigh,
-        error = MelodistError,
-        onError = MelodistOnError,
+        background = QQMusicBackground,
+        onBackground = QQMusicOnBackground,
+        surface = QQMusicSurface,
+        onSurface = QQMusicOnSurface,
+        surfaceVariant = QQMusicSurfaceVariant,
+        onSurfaceVariant = QQMusicOnSurfaceVariant,
+        surfaceContainer = QQMusicSurfaceContainer,
+        surfaceContainerHigh = QQMusicSurfaceContainerHigh,
+        outline = QQMusicOutline,
+        outlineVariant = QQMusicOutlineVariant,
+        error = QQMusicError,
+        onError = QQMusicOnError,
     )
 
+// MusicFree 风格扁平亮色底：所有预设主题共享同一套中性色，仅主色不同
 private fun createLightColorScheme(
     primary: Color,
     onPrimary: Color,
@@ -58,26 +64,42 @@ private fun createLightColorScheme(
         onPrimary = onPrimary,
         primaryContainer = primaryContainer,
         onPrimaryContainer = onPrimaryContainer,
+        secondary = MusicFreeLightSecondary,
+        onSecondary = MusicFreeLightOnSecondary,
+        secondaryContainer = MusicFreeLightSecondaryContainer,
+        onSecondaryContainer = MusicFreeLightOnSecondaryContainer,
+        background = MusicFreeLightBackground,
+        onBackground = MusicFreeLightOnBackground,
+        surface = MusicFreeLightSurface,
+        onSurface = MusicFreeLightOnSurface,
+        surfaceVariant = MusicFreeLightSurfaceVariant,
+        onSurfaceVariant = MusicFreeLightOnSurfaceVariant,
+        surfaceContainer = MusicFreeLightSurfaceContainer,
+        surfaceContainerHigh = MusicFreeLightSurfaceContainerHigh,
+        outline = MusicFreeLightOutline,
+        outlineVariant = MusicFreeLightOutlineVariant,
+        error = MusicFreeLightError,
+        onError = MusicFreeLightOnError,
     )
 
 private val DefaultDarkColorScheme =
     createDarkColorScheme(
-        primary = MelodistPrimary,
-        onPrimary = MelodistOnPrimary,
-        primaryContainer = MelodistPrimaryContainer,
-        onPrimaryContainer = MelodistOnPrimaryContainer,
-        secondary = MelodistSecondary,
-        onSecondary = MelodistOnSecondary,
-        secondaryContainer = MelodistSecondaryContainer,
-        onSecondaryContainer = MelodistOnSecondaryContainer,
+        primary = QQMusicPrimary,
+        onPrimary = QQMusicOnPrimary,
+        primaryContainer = QQMusicPrimaryContainer,
+        onPrimaryContainer = QQMusicOnPrimaryContainer,
+        secondary = QQMusicSecondary,
+        onSecondary = QQMusicOnSecondary,
+        secondaryContainer = QQMusicSecondaryContainer,
+        onSecondaryContainer = QQMusicOnSecondaryContainer,
     )
 
 private val DefaultLightColorScheme =
     createLightColorScheme(
-        primary = Color(0xFF005DB4),
-        onPrimary = Color(0xFFFFFFFF),
-        primaryContainer = Color(0xFFD6E3FF),
-        onPrimaryContainer = Color(0xFF001B3E),
+        primary = MusicFreeLightPrimary,
+        onPrimary = MusicFreeLightOnPrimary,
+        primaryContainer = MusicFreeLightPrimaryContainer,
+        onPrimaryContainer = MusicFreeLightOnPrimaryContainer,
     )
 
 private val VioletDarkColorScheme =
@@ -162,7 +184,7 @@ private val RoseLightColorScheme =
 
 fun parseHexColor(
     hex: String,
-    fallback: Color = MelodistPrimary,
+    fallback: Color = QQMusicPrimary,
 ): Color {
     val clean = hex.trim().removePrefix("#")
     val colorLong =
@@ -280,6 +302,16 @@ private fun ColorScheme.withAmoled(): ColorScheme =
 val LocalDarkTheme = androidx.compose.runtime.compositionLocalOf { false }
 val LocalAmoledDark = androidx.compose.runtime.compositionLocalOf { false }
 
+// MusicFree 风格统一圆角体系：扁平卡片、胶囊搜索栏
+private val QQMusicShapes =
+    Shapes(
+        extraSmall = RoundedCornerShape(6.dp),
+        small = RoundedCornerShape(8.dp),
+        medium = RoundedCornerShape(12.dp),
+        large = RoundedCornerShape(16.dp),
+        extraLarge = RoundedCornerShape(24.dp),
+    )
+
 @Composable
 fun isAppInDarkTheme(): Boolean = LocalDarkTheme.current
 
@@ -287,9 +319,9 @@ fun isAppInDarkTheme(): Boolean = LocalDarkTheme.current
 fun isAppInAmoledDark(): Boolean = LocalAmoledDark.current
 
 @Composable
-fun MelodistMobileTheme(
+fun QQMusicMobileTheme(
     themeMode: ThemeMode = ThemeMode.System,
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     colorTheme: AppColorTheme = AppColorTheme.Default,
     customColorHex: String = "#1A73E8",
     amoledDark: Boolean = false,
@@ -335,6 +367,7 @@ fun MelodistMobileTheme(
     ) {
         MaterialTheme(
             colorScheme = finalScheme,
+            shapes = QQMusicShapes,
             content = content,
         )
     }

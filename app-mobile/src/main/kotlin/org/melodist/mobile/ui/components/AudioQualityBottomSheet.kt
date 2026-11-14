@@ -71,13 +71,13 @@ fun AudioQualityBottomSheet(
     val isCellular = remember { PlaybackManager.isCellularNetwork() }
     val currentSong by PlaybackManager.currentSong.collectAsState()
     val effectiveSong = targetSong ?: currentSong
-    val isLocalOrWebDav = remember(effectiveSong) { PlaybackManager.isPureLocalOrWebDavSong(effectiveSong) }
+    val isLocal = remember(effectiveSong) { PlaybackManager.isPureLocalSong(effectiveSong) }
 
     var enrichedOptions by remember(probedQualityOptions) { mutableStateOf<List<QualityOption>>(probedQualityOptions) }
     var isSniffing by remember(probedQualityOptions) { mutableStateOf(false) }
 
-    LaunchedEffect(probedQualityOptions, songDurationSec, isLocalOrWebDav) {
-        if (!isLocalOrWebDav && probedQualityOptions.any { it.isAvailable && !it.playUrl.isNullOrBlank() }) {
+    LaunchedEffect(probedQualityOptions, songDurationSec, isLocal) {
+        if (!isLocal && probedQualityOptions.any { it.isAvailable && !it.playUrl.isNullOrBlank() }) {
             isSniffing = true
             try {
                 enrichedOptions = AudioHeaderSniffer.enrichQualityOptions(probedQualityOptions, songDurationSec)
@@ -94,8 +94,8 @@ fun AudioQualityBottomSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val supportedTiers =
-        remember(availableTiers, enrichedOptions, currentTier, isLocalOrWebDav, bypassHardwareCapabilityCheck) {
-            if (isLocalOrWebDav) {
+        remember(availableTiers, enrichedOptions, currentTier, isLocal, bypassHardwareCapabilityCheck) {
+            if (isLocal) {
                 listOf(currentTier)
             } else {
                 val probedAvailable = enrichedOptions.filter { it.isAvailable }.map { it.tier }.toSet()
@@ -213,7 +213,7 @@ fun AudioQualityBottomSheet(
                 val isRestricted =
                     enforceCellularRestriction &&
                         isCellular &&
-                        !isLocalOrWebDav &&
+                        !isLocal &&
                         PlaybackManager.getAudioQualityRank(tier) > PlaybackManager.getAudioQualityRank(settings.cellularQualityTier)
 
                 Row(

@@ -42,8 +42,8 @@ import kotlinx.coroutines.launch
 import org.melodist.model.AudioQualityTier
 import org.melodist.model.Song
 import org.melodist.playback.PlaybackManager
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberTvWindowMetrics
 import android.view.KeyEvent as AndroidKeyEvent
 
@@ -284,7 +284,7 @@ fun MediaDetailTvScaffold(
 
             // 统一大屏大封面展示 (320dp 居中)
             if (effectiveCoverUrl.isNotEmpty() || effectiveAlbumMid.isNotEmpty() || effectiveArtistMid.isNotEmpty()) {
-                MelodistElevatedCover(
+                QQMusicElevatedCover(
                     coverUrl = effectiveCoverUrl,
                     albumMid = effectiveAlbumMid,
                     artistMid = effectiveArtistMid,
@@ -310,7 +310,7 @@ fun MediaDetailTvScaffold(
                         Modifier
                             .size(coverSize)
                             .clip(if (!isPlayerMode && isHeaderImageCircle) CircleShape else headerImageShape)
-                            .background(MelodistColors.ContainerDarkSecondary),
+                            .background(QQMusicColors.ContainerDarkSecondary),
                     contentAlignment = Alignment.Center,
                 ) {
                     val iconVector = if (isArtistScreen && !isPlayerMode) Icons.Filled.Person else Icons.Filled.Album
@@ -336,7 +336,7 @@ fun MediaDetailTvScaffold(
                             text = activePlayingSong?.name?.ifBlank { "未选择曲目" } ?: "正在载入曲目...",
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MelodistColors.TextPrimary,
+                            color = QQMusicColors.TextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -344,7 +344,7 @@ fun MediaDetailTvScaffold(
                         Text(
                             text = if (activePlayingSong != null) "${activePlayingSong.singer} · ${activePlayingSong.album}" else "正在同步曲目信息...",
                             fontSize = 15.sp,
-                            color = MelodistColors.TextSecondary,
+                            color = QQMusicColors.TextSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -368,7 +368,7 @@ fun MediaDetailTvScaffold(
                                 text = title,
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MelodistColors.TextPrimary,
+                                color = QQMusicColors.TextPrimary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -385,7 +385,7 @@ fun MediaDetailTvScaffold(
                                 Text(
                                     text = subText,
                                     fontSize = 13.sp,
-                                    color = MelodistColors.TextSecondary,
+                                    color = QQMusicColors.TextSecondary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -409,13 +409,13 @@ fun MediaDetailTvScaffold(
                                     },
                             shape =
                                 ButtonDefaults.shape(
-                                    shape = MelodistShapes.CardCorner,
-                                    focusedShape = MelodistShapes.CardCorner,
+                                    shape = QQMusicShapes.CardCorner,
+                                    focusedShape = QQMusicShapes.CardCorner,
                                 ),
                             colors =
                                 ButtonDefaults.colors(
                                     containerColor = Color.White.copy(alpha = 0.08f),
-                                    focusedContainerColor = MelodistColors.AccentGreen,
+                                    focusedContainerColor = QQMusicColors.AccentGreen,
                                     contentColor = Color.White,
                                     focusedContentColor = Color.Black,
                                 ),
@@ -424,12 +424,12 @@ fun MediaDetailTvScaffold(
                                     border =
                                         Border(
                                             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                                            shape = MelodistShapes.CardCorner,
+                                            shape = QQMusicShapes.CardCorner,
                                         ),
                                     focusedBorder =
                                         Border(
-                                            border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                            shape = MelodistShapes.CardCorner,
+                                            border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                            shape = QQMusicShapes.CardCorner,
                                         ),
                                 ),
                             scale = ButtonDefaults.scale(focusedScale = 1.0f),
@@ -625,7 +625,7 @@ fun MediaDetailTvScaffold(
                                             ) {
                                                 Text(
                                                     text = "正在载入更多曲目...",
-                                                    color = MelodistColors.TextMuted,
+                                                    color = QQMusicColors.TextMuted,
                                                     fontSize = 14.sp,
                                                 )
                                             }
@@ -659,14 +659,14 @@ fun MediaDetailTvScaffold(
                     } else if (isPlaybackLoading) {
                         Text(
                             text = "正在拉取直链与同步歌词...",
-                            color = MelodistColors.TextSecondary,
+                            color = QQMusicColors.TextSecondary,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Medium,
                         )
                     } else {
                         Text(
                             text = "暂无同步歌词",
-                            color = MelodistColors.TextMuted,
+                            color = QQMusicColors.TextMuted,
                             fontSize = 18.sp,
                         )
                     }
@@ -697,7 +697,7 @@ fun MediaDetailTvScaffold(
                         activePlayingSong?.durationSeconds?.toLong()?.times(1000L) ?: 240000L
                     }
 
-                val canChangeQuality = !PlaybackManager.isPureLocalOrWebDavSong(activePlayingSong)
+                val canChangeQuality = !PlaybackManager.isPureLocalSong(activePlayingSong)
                 BottomPlayerBar(
                     modifier = Modifier.fillMaxWidth(),
                     surfaceColor = surfaceColor,
@@ -858,14 +858,14 @@ fun TvPlaylistSongItem(
                 ),
         shape =
             CardDefaults.shape(
-                shape = MelodistShapes.ButtonCorner,
-                focusedShape = MelodistShapes.ButtonCorner,
+                shape = QQMusicShapes.ButtonCorner,
+                focusedShape = QQMusicShapes.ButtonCorner,
             ),
         colors =
             CardDefaults.colors(
                 containerColor = Color.Transparent,
                 focusedContainerColor = Color.White,
-                contentColor = if (isPlaying) MelodistColors.AccentGreen else Color.White,
+                contentColor = if (isPlaying) QQMusicColors.AccentGreen else Color.White,
                 focusedContentColor = Color.Black,
             ),
         border =
@@ -873,12 +873,12 @@ fun TvPlaylistSongItem(
                 border =
                     Border(
                         border = BorderStroke(0.dp, Color.Transparent),
-                        shape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.ButtonCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
             ),
         scale =
@@ -898,7 +898,7 @@ fun TvPlaylistSongItem(
                 text = String.format("%02d", index),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isPlaying) MelodistColors.AccentGreen else LocalContentColor.current,
+                color = if (isPlaying) QQMusicColors.AccentGreen else LocalContentColor.current,
                 modifier = Modifier.width(44.dp),
             )
 
@@ -907,7 +907,7 @@ fun TvPlaylistSongItem(
                 text = song.name,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isPlaying) MelodistColors.AccentGreen else LocalContentColor.current,
+                color = if (isPlaying) QQMusicColors.AccentGreen else LocalContentColor.current,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier =
@@ -921,7 +921,7 @@ fun TvPlaylistSongItem(
                 text = song.singer.ifBlank { "群星" },
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Normal,
-                color = if (isPlaying) MelodistColors.AccentGreen else LocalContentColor.current,
+                color = if (isPlaying) QQMusicColors.AccentGreen else LocalContentColor.current,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier =
@@ -935,7 +935,7 @@ fun TvPlaylistSongItem(
                 text = song.album.ifBlank { "单曲" },
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Normal,
-                color = if (isPlaying) MelodistColors.AccentGreen else LocalContentColor.current,
+                color = if (isPlaying) QQMusicColors.AccentGreen else LocalContentColor.current,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(0.27f),

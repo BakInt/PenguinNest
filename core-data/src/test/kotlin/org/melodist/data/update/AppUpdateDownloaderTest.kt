@@ -12,9 +12,9 @@ class AppUpdateDownloaderTest {
         @TempDir tempDir: File,
     ) {
         val updatesDir = File(tempDir, "updates").apply { mkdirs() }
-        val oldApk1 = File(updatesDir, "melodist_1.4.0.apk").apply { writeText("dummy1") }
-        val oldApk2 = File(updatesDir, "melodist_1.4.1.apk.tmp").apply { writeText("dummy2") }
-        val currentApk = File(updatesDir, "melodist_1.5.0.apk").apply { writeText("dummy3") }
+        val oldApk1 = File(updatesDir, "qqmusic_1.4.0.apk").apply { writeText("dummy1") }
+        val oldApk2 = File(updatesDir, "qqmusic_1.4.1.apk.tmp").apply { writeText("dummy2") }
+        val currentApk = File(updatesDir, "qqmusic_1.5.0.apk").apply { writeText("dummy3") }
 
         assertTrue(oldApk1.exists())
         assertTrue(oldApk2.exists())
@@ -34,7 +34,7 @@ class AppUpdateDownloaderTest {
 
     @Test
     fun testCandidateDownloadUrls() {
-        val githubUrl = "https://github.com/Viemean/melodist/releases/download/v1.7.1/melodist-mobile.apk"
+        val githubUrl = "https://github.com/Viemean/melodist/releases/download/v1.7.1/qqmusic-mobile.apk"
         val candidates = AppUpdateDownloader.getCandidateDownloadUrls(githubUrl)
         org.junit.jupiter.api.Assertions
             .assertEquals(3, candidates.size)

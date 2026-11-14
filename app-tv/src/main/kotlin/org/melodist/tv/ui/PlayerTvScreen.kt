@@ -39,7 +39,7 @@ import org.melodist.tv.ui.components.CenterAlignedKaraokeLyricsView
 import org.melodist.tv.ui.components.PlayerQueueSidebar
 import org.melodist.tv.ui.components.TakeoverGestureCoverCarousel
 import org.melodist.tv.ui.components.TvSplitPlaybackScaffold
-import org.melodist.tv.ui.theme.MelodistColors
+import org.melodist.tv.ui.theme.QQMusicColors
 import org.melodist.tv.ui.theme.MonetColorExtractor
 import org.melodist.tv.ui.theme.rememberTvWindowMetrics
 
@@ -141,7 +141,7 @@ fun PlayerTvScreen(
                     text = songName,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MelodistColors.TextPrimary,
+                    color = QQMusicColors.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -149,7 +149,7 @@ fun PlayerTvScreen(
                 Text(
                     text = songArtist,
                     fontSize = 15.sp,
-                    color = MelodistColors.TextSecondary,
+                    color = QQMusicColors.TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -175,14 +175,14 @@ fun PlayerTvScreen(
             } else if (isLoading) {
                 Text(
                     text = "正在拉取直链与同步歌词...",
-                    color = MelodistColors.TextSecondary,
+                    color = QQMusicColors.TextSecondary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Medium,
                 )
             } else {
                 Text(
                     text = "暂无同步歌词",
-                    color = MelodistColors.TextMuted,
+                    color = QQMusicColors.TextMuted,
                     fontSize = 18.sp,
                 )
             }
@@ -202,7 +202,7 @@ fun PlayerTvScreen(
                         animationSpec = tween(durationMillis = 300),
                     ) + fadeOut(animationSpec = tween(durationMillis = 300)),
             ) {
-                val canChangeQuality = !PlaybackManager.isPureLocalOrWebDavSong(activeSong) && !isTrial
+                val canChangeQuality = !PlaybackManager.isPureLocalSong(activeSong) && !isTrial
                 BottomPlayerBar(
                     modifier = Modifier.fillMaxWidth(),
                     surfaceColor = surfaceColor,

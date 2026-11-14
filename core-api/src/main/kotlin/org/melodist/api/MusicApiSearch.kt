@@ -1,15 +1,18 @@
 package org.melodist.api
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import org.melodist.model.Album
 import org.melodist.model.Playlist
+import org.melodist.model.SearchSuggestionItem
 import org.melodist.model.Song
+import java.net.URLEncoder
 
 /*
- * 搜索领域扩展：单曲、专辑、歌单检索
+ * 搜索领域扩展：单曲、专辑、歌单检索、关键词联想
  */
 
 /**
@@ -183,6 +186,44 @@ suspend fun MusicApiService.searchPlaylists(
                     null
                 }
             }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+/**
+ * 搜索关键词联想（smartbox A 路）：官方前缀联想，仅取 song 组歌名
+ * （对齐开源方案 Rain120/qq-music-api 的 getSmartbox 参数）
+ */
+suspend fun MusicApiService.fetchSearchSuggestions(query: String): List<SearchSuggestionItem> =
+    withContext(Dispatchers.IO) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return@withContext emptyList()
+        val url =
+            "$YQQ_PLAIN_BASE/splcloud/fcgi-bin/smartbox_new.fcg?$YQQ_COMMON_QUERY&format=json&is_xml=0" +
+                "&key=${URLEncoder.encode(trimmed, "UTF-8")}"
+
+        try {
+            val respJson = getYqqPlainGateway(url)
+            val root = Json.parseToJsonElement(unwrapJsonResponse(respJson)).jsonObject
+            val data = root["data"]?.jsonObject ?: return@withContext emptyList()
+            val songList = data["song"]?.jsonObject?.get("itemlist")?.jsonArray ?: return@withContext emptyList()
+
+            songList.mapNotNull { element ->
+                try {
+                    val obj = element.jsonObject
+                    val name = obj["name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                    if (name.isBlank()) return@mapNotNull null
+                    SearchSuggestionItem(
+                        mid = obj["mid"]?.jsonPrimitive?.contentOrNull ?: "",
+                        name = name,
+                    )
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             emptyList()
         }

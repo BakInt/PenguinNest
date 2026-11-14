@@ -1,4 +1,4 @@
-package org.melodist.api
+﻿package org.melodist.api
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +50,7 @@ suspend fun MusicApiService.getFavoriteSongsDetail(
 
             if (rootCode == 2000 || favCode == 2000) {
                 ApiLogger.i("MusicApiPlaylist", "getFavoriteSongsDetail: token expired (code 2000), refreshing...")
-                if (LoginApiService().forceRefreshMusicKey()) {
+                if (LoginApiService.shared.forceRefreshMusicKey()) {
                     uin = UserSession.profile.uin.ifBlank { "0" }
                     authst = UserSession.profile.musicKey
                     respJson = postGateway(buildFavPayload(uin, authst))
@@ -130,7 +130,7 @@ suspend fun MusicApiService.getPlaylists(excludeMyFavorite: Boolean = true): Lis
 
             if (rootCode == 2000 || selfCode == 2000 || favCode == 2000) {
                 ApiLogger.i("MusicApiPlaylist", "getPlaylists: token expired (code 2000), refreshing...")
-                if (LoginApiService().forceRefreshMusicKey()) {
+                if (LoginApiService.shared.forceRefreshMusicKey()) {
                     uin = UserSession.profile.uin.ifBlank { "0" }
                     respJson = postGateway(buildPlaylistsPayload(uin))
                     root = Json.parseToJsonElement(respJson).jsonObject

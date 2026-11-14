@@ -29,7 +29,7 @@ class PlaybackMediaLoaderTest {
         assertEquals("test_mid_1", item.mediaId)
         if (testUri != null) {
             assertEquals(testUri, item.localConfiguration?.uri)
-            assertEquals(MelodistCacheManager.getCacheKey(song.songMid, AudioQualityTier.HiRes), item.localConfiguration?.customCacheKey)
+            assertEquals(QQMusicCacheManager.getCacheKey(song.songMid, AudioQualityTier.HiRes), item.localConfiguration?.customCacheKey)
         }
     }
 

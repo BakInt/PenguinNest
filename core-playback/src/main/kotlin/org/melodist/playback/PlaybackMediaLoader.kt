@@ -15,7 +15,6 @@ import kotlinx.coroutines.withContext
 import org.melodist.api.MusicApiService
 import org.melodist.api.QualityResult
 import org.melodist.api.getPlayUrl
-import org.melodist.data.WebDavManager
 import org.melodist.model.AudioQualityTier
 import org.melodist.model.Song
 import java.io.File
@@ -30,21 +29,6 @@ sealed class PlaybackTargetResult {
     data class LocalStream(
         val mediaSource: MediaSource,
         val actualTier: AudioQualityTier,
-    ) : PlaybackTargetResult()
-
-    data class WebDavLocalCache(
-        val mediaItem: MediaItem,
-        val actualTier: AudioQualityTier,
-        val localFile: File,
-        val serverId: String,
-        val relativeHref: String,
-    ) : PlaybackTargetResult()
-
-    data class WebDavStream(
-        val mediaSource: MediaSource,
-        val actualTier: AudioQualityTier,
-        val serverId: String,
-        val relativeHref: String,
     ) : PlaybackTargetResult()
 
     data class Online(
@@ -73,7 +57,7 @@ object PlaybackMediaLoader {
             MediaItem
                 .Builder()
                 .setMediaId(song.songMid)
-                .setCustomCacheKey(MelodistCacheManager.getCacheKey(song.songMid, tier))
+                .setCustomCacheKey(QQMusicCacheManager.getCacheKey(song.songMid, tier))
         if (uri != null) {
             builder.setUri(uri)
         }
@@ -94,7 +78,7 @@ object PlaybackMediaLoader {
         forceTrial: Boolean = false,
     ): PlaybackTargetResult =
         withContext(Dispatchers.IO) {
-            val isPureLocal = !song.localFilePath.isNullOrBlank() && !song.songMid.startsWith("webdav_")
+            val isPureLocal = !song.localFilePath.isNullOrBlank()
             if (isPureLocal) {
                 val cleanPath = song.localFilePath!!.removePrefix("file://")
                 val directFile = File(cleanPath)
@@ -144,8 +128,7 @@ object PlaybackMediaLoader {
 
             val isProxyStream =
                 (
-                    song.isLocal || song.isWebDav || song.songMid.startsWith("local_") || song.songMid.startsWith("pc_local_") ||
-                        song.songMid.startsWith("webdav_") ||
+                    song.isLocal || song.songMid.startsWith("local_") || song.songMid.startsWith("pc_local_") ||
                         song.mediaMid.contains("/stream/")
                 ) &&
                     (song.mediaMid.startsWith("http://") || song.mediaMid.startsWith("https://"))
@@ -158,7 +141,7 @@ object PlaybackMediaLoader {
                 val baseHttpFactory =
                     DefaultHttpDataSource
                         .Factory()
-                        .setUserAgent("MelodistTV/1.0 ConnectStream")
+                        .setUserAgent("QQMusicTV/1.0 ConnectStream")
                         .setAllowCrossProtocolRedirects(true)
                         .setConnectTimeoutMs(30_000)
                         .setReadTimeoutMs(30_000)
@@ -181,67 +164,11 @@ object PlaybackMediaLoader {
                 return@withContext PlaybackTargetResult.Failure("无法找到本地音频文件或流代理", allowRetry = false)
             }
 
-            // WebDAV 媒体处理
-            if (song.songMid.startsWith("webdav_")) {
-                val server = WebDavManager.getActiveServer()
-                val relativeHref = song.mediaMid.ifBlank { song.localFilePath ?: "" }
-                if ((relativeHref.endsWith(".flac", ignoreCase = true) || song.name.endsWith(".flac", ignoreCase = true)) &&
-                    !AudioCodecDetector.isFlacSupported
-                ) {
-                    return@withContext PlaybackTargetResult.Failure("当前设备缺少 FLAC 解码器，无法播放此 WebDAV 音频", allowRetry = false)
-                }
-                val localFile =
-                    if (server != null && relativeHref.isNotBlank()) {
-                        WebDavManager.getLocalCacheFile(server.id, relativeHref)
-                    } else {
-                        null
-                    }
-
-                if (localFile != null && localFile.exists() && localFile.length() > 0L) {
-                    val mediaItem = buildMediaItem(Uri.fromFile(localFile), song, AudioQualityTier.SQ, metadataBuilder)
-                    return@withContext PlaybackTargetResult.WebDavLocalCache(
-                        mediaItem = mediaItem,
-                        actualTier = AudioQualityTier.SQ,
-                        localFile = localFile,
-                        serverId = server?.id.orEmpty(),
-                        relativeHref = relativeHref,
-                    )
-                } else if (server != null && relativeHref.isNotBlank()) {
-                    val ctx = context ?: return@withContext PlaybackTargetResult.Failure("缺少 Context 上下文")
-                    val (streamUrl, authHeader) = WebDavManager.resolvePlaybackUrl(server, relativeHref)
-                    val baseHttpFactory =
-                        DefaultHttpDataSource
-                            .Factory()
-                            .setUserAgent("MelodistTV/1.0 ExoPlayer")
-                            .setAllowCrossProtocolRedirects(true)
-                            .setConnectTimeoutMs(30_000)
-                            .setReadTimeoutMs(30_000)
-                    if (!authHeader.isNullOrBlank()) {
-                        baseHttpFactory.setDefaultRequestProperties(mapOf("Authorization" to authHeader))
-                    }
-                    val dataSourceFactory = DefaultDataSource.Factory(ctx, baseHttpFactory)
-                    val cachedDataSourceFactory = MelodistCacheManager.buildCacheDataSourceFactory(ctx, dataSourceFactory)
-                    val mediaSource =
-                        ProgressiveMediaSource
-                            .Factory(cachedDataSourceFactory, PlaybackEngineFactory.createExtractorsFactory())
-                            .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(6))
-                            .createMediaSource(buildMediaItem(Uri.parse(streamUrl), song, AudioQualityTier.SQ, metadataBuilder))
-                    return@withContext PlaybackTargetResult.WebDavStream(
-                        mediaSource = mediaSource,
-                        actualTier = AudioQualityTier.SQ,
-                        serverId = server.id,
-                        relativeHref = relativeHref,
-                    )
-                } else {
-                    return@withContext PlaybackTargetResult.Failure("无法加载本地或 WebDAV 音频文件")
-                }
-            }
-
             // 线上歌曲流式处理
-            val higherStereoTier = if (forceTrial) null else MelodistCacheManager.findHigherOrEqualStereoCachedTier(song.songMid, targetTier)
+            val higherStereoTier = if (forceTrial) null else QQMusicCacheManager.findHigherOrEqualStereoCachedTier(song.songMid, targetTier)
             val playUrlInfo =
                 if (higherStereoTier != null) {
-                    val dummyUri = "https://cache.melodist.internal/${song.songMid}?tier=${higherStereoTier.name}"
+                    val dummyUri = "https://cache.qqmusic.internal/${song.songMid}?tier=${higherStereoTier.name}"
                     QualityResult(
                         url = dummyUri,
                         tier = higherStereoTier,
@@ -270,17 +197,19 @@ object PlaybackMediaLoader {
             if (playUrlInfo != null && !playUrlInfo.url.isNullOrBlank()) {
                 val ctx = context ?: return@withContext PlaybackTargetResult.Failure("缺少 Context 上下文")
                 val isFav = isSongFavorite(song.songMid)
-                val isCached = !forceTrial && (higherStereoTier != null || MelodistCacheManager.isSongTierCached(song.songMid, playUrlInfo.tier))
-                val targetCacheKey = MelodistCacheManager.getCacheKey(song.songMid, playUrlInfo.tier)
-                val isPrecached = !forceTrial && MelodistCacheManager.isKeyCached(targetCacheKey)
-                val shouldCache = if (forceTrial) false else MelodistCacheManager.shouldCacheSong(song.songMid, isFav, playUrlInfo.tier)
+                val isCached = !forceTrial && (higherStereoTier != null || QQMusicCacheManager.isSongTierCached(song.songMid, playUrlInfo.tier))
+                val targetCacheKey = QQMusicCacheManager.getCacheKey(song.songMid, playUrlInfo.tier)
+                QQMusicCacheManager.markCacheKeyActive(targetCacheKey)
+                QQMusicCacheManager.markCacheKeyActive(QQMusicCacheManager.getCacheKey(song.songMid, null))
+                val isPrecached = !forceTrial && QQMusicCacheManager.isKeyCached(targetCacheKey)
+                val shouldCache = if (forceTrial) false else QQMusicCacheManager.shouldCacheSong(song.songMid, isFav, playUrlInfo.tier)
                 val fileCacheFraction =
                     if (isCached) {
                         1f
                     } else if (forceTrial) {
                         0f
                     } else {
-                        MelodistCacheManager.getSongFileCacheProgress(song.songMid, playUrlInfo.tier).fraction
+                        QQMusicCacheManager.getSongFileCacheProgress(song.songMid, playUrlInfo.tier).fraction
                     }
 
                 val httpFactory =
@@ -292,8 +221,8 @@ object PlaybackMediaLoader {
                         .setReadTimeoutMs(30_000)
                 val defaultFactory = DefaultDataSource.Factory(ctx, httpFactory)
                 val dsFactory =
-                    if (shouldCache || isCached || isPrecached || !MelodistCacheManager.currentProfile.isTvDevice) {
-                        MelodistCacheManager.buildCacheDataSourceFactory(ctx, defaultFactory)
+                    if (shouldCache || isCached || isPrecached || !QQMusicCacheManager.currentProfile.isTvDevice) {
+                        QQMusicCacheManager.buildCacheDataSourceFactory(ctx, defaultFactory)
                     } else {
                         defaultFactory
                     }

@@ -135,7 +135,7 @@ class MobileConnectClient(
         pinCode: String,
     ) {
         val url = "ws://${targetDevice.host}:${targetDevice.port}"
-        android.util.Log.d("MelodistConnectClient", "Connecting to $url (deviceName: ${targetDevice.name})")
+        android.util.Log.d("QQMusicConnectClient", "Connecting to $url (deviceName: ${targetDevice.name})")
         val request = Request.Builder().url(url).build()
 
         activeSocket =
@@ -146,7 +146,7 @@ class MobileConnectClient(
                         webSocket: WebSocket,
                         response: Response,
                     ) {
-                        android.util.Log.i("MelodistConnectClient", "Connected to $url successfully")
+                        android.util.Log.i("QQMusicConnectClient", "Connected to $url successfully")
                         reconnectAttempt = 0
                         reconnectJob?.cancel()
                         reconnectJob = null
@@ -165,7 +165,7 @@ class MobileConnectClient(
                         webSocket: WebSocket,
                         text: String,
                     ) {
-                        android.util.Log.d("MelodistConnectClient", "Received message from TV: $text")
+                        android.util.Log.d("QQMusicConnectClient", "Received message from TV: $text")
                         handleIncomingMessage(text)
                     }
 
@@ -174,7 +174,7 @@ class MobileConnectClient(
                         code: Int,
                         reason: String,
                     ) {
-                        android.util.Log.i("MelodistConnectClient", "WebSocket closed: $code, reason: $reason")
+                        android.util.Log.i("QQMusicConnectClient", "WebSocket closed: $code, reason: $reason")
                         handleDisconnectionOrScheduleReconnect(targetDevice, isFailure = false, errorMsg = null)
                     }
 
@@ -189,9 +189,9 @@ class MobileConnectClient(
                                 t is java.net.NoRouteToHostException ||
                                 t is java.net.UnknownHostException
                         if (isUnreachable) {
-                            android.util.Log.d("MelodistConnectClient", "WebSocket unreachable to $url: ${t.message ?: "timeout"}")
+                            android.util.Log.d("QQMusicConnectClient", "WebSocket unreachable to $url: ${t.message ?: "timeout"}")
                         } else {
-                            android.util.Log.w("MelodistConnectClient", "WebSocket connect failed to $url: ${t.message}")
+                            android.util.Log.w("QQMusicConnectClient", "WebSocket connect failed to $url: ${t.message}")
                         }
                         val friendlyMsg =
                             if (targetDevice.host.startsWith("10.0.2.")) {
@@ -228,7 +228,7 @@ class MobileConnectClient(
                     maxAttempts = maxReconnectAttempts,
                 )
             val delayMs = (1L shl (currentAttempt - 1)) * 1000L
-            android.util.Log.i("MelodistConnectClient", "Scheduling reconnect attempt $currentAttempt in ${delayMs}ms to ${targetDevice.name}")
+            android.util.Log.i("QQMusicConnectClient", "Scheduling reconnect attempt $currentAttempt in ${delayMs}ms to ${targetDevice.name}")
             reconnectJob?.cancel()
             reconnectJob =
                 scope.launch {

@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import org.melodist.data.AppSettingsManager
 import org.melodist.tv.ui.theme.LocalMonetSurface
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.toMonetContainer
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -77,13 +77,13 @@ fun StoragePanel(menuRequester: FocusRequester) {
                         modifier =
                             Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(MelodistColors.AccentGreen.copy(alpha = 0.15f))
+                                .background(QQMusicColors.AccentGreen.copy(alpha = 0.15f))
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Text(
                             text = statusFeedback,
                             fontSize = 13.sp,
-                            color = MelodistColors.AccentGreen,
+                            color = QQMusicColors.AccentGreen,
                             fontWeight = FontWeight.Medium,
                         )
                     }
@@ -147,7 +147,7 @@ fun StoragePanel(menuRequester: FocusRequester) {
                                     .fillMaxWidth(fraction = cacheUsage.mediaUsageFraction)
                                     .fillMaxHeight()
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(MelodistColors.FocusTeal),
+                                    .background(QQMusicColors.FocusTeal),
                         )
                     }
                 }
@@ -170,8 +170,8 @@ fun StoragePanel(menuRequester: FocusRequester) {
                         .focusProperties { left = menuRequester },
                 shape =
                     ButtonDefaults.shape(
-                        shape = MelodistShapes.ButtonCorner,
-                        focusedShape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
+                        focusedShape = QQMusicShapes.ButtonCorner,
                     ),
                 colors =
                     ButtonDefaults.colors(
@@ -185,12 +185,12 @@ fun StoragePanel(menuRequester: FocusRequester) {
                         border =
                             Border(
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                                shape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
                             ),
                         focusedBorder =
                             Border(
-                                border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                shape = MelodistShapes.ButtonCorner,
+                                border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                shape = QQMusicShapes.ButtonCorner,
                             ),
                     ),
                 scale = ButtonDefaults.scale(focusedScale = 1.04f),
@@ -213,8 +213,8 @@ fun StoragePanel(menuRequester: FocusRequester) {
                 modifier = Modifier.weight(1f),
                 shape =
                     ButtonDefaults.shape(
-                        shape = MelodistShapes.ButtonCorner,
-                        focusedShape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
+                        focusedShape = QQMusicShapes.ButtonCorner,
                     ),
                 colors =
                     ButtonDefaults.colors(
@@ -228,12 +228,12 @@ fun StoragePanel(menuRequester: FocusRequester) {
                         border =
                             Border(
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                                shape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
                             ),
                         focusedBorder =
                             Border(
-                                border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                shape = MelodistShapes.ButtonCorner,
+                                border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                shape = QQMusicShapes.ButtonCorner,
                             ),
                     ),
                 scale = ButtonDefaults.scale(focusedScale = 1.04f),
@@ -256,8 +256,8 @@ fun StoragePanel(menuRequester: FocusRequester) {
                 modifier = Modifier.weight(1f),
                 shape =
                     ButtonDefaults.shape(
-                        shape = MelodistShapes.ButtonCorner,
-                        focusedShape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
+                        focusedShape = QQMusicShapes.ButtonCorner,
                     ),
                 colors =
                     ButtonDefaults.colors(
@@ -271,12 +271,12 @@ fun StoragePanel(menuRequester: FocusRequester) {
                         border =
                             Border(
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                                shape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
                             ),
                         focusedBorder =
                             Border(
-                                border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                shape = MelodistShapes.ButtonCorner,
+                                border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                shape = QQMusicShapes.ButtonCorner,
                             ),
                     ),
                 scale = ButtonDefaults.scale(focusedScale = 1.04f),

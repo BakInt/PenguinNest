@@ -40,8 +40,8 @@ import org.melodist.data.update.UpdateChecker
 import org.melodist.data.update.UpdateResult
 import org.melodist.tv.BuildConfig
 import org.melodist.tv.ui.theme.LocalMonetSurface
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.toMonetContainer
 
 private data class CodecItem(
@@ -83,7 +83,7 @@ fun AboutPanel(menuRequester: FocusRequester) {
                 .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SettingPanelHeader(title = "关于 Melodist TV")
+        SettingPanelHeader(title = "关于 QQMusic TV")
 
         // 软件版本与检查更新
         var isCheckingUpdate by remember { mutableStateOf(false) }
@@ -95,9 +95,9 @@ fun AboutPanel(menuRequester: FocusRequester) {
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clip(MelodistShapes.CardCorner)
+                    .clip(QQMusicShapes.CardCorner)
                     .background(surfaceColor.toMonetContainer(0.06f))
-                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), MelodistShapes.CardCorner)
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), QQMusicShapes.CardCorner)
                     .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -107,7 +107,7 @@ fun AboutPanel(menuRequester: FocusRequester) {
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = "Melodist TV",
+                    text = "QQMusic TV",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -115,7 +115,7 @@ fun AboutPanel(menuRequester: FocusRequester) {
                 Text(
                     text = updateFeedback ?: "当前版本 v${BuildConfig.VERSION_NAME} (构建号 ${BuildConfig.VERSION_CODE})",
                     fontSize = 13.sp,
-                    color = if (updateFeedback != null) MelodistColors.AccentGreen else MelodistColors.TextSecondary,
+                    color = if (updateFeedback != null) QQMusicColors.AccentGreen else QQMusicColors.TextSecondary,
                 )
             }
 
@@ -152,8 +152,8 @@ fun AboutPanel(menuRequester: FocusRequester) {
                 modifier = Modifier.focusProperties { left = menuRequester },
                 shape =
                     ButtonDefaults.shape(
-                        shape = MelodistShapes.ButtonCorner,
-                        focusedShape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
+                        focusedShape = QQMusicShapes.ButtonCorner,
                     ),
                 colors =
                     ButtonDefaults.colors(
@@ -167,7 +167,7 @@ fun AboutPanel(menuRequester: FocusRequester) {
                         border =
                             Border(
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                                shape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
                             ),
                         focusedBorder = Border.None,
                     ),
@@ -304,7 +304,7 @@ fun AboutPanel(menuRequester: FocusRequester) {
                     }
                 }
             } else {
-                Text(text = "正在读取解码器列表...", fontSize = 12.sp, color = MelodistColors.TextSecondary)
+                Text(text = "正在读取解码器列表...", fontSize = 12.sp, color = QQMusicColors.TextSecondary)
             }
         }
 
@@ -330,11 +330,11 @@ private fun SelectableParamRow(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (isFocused) MelodistColors.FocusTeal.copy(alpha = 0.12f) else Color.Transparent)
+                .background(if (isFocused) QQMusicColors.FocusTeal.copy(alpha = 0.12f) else Color.Transparent)
                 .border(
                     BorderStroke(
                         1.5.dp,
-                        if (isFocused) MelodistColors.FocusTeal else Color.Transparent,
+                        if (isFocused) QQMusicColors.FocusTeal else Color.Transparent,
                     ),
                     RoundedCornerShape(8.dp),
                 ).onFocusChanged { isFocused = it.isFocused }
@@ -369,11 +369,11 @@ private fun SelectableBadgeItem(
         modifier =
             Modifier
                 .clip(RoundedCornerShape(6.dp))
-                .background(if (isFocused) MelodistColors.FocusTeal.copy(alpha = 0.25f) else Color(0xFF064E3B))
+                .background(if (isFocused) QQMusicColors.FocusTeal.copy(alpha = 0.25f) else Color(0xFF064E3B))
                 .border(
                     BorderStroke(
                         1.5.dp,
-                        if (isFocused) MelodistColors.FocusTeal else Color(0xFF059669),
+                        if (isFocused) QQMusicColors.FocusTeal else Color(0xFF059669),
                     ),
                     RoundedCornerShape(6.dp),
                 ).onFocusChanged { isFocused = it.isFocused }
@@ -402,11 +402,11 @@ private fun CodecRowItem(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (isFocused) MelodistColors.FocusTeal.copy(alpha = 0.12f) else Color.Transparent)
+                .background(if (isFocused) QQMusicColors.FocusTeal.copy(alpha = 0.12f) else Color.Transparent)
                 .border(
                     BorderStroke(
                         1.5.dp,
-                        if (isFocused) MelodistColors.FocusTeal else Color.Transparent,
+                        if (isFocused) QQMusicColors.FocusTeal else Color.Transparent,
                     ),
                     RoundedCornerShape(8.dp),
                 ).onFocusChanged { isFocused = it.isFocused }
@@ -425,7 +425,7 @@ private fun CodecRowItem(
                 text = codec.formatName,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isFocused) Color.White else MelodistColors.TextPrimary,
+                color = if (isFocused) Color.White else QQMusicColors.TextPrimary,
             )
             Box(
                 modifier =

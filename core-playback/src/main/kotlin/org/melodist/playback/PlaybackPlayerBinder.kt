@@ -16,7 +16,6 @@ object PlaybackPlayerBinder {
      * @param isMuted 当前是否处于静音状态
      * @param targetVolume 目标音量
      * @param onPlaybackStarted 播放启动成功回调（参数：实际音质、是否命中缓存、文件缓存比例）
-     * @param onWebDavPostAction WebDAV 歌曲后续自愈回调
      * @param onLocalFilePostAction 本地文件歌曲后续封面校验回调
      * @param onFailure 媒体加载失败回调
      */
@@ -27,7 +26,6 @@ object PlaybackPlayerBinder {
         isMuted: Boolean,
         targetVolume: Float,
         onPlaybackStarted: (actualTier: AudioQualityTier, isCache: Boolean, fraction: Float) -> Unit,
-        onWebDavPostAction: () -> Unit,
         onLocalFilePostAction: () -> Unit,
         onFailure: (message: String, allowRetry: Boolean) -> Unit,
     ) {
@@ -56,32 +54,6 @@ object PlaybackPlayerBinder {
                 player.prepare()
                 player.play()
                 onPlaybackStarted(target.actualTier, false, 0f)
-            }
-
-            is PlaybackTargetResult.WebDavLocalCache -> {
-                if (seekToMs > 0L) {
-                    player.setMediaItem(target.mediaItem, seekToMs)
-                } else {
-                    player.setMediaItem(target.mediaItem)
-                }
-                player.volume = effectiveVolume
-                player.prepare()
-                player.play()
-                onPlaybackStarted(target.actualTier, true, 1f)
-                onWebDavPostAction()
-            }
-
-            is PlaybackTargetResult.WebDavStream -> {
-                if (seekToMs > 0L) {
-                    player.setMediaSource(target.mediaSource, seekToMs)
-                } else {
-                    player.setMediaSource(target.mediaSource)
-                }
-                player.volume = effectiveVolume
-                player.prepare()
-                player.play()
-                onPlaybackStarted(target.actualTier, false, 0f)
-                onWebDavPostAction()
             }
 
             is PlaybackTargetResult.Online -> {

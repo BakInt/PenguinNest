@@ -144,12 +144,12 @@ object RecentPlaybackManager {
 
                 if (shouldSyncSongs) {
                     val songsResult = apiService.getRecentSongs()
-                    Log.i("MelodistRecent", "getRecentSongs returned ${songsResult.items.size} songs")
+                    Log.i("QQMusicRecent", "getRecentSongs returned ${songsResult.items.size} songs")
                     if (songsResult.items.isNotEmpty()) {
                         val nonOnlineEntries =
                             recentEntries.filter {
                                 val s = it.song
-                                s.isLocal || s.isWebDav || s.songMid.startsWith("local_") || s.songMid.startsWith("webdav_")
+                                s.isLocal || s.songMid.startsWith("local_")
                             }
 
                         val cloudEntries =
@@ -176,17 +176,17 @@ object RecentPlaybackManager {
 
                 if (shouldSyncAlbums) {
                     val albumsResult = apiService.getRecentAlbums()
-                    Log.i("MelodistRecent", "getRecentAlbums returned ${albumsResult.items.size} albums")
+                    Log.i("QQMusicRecent", "getRecentAlbums returned ${albumsResult.items.size} albums")
                     _recentAlbumsFlow.value = albumsResult.items
                 }
 
                 if (shouldSyncPlaylists) {
                     val playlistsResult = apiService.getRecentPlaylists()
-                    Log.i("MelodistRecent", "getRecentPlaylists returned ${playlistsResult.items.size} playlists")
+                    Log.i("QQMusicRecent", "getRecentPlaylists returned ${playlistsResult.items.size} playlists")
                     _recentPlaylistsFlow.value = playlistsResult.items
                 }
             } catch (e: Exception) {
-                Log.e("MelodistRecent", "syncFromCloud error", e)
+                Log.e("QQMusicRecent", "syncFromCloud error", e)
             } finally {
                 _isSyncingFlow.value = false
             }
@@ -202,9 +202,7 @@ object RecentPlaybackManager {
 
         if (target != null &&
             !target.isLocal &&
-            !target.isWebDav &&
             !songMid.startsWith("local_") &&
-            !songMid.startsWith("webdav_") &&
             UserSession.isLoggedIn
         ) {
             scope.launch {
@@ -229,7 +227,7 @@ object RecentPlaybackManager {
         if (UserSession.isLoggedIn) {
             val deleteItems =
                 songs
-                    .filter { !it.isLocal && !it.isWebDav && !it.songMid.startsWith("local_") && !it.songMid.startsWith("webdav_") }
+                    .filter { !it.isLocal && !it.songMid.startsWith("local_") }
                     .mapNotNull { song ->
                         val id = if (song.songId > 0L) song.songId.toString() else song.songMid
                         if (id.isNotBlank()) RecentDeleteItem(id = id, type = RecentHistoryType.Song.typeCode) else null
@@ -291,7 +289,7 @@ object RecentPlaybackManager {
             if (UserSession.isLoggedIn) {
                 val deleteItems =
                     current
-                        .filter { !it.isLocal && !it.isWebDav && !it.songMid.startsWith("local_") && !it.songMid.startsWith("webdav_") }
+                        .filter { !it.isLocal && !it.songMid.startsWith("local_") }
                         .mapNotNull { song ->
                             val id = if (song.songId > 0L) song.songId.toString() else song.songMid
                             if (id.isNotBlank()) RecentDeleteItem(id = id, type = RecentHistoryType.Song.typeCode) else null

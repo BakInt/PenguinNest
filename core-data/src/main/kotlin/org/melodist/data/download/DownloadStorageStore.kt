@@ -20,7 +20,7 @@ import java.io.File
 
 internal object DownloadStorageStore {
     private const val TAG = "DownloadStorageStore"
-    const val PREF_NAME = "melodist_downloads"
+    const val PREF_NAME = "qqmusic_downloads"
     const val KEY_COMPLETED = "completed_downloads_json"
     const val KEY_ACTIVE_TASKS = "active_downloads_json"
 

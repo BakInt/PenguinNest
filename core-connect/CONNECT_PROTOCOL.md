@@ -1,13 +1,13 @@
-# Melodist Connect 开放远程控制与流媒体协议规范 (v1.2)
+# QQMusic Connect 开放远程控制与流媒体协议规范 (v1.3)
 
-Melodist Connect 使用 WebSocket 进行控制指令与状态同步，通过 HTTP Stream Proxy 提供局域网音频与媒体封面串流服务。
+QQMusic Connect 使用 WebSocket 进行控制指令与状态同步，通过 HTTP Stream Proxy 提供局域网音频与媒体封面串流服务。
 
 ---
 
 ## 1. 服务发现与连接流程
 
 ### 1.1 mDNS / NSD 发现
-- **服务类型**：`_melodist-connect._tcp.`
+- **服务类型**：`_qqmusic-connect._tcp.`
 - **默认端口**：`8765`（端口冲突时在 `8765 ~ 8775` 范围递增）
 - **TXT Record 属性**：
   - `id`: 设备 UUID
@@ -172,8 +172,7 @@ WebSocket 数据帧 JSON 结构：
 > [!NOTE]
 > `audioSource.sourceType` 取值定义：
 > - `DIRECT_API`: 直接请求流媒体 API；
-> - `STREAM_PROXY`: 从控制端 HTTP 代理拉取音频流；
-> - `DIRECT_WEBDAV`: 直接向 WebDAV 服务器拉取音频流。
+> - `STREAM_PROXY`: 从控制端 HTTP 代理拉取音频流。
 
 ### 5.2 队列分片同步 (`cmd_sync_queue_chunk`)
 队列长度超过 100 首时，按批次同步队列数据：
@@ -299,7 +298,6 @@ WebSocket 数据帧 JSON 结构：
 | `/stream/local` | `GET`, `HEAD` | `path=<url_encoded_file_path>` | 本地音频流式输出，支持 Range 请求 |
 | `/cover/local` | `GET`, `HEAD` | `path=<url_encoded_cover_path>` | 本地封面图片输出 |
 | `/cover` | `GET`, `HEAD` | `name=<cached_cover_filename>` | 缓存封面图片输出 |
-| `/stream/webdav` | `GET`, `HEAD` | `server=<server_id>&href=<url_encoded_href>` | WebDAV 音频分片转发输出 |
 | `/stream/proxy` | `GET`, `HEAD` | `url=<url_encoded_target_url>` | 公网音频流代理转发输出 |
 
 ### 7.2 特性支持
@@ -339,3 +337,13 @@ WebSocket 数据帧 JSON 结构：
 1. 控制端仅在用户主动操作时转发切歌指令；
 2. 控制端本地播放内核事件（加载重试、超时、`STATE_ENDED` 等）不触发 `cmd_next` / `cmd_prev`；
 3. 播放推进由宿主端执行，并通过 `event_play_state` 广播状态。
+
+
+---
+
+## 变更记录
+
+| 版本 | 说明 |
+| :--- | :--- |
+| v1.3 | 移除 WebDAV 音源支持：删除 `DIRECT_WEBDAV` 音源类型与 `/stream/webdav` 代理路由 |
+| v1.2 | 初始归档版本 |

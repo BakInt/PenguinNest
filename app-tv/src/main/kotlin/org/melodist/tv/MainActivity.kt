@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.melodist.api.MusicApiService
@@ -47,10 +48,9 @@ import org.melodist.tv.ui.PlaylistScreenCache
 import org.melodist.tv.ui.PlaylistTvScreen
 import org.melodist.tv.ui.SearchTvScreen
 import org.melodist.tv.ui.SettingsTvScreen
-import org.melodist.tv.ui.WebDavTvScreen
 import org.melodist.tv.ui.connect.ConnectTvScreen
 import org.melodist.tv.ui.settings.ScreenSaverOverlay
-import org.melodist.tv.ui.theme.MelodistTvTheme
+import org.melodist.tv.ui.theme.QQMusicTvTheme
 import org.melodist.tv.ui.theme.rememberMonetSurfaceColor
 
 private const val MAX_BACK_DEPTH = 3
@@ -112,10 +112,6 @@ sealed interface TvScreenDestination {
         override val key: String = "acr"
     }
 
-    data object WebDav : TvScreenDestination {
-        override val key: String = "webdav"
-    }
-
     data object LocalMusic : TvScreenDestination {
         override val key: String = "local_music"
     }
@@ -161,23 +157,40 @@ class MainActivity : ComponentActivity() {
             return
         }
         lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val ok = MusicApiService().refreshCurrentUserProfile()
-                if (ok) {
-                    isInitialSessionChecked = true
-                    lastSessionCheckTime = System.currentTimeMillis()
-                } else {
-                    if (MusicApiService().forceRefreshMusicKeySafe()) {
-                        if (MusicApiService().refreshCurrentUserProfile()) {
-                            isInitialSessionChecked = true
-                            lastSessionCheckTime = System.currentTimeMillis()
+            // 凭据可能已过期：先强刷一次，再带退避重试同步档案；全部失败才放弃。
+            val backoffDelays = longArrayOf(0L, 3_000L, 8_000L, 20_000L)
+            for ((attempt, delayMs) in backoffDelays.withIndex()) {
+                if (delayMs > 0L) delay(delayMs)
+                try {
+                    if (attempt == 0) {
+                        // 冷启动/唤醒先做一次强保活，并按结果分类：只有"服务端明确拒绝/无票据"
+                        // 才停止后续重试；网络问题交给退避与后台任务。
+                        when (val outcome = org.melodist.api.SessionKeeper.keepAlive(force = true)) {
+                            org.melodist.api.KeepAliveResult.Success -> Unit
+
+                            is org.melodist.api.KeepAliveResult.Transient ->
+                                android.util.Log.w("QQMusicTV", "Startup keep-alive transient failure: ${outcome.reason}")
+
+                            is org.melodist.api.KeepAliveResult.Rejected, org.melodist.api.KeepAliveResult.NoTicket -> {
+                                android.util.Log.w("QQMusicTV", "Startup keep-alive rejected; user must re-login")
+                                return@launch
+                            }
                         }
                     }
+                    if (MusicApiService().refreshCurrentUserProfile(force = attempt > 0)) {
+                        isInitialSessionChecked = true
+                        lastSessionCheckTime = System.currentTimeMillis()
+                        if (attempt > 0) {
+                            android.util.Log.i("QQMusicTV", "Profile refreshed from $source on retry #$attempt")
+                        }
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    android.util.Log.w("QQMusicTV", "Failed to refresh user profile from $source (attempt $attempt)", e)
                 }
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                android.util.Log.w("MelodistTV", "Failed to refresh user profile from $source", e)
             }
+            android.util.Log.w("QQMusicTV", "Gave up profile refresh from $source")
         }
     }
 
@@ -195,8 +208,6 @@ class MainActivity : ComponentActivity() {
         org.melodist.data.FavoriteArtistsManager
             .init(this)
         org.melodist.data.SearchKeywordHistoryManager
-            .init(this)
-        org.melodist.data.WebDavManager
             .init(this)
         org.melodist.data.LocalMusicManager
             .init(this)
@@ -216,6 +227,9 @@ class MainActivity : ComponentActivity() {
         TvConnectManager.init(this)
         checkAndRequestStoragePermissions()
 
+        // 注册后台登录态保活：电视长期待机时也能定期"摸"一次长效票据，避免闲置超时作废。
+        org.melodist.data.SessionKeepAliveScheduler.start(this)
+
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         if (connectivityManager != null) {
             val callback =
@@ -228,12 +242,12 @@ class MainActivity : ComponentActivity() {
             try {
                 connectivityManager.registerDefaultNetworkCallback(callback)
             } catch (e: Exception) {
-                android.util.Log.w("MelodistTV", "Failed to register network callback", e)
+                android.util.Log.w("QQMusicTV", "Failed to register network callback", e)
             }
         }
         checkAndRefreshUserSession("onCreate")
         setContent {
-            MelodistTvTheme {
+            QQMusicTvTheme {
                 val currentPlayingSong by PlaybackManager.currentSong.collectAsState()
                 val activeMonetCoverUrl =
                     remember(currentPlayingSong) {
@@ -359,9 +373,6 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onNavigateToSearch = {
                                             navigateTo(TvScreenDestination.Search)
-                                        },
-                                        onNavigateToWebDav = {
-                                            navigateTo(TvScreenDestination.WebDav)
                                         },
                                         onNavigateToLocalMusic = {
                                             navigateTo(TvScreenDestination.LocalMusic)
@@ -608,18 +619,6 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                is TvScreenDestination.WebDav -> {
-                                    WebDavTvScreen(
-                                        surfaceColor = globalMonetBg,
-                                        onNavigateToPlayer = {
-                                            navigateTo(TvScreenDestination.Player)
-                                        },
-                                        onBack = {
-                                            navigateBack()
-                                        },
-                                    )
-                                }
-
                                 is TvScreenDestination.LocalMusic -> {
                                     LocalMusicTvScreen(
                                         surfaceColor = globalMonetBg,
@@ -721,14 +720,14 @@ class MainActivity : ComponentActivity() {
             try {
                 return super.dispatchKeyEvent(dpadEvent)
             } catch (e: IllegalStateException) {
-                android.util.Log.w("MelodistTV", "Suppressed focus exception during key dispatch", e)
+                android.util.Log.w("QQMusicTV", "Suppressed focus exception during key dispatch", e)
                 return true
             }
         }
         try {
             return super.dispatchKeyEvent(event)
         } catch (e: IllegalStateException) {
-            android.util.Log.w("MelodistTV", "Suppressed focus exception during key dispatch", e)
+            android.util.Log.w("QQMusicTV", "Suppressed focus exception during key dispatch", e)
             return true
         }
     }

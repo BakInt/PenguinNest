@@ -56,7 +56,6 @@ enum class SongListDeleteType {
     None,
     PlaylistTrack,
     LocalFile,
-    WebDavFile,
     RecentHistory,
     PlayerQueue,
 }
@@ -78,8 +77,8 @@ fun CommonSongList(
     footerItems: (LazyListScope.() -> Unit)? = null,
     emptyContent: (@Composable () -> Unit)? = null,
     showLocalBadge: Boolean = true,
-    showWebDavBadge: Boolean = true,
     showQualityBadge: Boolean = false,
+    lyricSnippetProvider: ((Song) -> String?)? = null,
     paginationSource: QueuePaginationSource? = null,
     deleteType: SongListDeleteType = SongListDeleteType.None,
     enableDownload: Boolean = true,
@@ -88,6 +87,9 @@ fun CommonSongList(
     onSongClick: ((songs: List<Song>, index: Int) -> Unit)? = null,
     onMoreClick: ((Song) -> Unit)? = null,
     onDeleteLocalFile: ((Song) -> Unit)? = null,
+    showFavoriteButton: Boolean = false,
+    favoriteCounts: Map<Long, Int> = emptyMap(),
+    onFavoriteToggle: ((Song) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -96,6 +98,7 @@ fun CommonSongList(
 
     val rawCurrentSong by PlaybackManager.currentSong.collectAsState()
     val rawIsPlaying by PlaybackManager.isPlaying.collectAsState()
+    val favoriteSongMids by PlaybackManager.favoriteSongMids.collectAsState()
     val currentPlayingMid by remember {
         derivedStateOf {
             if (rawIsPlaying) rawCurrentSong?.songMid.orEmpty() else ""
@@ -288,15 +291,18 @@ fun CommonSongList(
                 ) { index, song ->
                     val songKey = getSongItemKey(song)
                     val isSelected = selectedMids.containsKey(songKey)
+                    val showFavorite = showFavoriteButton && PlaybackManager.isSongFavoriteSupported(song)
                     SongItemRow(
                         song = song,
                         isPlayingThis = song.songMid.isNotBlank() && song.songMid == currentPlayingMid,
                         highlightQuery = filterQuery,
                         showLocalBadge = showLocalBadge,
-                        showWebDavBadge = showWebDavBadge,
                         showQualityBadge = showQualityBadge,
+                        lyricSnippet = lyricSnippetProvider?.invoke(song),
                         isMultiSelectMode = isMultiSelectMode,
                         isSelected = isSelected,
+                        isFavorite = if (showFavorite) song.songMid in favoriteSongMids else null,
+                        favoriteCount = if (showFavorite) favoriteCounts[song.songId] else null,
                         onClick = { handleSongClick(song, index) },
                         onSelectToggle = { toggleSongSelection(song) },
                         onLongClick = {
@@ -306,6 +312,7 @@ fun CommonSongList(
                             }
                         },
                         onMoreClick = { handleMoreClick(song) },
+                        onFavoriteToggle = if (showFavorite) ({ onFavoriteToggle?.invoke(song) }) else null,
                     )
                 }
 

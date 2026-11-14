@@ -53,8 +53,8 @@ fun PlayerSongInfoSection(
     isFromCache: Boolean = false,
     isLandscape: Boolean = false,
 ) {
-    val isLocalOrWebDav =
-        song?.songMid?.startsWith("webdav_") == true ||
+    val isLocal =
+        song?.songMid?.startsWith("local_") == true ||
             song?.songMid?.startsWith("local_") == true ||
             !song?.localFilePath.isNullOrBlank()
 
@@ -63,7 +63,7 @@ fun PlayerSongInfoSection(
     val badgeText =
         if (isListenTogetherTrial) {
             "试听"
-        } else if (!isLocalOrWebDav && isFromCache) {
+        } else if (!isLocal && isFromCache) {
             "${AudioQualityTier.getBadge(currentTier)} · 缓存"
         } else {
             AudioQualityTier.getBadge(currentTier)
@@ -136,7 +136,7 @@ fun PlayerSongInfoSection(
                     onClick = {
                         if (isListenTogetherTrial) {
                             PlaybackManager.notifyUser("试听音乐不支持切换音质哦")
-                        } else if (!isLocalOrWebDav) {
+                        } else if (!isLocal) {
                             onOpenQualitySheet()
                         }
                     },
@@ -224,7 +224,7 @@ fun PlayerSongInfoSection(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                if (isLocalOrWebDav) {
+                if (isLocal) {
                     // 静态音质标签
                     Surface(
                         shape = RoundedCornerShape(6.dp),

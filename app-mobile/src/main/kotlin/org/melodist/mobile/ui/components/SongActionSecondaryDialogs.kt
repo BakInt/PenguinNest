@@ -48,7 +48,7 @@ fun DeleteLocalFileDialog(
         },
         text = {
             val promptText =
-                if (!song.isLocal && !song.isWebDav) {
+                if (!song.isLocal) {
                     "确定要从设备中删除《${song.name}》的已下载音频文件吗？此操作仅移除本地副本，歌单与在线播放记录仍将保留。"
                 } else {
                     "确定要从设备中删除《${song.name}》的本地文件吗？此操作将永久移除该文件，无法撤销。"
@@ -117,7 +117,7 @@ fun StoragePermissionDialog(
         },
         text = {
             Text(
-                text = "保存歌曲至系统的标准 Music/Melodist 目录需要授予“所有文件访问权限”，请在打开的系统设置中开启权限开关。",
+                text = "保存歌曲至系统的标准 Music/QQMusic 目录需要授予“所有文件访问权限”，请在打开的系统设置中开启权限开关。",
                 style = MaterialTheme.typography.bodyMedium,
             )
         },

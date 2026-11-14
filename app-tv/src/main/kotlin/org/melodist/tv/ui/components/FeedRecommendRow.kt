@@ -19,7 +19,7 @@ import kotlinx.coroutines.isActive
 import org.melodist.api.MusicApiService
 import org.melodist.api.UserSession
 import org.melodist.model.Song
-import org.melodist.tv.ui.theme.MelodistColors
+import org.melodist.tv.ui.theme.QQMusicColors
 
 @Composable
 fun FeedRecommendRow(
@@ -80,7 +80,7 @@ fun FeedRecommendRow(
             text = currentShelf?.title.orEmpty().ifBlank { "专属推荐" },
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = MelodistColors.TextPrimary,
+            color = QQMusicColors.TextPrimary,
         )
 
         Row(

@@ -25,7 +25,7 @@ data class RestoredPlaybackState(
 
 object PlaybackStateStorage {
     private const val TAG = "PlaybackStateStorage"
-    private const val PREFS_NAME = "melodist_playback_prefs"
+    private const val PREFS_NAME = "qqmusic_playback_prefs"
     private const val QUEUE_FILE_NAME = "playback_queue_v2.json"
     private val jsonHelper =
         Json {
@@ -98,7 +98,7 @@ object PlaybackStateStorage {
                 apply()
             }
         } catch (e: Exception) {
-            Log.w("MelodistPlayback", "Failed to save playback state", e)
+            Log.w("QQMusicPlayback", "Failed to save playback state", e)
         }
     }
 
@@ -197,7 +197,7 @@ object PlaybackStateStorage {
                 durationMs = durationMs,
             )
         } catch (e: Exception) {
-            Log.w("MelodistPlayback", "Failed to restore playback state", e)
+            Log.w("QQMusicPlayback", "Failed to restore playback state", e)
             return RestoredPlaybackState()
         }
     }

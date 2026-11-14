@@ -28,7 +28,6 @@ data class ConnectDevice(
 enum class AudioSourceType {
     DIRECT_API,
     STREAM_PROXY,
-    DIRECT_WEBDAV,
 }
 
 @Serializable

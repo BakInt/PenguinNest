@@ -79,19 +79,6 @@ fun SongInfoBottomSheet(
             val directPath = song.localFilePath?.takeIf { it.isNotBlank() && File(it).exists() }
             if (directPath != null) {
                 directPath
-            } else if (song.songMid.startsWith("webdav_")) {
-                val server =
-                    org.melodist.data.WebDavManager
-                        .getActiveServer()
-                val relativeHref = song.mediaMid.ifBlank { song.localFilePath ?: "" }
-                if (server != null && relativeHref.isNotBlank()) {
-                    org.melodist.data.WebDavManager
-                        .getLocalCacheFile(server.id, relativeHref)
-                        .takeIf { it.exists() && it.length() > 0L }
-                        ?.absolutePath
-                } else {
-                    null
-                }
             } else {
                 DownloadManager.completedTasks.value.find { it.song.songMid == song.songMid }?.filePath?.takeIf {
                     File(it).exists()

@@ -71,6 +71,20 @@ class PlaybackFavoriteController(
     }
 
     /**
+     * 从内存收藏歌曲 MID 集合中批量移除。
+     *
+     * @param mids 待移除的收藏歌曲 MID 集合
+     */
+    fun removeFavoriteSongMids(mids: Collection<String>) {
+        if (mids.isEmpty()) return
+        val updated = _favoriteSongMids.value - mids.toSet()
+        if (updated != _favoriteSongMids.value) {
+            _favoriteSongMids.value = updated
+            onStateChanged()
+        }
+    }
+
+    /**
      * 异步从云端同步用户收藏歌曲列表。
      *
      * @param forceRefresh 是否强制刷新跳过本地缓存
@@ -107,7 +121,7 @@ class PlaybackFavoriteController(
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                Log.w("MelodistPlayback", "Failed to sync favorite songs: $e")
+                Log.w("QQMusicPlayback", "Failed to sync favorite songs: $e")
             } finally {
                 isSyncingFavorites = false
             }
@@ -122,7 +136,7 @@ class PlaybackFavoriteController(
      */
     fun isSongFavoriteSupported(song: Song?): Boolean {
         if (song == null) return false
-        if (song.songMid.startsWith("webdav_") || !song.localFilePath.isNullOrBlank()) {
+        if (!song.localFilePath.isNullOrBlank()) {
             return false
         }
         return true
@@ -135,7 +149,7 @@ class PlaybackFavoriteController(
      * @return 已收藏返回 true，未收藏或 MID 为空返回 false
      */
     fun isSongFavorite(songMid: String?): Boolean {
-        if (songMid == null || songMid.startsWith("webdav_")) return false
+        if (songMid == null) return false
         return _favoriteSongMids.value.contains(songMid)
     }
 
@@ -164,7 +178,7 @@ class PlaybackFavoriteController(
     }
 
     /**
-     * 反转指定歌曲的当前收藏状态（自动拦截不支持收藏的本地与 WebDAV 曲目并提示用户）。
+     * 反转指定歌曲的当前收藏状态（自动拦截不支持收藏的本地曲目并提示用户）。
      *
      * @param song 目标歌曲实体
      * @param appContext 应用程序上下文，用于主线程弹出提示
@@ -175,14 +189,8 @@ class PlaybackFavoriteController(
     ) {
         if (!isSongFavoriteSupported(song)) {
             if (appContext != null) {
-                val msg =
-                    if (song.songMid.startsWith("webdav_")) {
-                        "WebDAV 音乐不支持收藏"
-                    } else {
-                        "本地音乐不支持收藏"
-                    }
                 Handler(Looper.getMainLooper()).post {
-                    Toast.makeText(appContext, msg, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, "本地音乐不支持收藏", Toast.LENGTH_SHORT).show()
                 }
             }
             return
@@ -211,7 +219,7 @@ class PlaybackFavoriteController(
                 UserLibraryCacheManager.onFavoriteToggled(song, willBeFav)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                Log.w("MelodistPlayback", "Failed to sync favorite to cloud: $e")
+                Log.w("QQMusicPlayback", "Failed to sync favorite to cloud: $e")
             }
         }
     }

@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.melodist.api.MusicApiService
+import org.melodist.api.SessionState
 import org.melodist.api.UserProfile
 import org.melodist.api.UserSession
 import org.melodist.api.refreshCurrentUserProfile
@@ -60,7 +62,27 @@ fun SettingsAccountCard(
     var showLogoutConfirmDialog by remember { mutableStateOf(false) }
     var showVipDetailDialog by remember { mutableStateOf(false) }
 
+    // 进入设置页时自动补一次账号档案同步：磁盘恢复的旧档案可能缺少会员字段，
+    // 若不自动刷新，用户会一直看到"会员级别：未开通"直到手动点刷新。
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            try {
+                MusicApiService().refreshCurrentUserProfile()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+            }
+        }
+    }
+
     val topVipBadge = remember(userProfile) { getTopVipBadgeText(userProfile) }
+    // 会话状态优先于会员字段展示：凭据失效时 isVip 可能仍是旧快照，
+    // 直接显示"未开通"会让用户误以为会员掉了，实际是登录过期。
+    val sessionHint =
+        when (userProfile.sessionState) {
+            SessionState.ReauthRequired -> "登录已过期，请重新登录"
+            SessionState.TransientFailure -> "网络异常，正在自动重试"
+            else -> null
+        }
 
     SettingsGroupCard(modifier = modifier) {
         Row(
@@ -140,9 +162,14 @@ fun SettingsAccountCard(
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (isLoggedIn) "UIN: ${userProfile.uin}" else "登录以同步歌单、收藏与资产",
+                        text =
+                            when {
+                                !isLoggedIn -> "登录以同步歌单、收藏与资产"
+                                sessionHint != null -> sessionHint
+                                else -> "UIN: ${userProfile.uin}"
+                            },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (isLoggedIn && sessionHint != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -177,7 +204,14 @@ fun SettingsAccountCard(
         if (userProfile.isVip && !userProfile.isHugeVip && !userProfile.isSvip) activeTiers.add("普通绿钻$levelStr")
         if (userProfile.isCpLover) activeTiers.add("情侣会员")
         if (userProfile.isGroupVip) activeTiers.add("亲情会员")
-        val vipTierDisplay = if (activeTiers.isEmpty()) "未开通" else activeTiers.joinToString("\n")
+        // 会员字段可能是旧快照：凭据失效时显示"未开通"会误导用户，改为提示同步状态。
+        val vipTierDisplay =
+            when {
+                activeTiers.isNotEmpty() -> activeTiers.joinToString("\n")
+                userProfile.sessionState == SessionState.ReauthRequired -> "未同步（登录已过期）"
+                userProfile.sessionState == SessionState.TransientFailure -> "未同步（正在重试）"
+                else -> "未开通"
+            }
 
         AlertDialog(
             onDismissRequest = { showVipDetailDialog = false },
@@ -220,7 +254,15 @@ fun SettingsAccountCard(
                         )
                     }
                     if (activeTiers.isEmpty()) {
-                        VipDetailRow(label = "会员有效期", value = "无")
+                        VipDetailRow(
+                            label = "会员有效期",
+                            value =
+                                when (userProfile.sessionState) {
+                                    SessionState.ReauthRequired -> "重新登录后同步"
+                                    SessionState.TransientFailure -> "网络恢复后同步"
+                                    else -> "无"
+                                },
+                        )
                     }
 
                     if (userProfile.musicScore > 0) {

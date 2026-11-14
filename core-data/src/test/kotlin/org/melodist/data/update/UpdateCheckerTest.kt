@@ -28,8 +28,8 @@ class UpdateCheckerTest {
     fun testResolveDownloadUrlPlatformIsolation() {
         val tvOnlyAssets =
             listOf(
-                "melodist-tv-1.1.0-arm64-v8a.apk" to "https://github.com/melodist/tv-arm64.apk",
-                "melodist-tv-1.1.0-armeabi-v7a.apk" to "https://github.com/melodist/tv-armv7.apk",
+                "qqmusic-tv-1.1.0-arm64-v8a.apk" to "https://github.com/qqmusic/tv-arm64.apk",
+                "qqmusic-tv-1.1.0-armeabi-v7a.apk" to "https://github.com/qqmusic/tv-armv7.apk",
             )
 
         // 仅有 TV 包时，请求 mobile 必须返回 null，不误判
@@ -39,50 +39,50 @@ class UpdateCheckerTest {
 
         // 仅有 TV 包时，请求 tv 返回对应包
         org.junit.jupiter.api.Assertions.assertEquals(
-            "https://github.com/melodist/tv-arm64.apk",
+            "https://github.com/qqmusic/tv-arm64.apk",
             UpdateChecker.resolveDownloadUrl(tvOnlyAssets, "tv", "https://fallback.com"),
         )
 
         val mixedAssets =
             listOf(
-                "melodist-tv-1.2.0.apk" to "https://github.com/melodist/tv.apk",
-                "melodist-mobile-1.2.0.apk" to "https://github.com/melodist/mobile.apk",
+                "qqmusic-tv-1.2.0.apk" to "https://github.com/qqmusic/tv.apk",
+                "qqmusic-mobile-1.2.0.apk" to "https://github.com/qqmusic/mobile.apk",
             )
 
         // 混合包时匹配目标平台
         org.junit.jupiter.api.Assertions.assertEquals(
-            "https://github.com/melodist/mobile.apk",
+            "https://github.com/qqmusic/mobile.apk",
             UpdateChecker.resolveDownloadUrl(mixedAssets, "mobile", "https://fallback.com"),
         )
         org.junit.jupiter.api.Assertions.assertEquals(
-            "https://github.com/melodist/tv.apk",
+            "https://github.com/qqmusic/tv.apk",
             UpdateChecker.resolveDownloadUrl(mixedAssets, "tv", "https://fallback.com"),
         )
 
         val universalAssets =
             listOf(
-                "melodist-universal-1.2.0.apk" to "https://github.com/melodist/universal.apk",
+                "qqmusic-universal-1.2.0.apk" to "https://github.com/qqmusic/universal.apk",
             )
         // 通用包回退
         org.junit.jupiter.api.Assertions.assertEquals(
-            "https://github.com/melodist/universal.apk",
+            "https://github.com/qqmusic/universal.apk",
             UpdateChecker.resolveDownloadUrl(universalAssets, "mobile", "https://fallback.com"),
         )
 
         val fullMixedAssets =
             listOf(
-                "melodist-tv-1.3.8.apk" to "https://github.com/melodist/tv.apk",
-                "melodist-mobile-originos-1.3.8.apk" to "https://github.com/melodist/mobile-originos.apk",
-                "melodist-mobile-1.3.8.apk" to "https://github.com/melodist/mobile-standard.apk",
+                "qqmusic-tv-1.3.8.apk" to "https://github.com/qqmusic/tv.apk",
+                "qqmusic-mobile-originos-1.3.8.apk" to "https://github.com/qqmusic/mobile-originos.apk",
+                "qqmusic-mobile-1.3.8.apk" to "https://github.com/qqmusic/mobile-standard.apk",
             )
         // 普通 mobile 请求必须排除 originos 包，即使 originos 包排在前面
         org.junit.jupiter.api.Assertions.assertEquals(
-            "https://github.com/melodist/mobile-standard.apk",
+            "https://github.com/qqmusic/mobile-standard.apk",
             UpdateChecker.resolveDownloadUrl(fullMixedAssets, "mobile", "https://fallback.com"),
         )
         // originos 请求匹配 originos 包
         org.junit.jupiter.api.Assertions.assertEquals(
-            "https://github.com/melodist/mobile-originos.apk",
+            "https://github.com/qqmusic/mobile-originos.apk",
             UpdateChecker.resolveDownloadUrl(fullMixedAssets, "originos", "https://fallback.com"),
         )
     }

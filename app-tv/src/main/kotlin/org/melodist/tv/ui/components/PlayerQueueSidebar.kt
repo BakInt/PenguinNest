@@ -44,8 +44,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.melodist.model.Song
 import org.melodist.playback.PlaybackManager
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberTvWindowMetrics
 
 private const val SCROLL_PAGE_STEP = 8
@@ -200,7 +200,7 @@ fun PlayerQueueSidebar(
                         Text(
                             text = "播放队列为空",
                             fontSize = 15.sp,
-                            color = MelodistColors.TextMuted,
+                            color = QQMusicColors.TextMuted,
                         )
                     }
                 } else {
@@ -287,14 +287,14 @@ private fun TvNavIconButton(
         interactionSource = interactionSource,
         shape =
             ButtonDefaults.shape(
-                shape = MelodistShapes.ButtonCorner,
-                focusedShape = MelodistShapes.ButtonCorner,
+                shape = QQMusicShapes.ButtonCorner,
+                focusedShape = QQMusicShapes.ButtonCorner,
             ),
         colors =
             ButtonDefaults.colors(
                 containerColor = Color.Transparent,
                 focusedContainerColor = Color.White,
-                contentColor = MelodistColors.TextPrimary,
+                contentColor = QQMusicColors.TextPrimary,
                 focusedContentColor = Color.Black,
             ),
         border =
@@ -302,12 +302,12 @@ private fun TvNavIconButton(
                 border =
                     Border(
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                        shape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.ButtonCorner,
+                        border = BorderStroke(2.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
             ),
         scale =
@@ -376,14 +376,14 @@ private fun TvQueueSongRow(
         interactionSource = interactionSource,
         shape =
             ButtonDefaults.shape(
-                shape = MelodistShapes.ButtonCorner,
-                focusedShape = MelodistShapes.ButtonCorner,
+                shape = QQMusicShapes.ButtonCorner,
+                focusedShape = QQMusicShapes.ButtonCorner,
             ),
         colors =
             ButtonDefaults.colors(
                 containerColor = Color.Transparent,
                 focusedContainerColor = Color.White,
-                contentColor = if (isPlaying) MelodistColors.AccentGreen else MelodistColors.TextPrimary,
+                contentColor = if (isPlaying) QQMusicColors.AccentGreen else QQMusicColors.TextPrimary,
                 focusedContentColor = Color.Black,
             ),
         border =
@@ -391,12 +391,12 @@ private fun TvQueueSongRow(
                 border =
                     Border(
                         border = BorderStroke(0.dp, Color.Transparent),
-                        shape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.ButtonCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.ButtonCorner,
                     ),
             ),
         scale =
@@ -426,7 +426,7 @@ private fun TvQueueSongRow(
                         text = String.format("%02d", index),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MelodistColors.TextSecondary,
+                        color = QQMusicColors.TextSecondary,
                     )
                 }
             }

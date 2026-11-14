@@ -26,7 +26,7 @@ class CryptoUtilsTest {
 
     @Test
     fun `encryptAg1Request produces valid Base64 payload`() {
-        val payload = "{\"test\":\"melodist-test-payload-12345\"}"
+        val payload = "{\"test\":\"qqmusic-test-payload-12345\"}"
         val encryptedBase64 = CryptoUtils.encryptAg1Request(payload)
 
         assertNotNull(encryptedBase64)

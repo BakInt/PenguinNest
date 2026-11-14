@@ -75,7 +75,6 @@ fun AlbumArtImage(
             candidates.isNullOrEmpty() &&
             dynamicVisualMid.isBlank() &&
             !songMid.isNullOrBlank() &&
-            !songMid.startsWith("webdav_") &&
             !songMid.startsWith("local_")
         ) {
             val vsMid = MusicApiService().getSongVisualMid(songMid)

@@ -187,7 +187,7 @@ object CoverUrlResolver {
     }
 
     /**
-     * 本地缩略图匹配同目录下的无损原画大图 (cover_raw_ 或 webdav_raw_)
+     * 本地缩略图匹配同目录下的无损原画大图 (cover_raw_)
      */
     fun findLocalRawCover(url: String): String? {
         if (!url.startsWith("/") && !url.startsWith("file://")) return null
@@ -200,10 +200,6 @@ object CoverUrlResolver {
                 when {
                     name.startsWith("cover_") && !name.startsWith("cover_raw_") -> {
                         name.removePrefix("cover_").substringBeforeLast(".") to "cover_raw_"
-                    }
-
-                    name.startsWith("webdav_") && !name.startsWith("webdav_raw_") -> {
-                        name.removePrefix("webdav_").substringBeforeLast(".") to "webdav_raw_"
                     }
 
                     else -> {

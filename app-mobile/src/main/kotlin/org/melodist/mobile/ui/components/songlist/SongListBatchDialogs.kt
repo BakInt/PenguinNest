@@ -37,7 +37,6 @@ import org.melodist.data.AppSettingsManager
 import org.melodist.data.LocalMusicManager
 import org.melodist.data.RecentPlaybackManager
 import org.melodist.data.UserLibraryCacheManager
-import org.melodist.data.WebDavManager
 import org.melodist.data.download.DownloadManager
 import org.melodist.mobile.ui.components.AddToPlaylistBottomSheet
 import org.melodist.mobile.ui.components.SongListDeleteType
@@ -73,7 +72,7 @@ fun SongListBatchDialogs(
 
     // 批量下载确认弹窗
     if (showBatchDownloadDialog) {
-        val validDownloadSongs = selectedSongs.filter { it.songMid.isNotBlank() && !it.isLocal && !it.isWebDav }
+        val validDownloadSongs = selectedSongs.filter { it.songMid.isNotBlank() && !it.isLocal }
         val defaultTier = AppSettingsManager.settings.value.preferredQualityTier
         val tierLabel = AudioQualityTier.getBadge(defaultTier)
         AlertDialog(
@@ -116,7 +115,6 @@ fun SongListBatchDialogs(
             when (deleteType) {
                 SongListDeleteType.PlaylistTrack -> "确定从歌单中移除选中的 $count 首歌曲吗？"
                 SongListDeleteType.LocalFile -> "确定删除选中的 $count 个本地歌曲文件吗？此操作不可撤销。"
-                SongListDeleteType.WebDavFile -> "确定从 WebDAV 曲库中移除选中的 $count 首歌曲吗？"
                 SongListDeleteType.RecentHistory -> "确定删除选中的 $count 条播放历史记录吗？"
                 SongListDeleteType.PlayerQueue -> "确定从当前播放队列中移除选中的 $count 首歌曲吗？"
                 SongListDeleteType.None -> ""
@@ -159,12 +157,6 @@ fun SongListBatchDialogs(
                                         Toast.makeText(context, "已删除本地文件", Toast.LENGTH_SHORT).show()
                                     }
 
-                                    SongListDeleteType.WebDavFile -> {
-                                        WebDavManager.removeSongsFromCache(selectedSongs)
-                                        onDeleteSelected?.invoke(selectedSongs)
-                                        Toast.makeText(context, "已从曲库移除", Toast.LENGTH_SHORT).show()
-                                    }
-
                                     SongListDeleteType.RecentHistory -> {
                                         RecentPlaybackManager.removeSongs(selectedSongs)
                                         onDeleteSelected?.invoke(selectedSongs)
@@ -203,7 +195,7 @@ fun SongListBatchDialogs(
 
     // 批量添加操作二级菜单
     if (showAddToMenuDialog) {
-        val onlineSongs = selectedSongs.filter { it.songMid.isNotBlank() && !it.isLocal && !it.isWebDav }
+        val onlineSongs = selectedSongs.filter { it.songMid.isNotBlank() && !it.isLocal }
         ModalBottomSheet(
             onDismissRequest = onDismissAddToMenu,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -296,7 +288,7 @@ fun SongListBatchDialogs(
 
     // 添加到自建歌单选择器
     if (showAddToPlaylistDialog) {
-        val onlineSongs = selectedSongs.filter { it.songMid.isNotBlank() && !it.isLocal && !it.isWebDav }
+        val onlineSongs = selectedSongs.filter { it.songMid.isNotBlank() && !it.isLocal }
         AddToPlaylistBottomSheet(
             songs = onlineSongs,
             onDismissRequest = onDismissAddToPlaylist,

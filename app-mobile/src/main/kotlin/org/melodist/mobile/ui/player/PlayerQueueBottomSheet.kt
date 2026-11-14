@@ -197,7 +197,7 @@ fun PlayerQueueBottomSheet(
                 ) {
                     val targetSong = currentSong
                     val isSimilarActive by PlaybackManager.isSimilarRecommendActive.collectAsState()
-                    if (targetSong != null && !targetSong.isLocal && !targetSong.isWebDav && (targetSong.songId > 0L || targetSong.songMid.isNotBlank())) {
+                    if (targetSong != null && !targetSong.isLocal && (targetSong.songId > 0L || targetSong.songMid.isNotBlank())) {
                         val containerColor =
                             if (isSimilarActive) {
                                 MaterialTheme.colorScheme.primary

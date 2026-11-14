@@ -27,7 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
-import org.melodist.tv.ui.theme.MelodistColors
+import org.melodist.tv.ui.theme.QQMusicColors
 
 @Composable
 fun TvOnScreenKeyboard(
@@ -170,21 +170,21 @@ private fun KeyButton(
 
     val baseBgColor =
         if (isAccent) {
-            MelodistColors.AccentGreen.copy(alpha = 0.22f)
+            QQMusicColors.AccentGreen.copy(alpha = 0.22f)
         } else {
             Color.White.copy(alpha = 0.12f)
         }
     val baseBorderColor =
         if (isAccent) {
-            MelodistColors.AccentGreen.copy(alpha = 0.50f)
+            QQMusicColors.AccentGreen.copy(alpha = 0.50f)
         } else {
             Color.White.copy(alpha = 0.18f)
         }
     val baseContentColor =
         if (isAccent) {
-            MelodistColors.AccentGreen
+            QQMusicColors.AccentGreen
         } else {
-            MelodistColors.TextPrimary
+            QQMusicColors.TextPrimary
         }
 
     Box(
@@ -199,7 +199,7 @@ private fun KeyButton(
                     border =
                         BorderStroke(
                             width = if (isFocused) 2.dp else 1.dp,
-                            color = if (isFocused) MelodistColors.FocusTeal else baseBorderColor,
+                            color = if (isFocused) QQMusicColors.FocusTeal else baseBorderColor,
                         ),
                     shape = RoundedCornerShape(8.dp),
                 ).background(

@@ -27,7 +27,10 @@ import androidx.compose.material.icons.rounded.ColorLens
 import androidx.compose.material.icons.rounded.Colorize
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -51,11 +54,13 @@ import androidx.compose.ui.unit.dp
 import org.melodist.data.AppColorTheme
 import org.melodist.data.AppSettings
 import org.melodist.data.AppSettingsManager
+import org.melodist.data.StartupTab
 import org.melodist.data.ThemeMode
+import org.melodist.mobile.ui.components.SettingsCollapsibleGroup
 import org.melodist.mobile.ui.components.SettingsDivider
 import org.melodist.mobile.ui.components.SettingsGroupCard
-import org.melodist.mobile.ui.components.SettingsGroupTitle
 import org.melodist.mobile.ui.components.SettingsSwitchRow
+import org.melodist.mobile.ui.components.rememberSettingsSectionExpandedState
 import org.melodist.mobile.ui.theme.isAppInDarkTheme
 import org.melodist.mobile.ui.theme.parseHexColor
 
@@ -68,70 +73,97 @@ fun SettingsAppearanceSection(
     val isDynamicColorActive = isDynamicColorSupported && settings.dynamicColor
     var showCustomColorDialog by remember { mutableStateOf(false) }
 
+    val appearanceExpanded = rememberSettingsSectionExpandedState("settings_section_appearance")
+
     Column(modifier = modifier) {
-        SettingsGroupTitle(title = "外观与显示")
-        SettingsGroupCard {
-            // 深浅色模式三段选择器
-            ThemeModeSelector(
-                selectedMode = settings.themeMode,
-                onModeSelected = { AppSettingsManager.setThemeMode(it) },
-                modifier = Modifier.padding(16.dp),
-            )
+        SettingsCollapsibleGroup(
+            title = "外观与显示",
+            expanded = appearanceExpanded.value,
+            onExpandedChange = { appearanceExpanded.value = it },
+        ) {
+            SettingsGroupCard {
+                // 深浅色模式三段选择器
+                ThemeModeSelector(
+                    selectedMode = settings.themeMode,
+                    onModeSelected = { AppSettingsManager.setThemeMode(it) },
+                    modifier = Modifier.padding(16.dp),
+                )
 
-            SettingsDivider()
+                SettingsDivider()
 
-            // 动态取色开关 (Material You)
-            SettingsSwitchRow(
-                icon = Icons.Rounded.ColorLens,
-                title = "动态取色 (Material You)",
-                subtitle =
-                    if (isDynamicColorSupported) {
-                        "根据系统壁纸自动提取应用主题色"
-                    } else {
-                        "系统版本过低（需 Android 12+）"
+                // 动态取色开关 (Material You)
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.ColorLens,
+                    title = "动态取色 (Material You)",
+                    subtitle =
+                        if (isDynamicColorSupported) {
+                            "根据系统壁纸自动提取应用主题色"
+                        } else {
+                            "系统版本过低（需 Android 12+）"
+                        },
+                    checked = isDynamicColorActive,
+                    onCheckedChange = { AppSettingsManager.setDynamicColor(it) },
+                    enabled = isDynamicColorSupported,
+                )
+
+                SettingsDivider()
+
+                // 预设调色板与自定义颜色选择器
+                PresetPaletteSelector(
+                    currentColorTheme = settings.colorTheme,
+                    customColorHex = settings.customColorHex,
+                    isDynamicActive = isDynamicColorActive,
+                    onThemeSelected = { selectedTheme ->
+                        if (settings.dynamicColor) {
+                            AppSettingsManager.setDynamicColor(false)
+                        }
+                        if (selectedTheme == AppColorTheme.Custom) {
+                            showCustomColorDialog = true
+                        } else {
+                            AppSettingsManager.setColorTheme(selectedTheme)
+                        }
                     },
-                checked = isDynamicColorActive,
-                onCheckedChange = { AppSettingsManager.setDynamicColor(it) },
-                enabled = isDynamicColorSupported,
-            )
+                    onOpenCustomDialog = { showCustomColorDialog = true },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                )
 
-            SettingsDivider()
+                SettingsDivider()
 
-            // 预设调色板与自定义颜色选择器
-            PresetPaletteSelector(
-                currentColorTheme = settings.colorTheme,
-                customColorHex = settings.customColorHex,
-                isDynamicActive = isDynamicColorActive,
-                onThemeSelected = { selectedTheme ->
-                    if (settings.dynamicColor) {
-                        AppSettingsManager.setDynamicColor(false)
-                    }
-                    if (selectedTheme == AppColorTheme.Custom) {
-                        showCustomColorDialog = true
-                    } else {
-                        AppSettingsManager.setColorTheme(selectedTheme)
-                    }
-                },
-                onOpenCustomDialog = { showCustomColorDialog = true },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            )
+                // AMOLED 纯黑背景
+                val isCurrentDark = isAppInDarkTheme()
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.Contrast,
+                    title = "AMOLED 纯黑背景",
+                    subtitle =
+                        if (isCurrentDark) {
+                            "深色模式下将背景设置为纯黑，适合 OLED 屏幕"
+                        } else {
+                            "当前处于浅色模式，切换至深色后生效"
+                        },
+                    checked = settings.amoledDark,
+                    onCheckedChange = { AppSettingsManager.setAmoledDark(it) },
+                )
 
-            SettingsDivider()
+                SettingsDivider()
 
-            // AMOLED 纯黑背景
-            val isCurrentDark = isAppInDarkTheme()
-            SettingsSwitchRow(
-                icon = Icons.Rounded.Contrast,
-                title = "AMOLED 纯黑背景",
-                subtitle =
-                    if (isCurrentDark) {
-                        "深色模式下将背景设置为纯黑，适合 OLED 屏幕"
-                    } else {
-                        "当前处于浅色模式，切换至深色后生效"
-                    },
-                checked = settings.amoledDark,
-                onCheckedChange = { AppSettingsManager.setAmoledDark(it) },
-            )
+                // 启动页：冷启动时底部 Tab 停在哪个标签
+                StartupTabSelector(
+                    selectedTab = settings.startupTab,
+                    onTabSelected = { AppSettingsManager.setStartupTab(it) },
+                    modifier = Modifier.padding(16.dp),
+                )
+
+                SettingsDivider()
+
+                // 底部标签栏文字：关闭后仅显示图标
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.TextFields,
+                    title = "显示标签栏文字",
+                    subtitle = "关闭后底部标签栏仅显示图标",
+                    checked = settings.showTabBarLabels,
+                    onCheckedChange = { AppSettingsManager.setShowTabBarLabels(it) },
+                )
+            }
         }
     }
 
@@ -219,6 +251,101 @@ private fun ThemeModeSelector(
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                             color = contentColor,
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StartupTabSelector(
+    selectedTab: StartupTab,
+    onTabSelected: (StartupTab) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val options =
+        listOf(
+            Triple(StartupTab.HOME, "首页", Icons.Rounded.Home),
+            Triple(StartupTab.LIBRARY, "我的收藏", Icons.Rounded.LibraryMusic),
+        )
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "启动页",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "每次打开软件时默认进入的页面",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        ) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                options.forEach { (tab, label, icon) ->
+                    val isSelected = tab == selectedTab
+                    val containerColor by animateColorAsState(
+                        targetValue =
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                            } else {
+                                Color.Transparent
+                            },
+                        label = "startupTabBg",
+                    )
+                    val contentColor by animateColorAsState(
+                        targetValue =
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        label = "startupTabFg",
+                    )
+
+                    Box(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(containerColor)
+                                .clickable { onTabSelected(tab) }
+                                .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = contentColor,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = contentColor,
+                            )
+                        }
                     }
                 }
             }

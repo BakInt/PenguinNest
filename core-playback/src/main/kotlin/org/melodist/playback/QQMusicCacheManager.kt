@@ -10,7 +10,6 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.ContentMetadata
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +20,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.melodist.data.AppSettingsManager
 import org.melodist.data.download.MediaCacheExporter
 import java.io.File
 import java.io.FileInputStream
@@ -31,8 +31,8 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 @OptIn(UnstableApi::class)
-object MelodistCacheManager : MediaCacheExporter {
-    private const val TAG = "MelodistCache"
+object QQMusicCacheManager : MediaCacheExporter {
+    private const val TAG = "QQMusicCache"
     private const val CACHE_SUBDIR = "media_cache"
     private const val STATS_FILE_NAME = "media_play_stats.json"
 
@@ -40,6 +40,11 @@ object MelodistCacheManager : MediaCacheExporter {
     const val DEFAULT_MAX_QUOTA_BYTES = 2048L * 1024L * 1024L
     const val MIN_PROTECT_QUOTA_BYTES = 128L * 1024L * 1024L
     const val STORAGE_SAFE_RATIO = 0.20
+    const val BYTES_PER_GB = 1024L * 1024L * 1024L
+
+    // 用户显式限额的磁盘安全上限：不超过剩余可用空间的 90%
+    const val USER_QUOTA_USABLE_RATIO = 0.90
+    private const val MAX_ACTIVE_CACHE_KEYS = 4
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val json =
@@ -53,6 +58,18 @@ object MelodistCacheManager : MediaCacheExporter {
 
     @Volatile
     private var databaseProvider: StandaloneDatabaseProvider? = null
+
+    @Volatile
+    private var fifoEvictor: CacheKeyFifoEvictor? = null
+
+    @Volatile
+    private var cacheDirRef: File? = null
+
+    @Volatile
+    private var userCacheLimitGb: Int = 0
+
+    private val activeKeyLock = Any()
+    private val activePlaybackKeys = LinkedHashSet<String>()
 
     @Volatile
     private var isInitialized = false
@@ -95,6 +112,94 @@ object MelodistCacheManager : MediaCacheExporter {
     }
 
     /**
+     * 按用户设定的 GB 限额计算生效配额：不超过剩余可用空间的 [USER_QUOTA_USABLE_RATIO]，
+     * 下限 [MIN_PROTECT_QUOTA_BYTES]，防止把磁盘写满
+     */
+    fun calculateUserCacheQuotaBytes(
+        cacheDir: File,
+        limitGb: Int,
+    ): Long {
+        val requestedBytes = limitGb.coerceAtLeast(1).toLong() * BYTES_PER_GB
+        val availableBytes =
+            try {
+                if (cacheDir.exists()) cacheDir.usableSpace else 0L
+            } catch (_: Exception) {
+                0L
+            }
+        val safetyCapBytes = (availableBytes * USER_QUOTA_USABLE_RATIO).toLong()
+        return maxOf(MIN_PROTECT_QUOTA_BYTES, minOf(requestedBytes, safetyCapBytes))
+    }
+
+    /**
+     * 应用设置页变更的音频缓存限额（GB，0 = 恢复默认自适应）。
+     * 缓存未初始化时仅记录，下次 init 按设置生效；已初始化则立即换算并整键淘汰到新配额
+     */
+    fun applyUserQuotaGb(limitGb: Int) {
+        userCacheLimitGb = limitGb.coerceAtLeast(0)
+        val dir = cacheDirRef ?: return
+        val quotaBytes =
+            if (userCacheLimitGb > 0) {
+                calculateUserCacheQuotaBytes(dir, userCacheLimitGb)
+            } else {
+                calculateAdaptiveCacheQuotaBytes(dir, currentProfile.maxCacheQuotaBytes)
+            }
+        activeCacheQuotaBytes = quotaBytes
+        fifoEvictor?.setQuotaBytes(quotaBytes)
+        Log.i(TAG, "Media cache quota updated to ${formatBytes(quotaBytes)} (limit: ${if (userCacheLimitGb > 0) "$userCacheLimitGb GB" else "adaptive"})")
+    }
+
+    /**
+     * 标记正在播放/预加载的缓存键，FIFO 淘汰时跳过（保留最近 [MAX_ACTIVE_CACHE_KEYS] 个）
+     */
+    fun markCacheKeyActive(cacheKey: String?) {
+        if (cacheKey.isNullOrBlank()) return
+        val snapshot =
+            synchronized(activeKeyLock) {
+                activePlaybackKeys.remove(cacheKey)
+                activePlaybackKeys.add(cacheKey)
+                while (activePlaybackKeys.size > MAX_ACTIVE_CACHE_KEYS) {
+                    activePlaybackKeys.remove(activePlaybackKeys.firstOrNull())
+                }
+                HashSet(activePlaybackKeys)
+            }
+        fifoEvictor?.setActiveKeys(snapshot)
+    }
+
+    /**
+     * 整键被 FIFO 淘汰后清理曲目级音质账目：该曲目已无任何完整缓存时移除记录并落盘。
+     * 播放统计（playCountMap）不随缓存淘汰清除
+     */
+    private fun handleKeysEvicted(keys: List<String>) {
+        val mids = keys.mapNotNull { extractSongMidFromCacheKey(it) }.toSet()
+        var changed = false
+        for (mid in mids) {
+            if (getBestFullyCachedTier(mid) == null && cachedSongTiers.remove(mid) != null) {
+                changed = true
+            }
+        }
+        if (changed) {
+            saveStatsAsync()
+        }
+    }
+
+    /**
+     * 从业务 CacheKey（`qqmusic_<mid>` 或 `qqmusic_<mid>_<TIER>`）解析 songMid
+     */
+    private fun extractSongMidFromCacheKey(cacheKey: String): String? {
+        if (!cacheKey.startsWith("qqmusic_")) return null
+        val remainder = cacheKey.removePrefix("qqmusic_")
+        if (remainder.isBlank()) return null
+        val lastUnderscore = remainder.lastIndexOf('_')
+        if (lastUnderscore > 0) {
+            val tierSuffix = remainder.substring(lastUnderscore + 1)
+            if (org.melodist.model.AudioQualityTier.fromTierName(tierSuffix) != null) {
+                return remainder.substring(0, lastUnderscore)
+            }
+        }
+        return remainder
+    }
+
+    /**
      * 初始化全局缓存池与播放统计（线程安全）
      */
     @Synchronized
@@ -115,29 +220,42 @@ object MelodistCacheManager : MediaCacheExporter {
         if (!cacheFolder.exists()) {
             cacheFolder.mkdirs()
         }
+        cacheDirRef = appContext.cacheDir
+        userCacheLimitGb = AppSettingsManager.settings.value.mediaCacheLimitGb
 
         statsFile = File(appContext.filesDir, STATS_FILE_NAME)
         tiersFile = File(appContext.filesDir, "media_cache_tiers.json")
         loadStatsFromDisk()
 
-        val quotaBytes = calculateAdaptiveCacheQuotaBytes(appContext.cacheDir, currentProfile.maxCacheQuotaBytes)
+        val quotaBytes =
+            if (userCacheLimitGb > 0) {
+                calculateUserCacheQuotaBytes(appContext.cacheDir, userCacheLimitGb)
+            } else {
+                calculateAdaptiveCacheQuotaBytes(appContext.cacheDir, currentProfile.maxCacheQuotaBytes)
+            }
         activeCacheQuotaBytes = quotaBytes
         Log.i(
             TAG,
             "Initializing media cache (${if (currentProfile.isTvDevice) "TV" else "Mobile"}) at ${cacheFolder.absolutePath} with quota: ${formatBytes(
                 quotaBytes,
-            )}",
+            )} (user limit: ${if (userCacheLimitGb > 0) "$userCacheLimitGb GB" else "adaptive"})",
         )
 
         try {
             val dbProvider = StandaloneDatabaseProvider(appContext).also { databaseProvider = it }
-            val evictor = LeastRecentlyUsedCacheEvictor(quotaBytes)
-            simpleCache = SimpleCache(cacheFolder, evictor, dbProvider)
+            val evictor =
+                CacheKeyFifoEvictor(quotaBytes).also { fifoEvictor = it }
+            evictor.onKeysEvicted = { keys -> handleKeysEvicted(keys) }
+            val cache = SimpleCache(cacheFolder, evictor, dbProvider)
+            simpleCache = cache
+            evictor.attachCache(cache)
+            evictor.enforceQuota()
             isInitialized = true
             Log.i(TAG, "Media cache initialized successfully, current cached space: ${formatBytes(simpleCache?.cacheSpace ?: 0L)}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize Media3 SimpleCache, falling back to un-cached streaming", e)
             simpleCache = null
+            fifoEvictor = null
             isInitialized = false
         }
     }
@@ -168,7 +286,7 @@ object MelodistCacheManager : MediaCacheExporter {
                         }
                     } catch (e: Exception) {
                         if (e is CancellationException) throw e
-                        Log.w("MelodistCacheManager", "Operation failed", e)
+                        Log.w("QQMusicCacheManager", "Operation failed", e)
                     }
                 }
             } catch (e: Exception) {
@@ -255,9 +373,9 @@ object MelodistCacheManager : MediaCacheExporter {
         tier: org.melodist.model.AudioQualityTier? = null,
     ): String =
         if (tier != null) {
-            "melodist_${songMid}_${tier.name}"
+            "qqmusic_${songMid}_${tier.name}"
         } else {
-            "melodist_$songMid"
+            "qqmusic_$songMid"
         }
 
     /**
@@ -349,7 +467,7 @@ object MelodistCacheManager : MediaCacheExporter {
 
     /**
      * 获取指定曲目指定音质在缓存中实际有效且 100% 完整落盘的 CacheKey
-     * 优先匹配携带音质后缀的标准 CacheKey（如 melodist_001_SQ），其次兜底匹配历史通用 CacheKey（如 melodist_001）
+     * 优先匹配携带音质后缀的标准 CacheKey（如 qqmusic_001_SQ），其次兜底匹配历史通用 CacheKey（如 qqmusic_001）
      */
     fun getEffectiveFullyCachedKey(
         songMid: String,
@@ -487,7 +605,7 @@ object MelodistCacheManager : MediaCacheExporter {
                 val dataSpec =
                     DataSpec
                         .Builder()
-                        .setUri(android.net.Uri.parse("melodist://cache/$cacheKey"))
+                        .setUri(android.net.Uri.parse("qqmusic://cache/$cacheKey"))
                         .setKey(cacheKey)
                         .setPosition(0L)
                         .setLength(exportLength)
@@ -510,7 +628,7 @@ object MelodistCacheManager : MediaCacheExporter {
                     cacheDataSource.close()
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.w("MelodistCacheManager", "Operation failed", e)
+                    Log.w("QQMusicCacheManager", "Operation failed", e)
                 }
             }
 

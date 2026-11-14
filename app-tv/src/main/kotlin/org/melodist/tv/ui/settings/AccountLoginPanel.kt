@@ -40,8 +40,8 @@ import org.melodist.api.UserSession
 import org.melodist.api.refreshCurrentUserProfile
 import org.melodist.data.UserSessionManager
 import org.melodist.tv.ui.theme.LocalMonetSurface
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.toMonetContainer
 import java.util.Locale
 import kotlin.random.Random
@@ -53,6 +53,41 @@ enum class LoginChannel(
     QQ("QQ登录", "手机 QQ"),
     WeChat("微信登录", "手机微信"),
     QQMusic("QQ音乐", "QQ 音乐"),
+}
+
+/**
+ * 登录成功后的会话同步：带重试地补全账号档案，再落盘。
+ *
+ * 档案刷新是填充会员/等级信息的唯一来源；旧实现只尝试一次且不检查结果，
+ * 失败时会把"只有身份与凭据"的档案持久化，账号页因而显示未开通。
+ *
+ * @param context 用于持久化会话的上下文
+ * @param channelLabel 触发登录的渠道名称，仅用于日志
+ */
+private suspend fun syncSessionAfterLogin(
+    context: android.content.Context,
+    channelLabel: String,
+) {
+    val maxAttempts = 3
+    var refreshed = false
+    repeat(maxAttempts) { attempt ->
+        if (refreshed) return@repeat
+        refreshed =
+            try {
+                MusicApiService().refreshCurrentUserProfile(force = attempt > 0)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ApiLogger.w("AccountLoginPanel", "Failed to refresh user profile after $channelLabel", e)
+                false
+            }
+        if (!refreshed && attempt < maxAttempts - 1) {
+            kotlinx.coroutines.delay(1500L * (attempt + 1))
+        }
+    }
+    if (!refreshed) {
+        ApiLogger.w("AccountLoginPanel", "Profile refresh incomplete after $channelLabel; session saved with identity only")
+    }
+    UserSessionManager.save(context)
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -96,7 +131,7 @@ fun AccountLoginPanel(
                     Icon(
                         imageVector = Icons.Filled.CheckCircle,
                         contentDescription = "User",
-                        tint = MelodistColors.AccentGreen,
+                        tint = QQMusicColors.AccentGreen,
                         modifier = Modifier.size(52.dp),
                     )
                 }
@@ -128,8 +163,8 @@ fun AccountLoginPanel(
                 modifier = Modifier.then(if (menuRequester != null) Modifier.focusProperties { left = menuRequester } else Modifier),
                 shape =
                     ButtonDefaults.shape(
-                        shape = MelodistShapes.ButtonCorner,
-                        focusedShape = MelodistShapes.ButtonCorner,
+                        shape = QQMusicShapes.ButtonCorner,
+                        focusedShape = QQMusicShapes.ButtonCorner,
                     ),
                 colors =
                     ButtonDefaults.colors(
@@ -143,12 +178,12 @@ fun AccountLoginPanel(
                         border =
                             Border(
                                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                                shape = MelodistShapes.ButtonCorner,
+                                shape = QQMusicShapes.ButtonCorner,
                             ),
                         focusedBorder =
                             Border(
-                                border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                shape = MelodistShapes.ButtonCorner,
+                                border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                shape = QQMusicShapes.ButtonCorner,
                             ),
                     ),
                 scale = ButtonDefaults.scale(focusedScale = 1.08f),
@@ -214,12 +249,7 @@ fun AccountLoginPanel(
 
                             QrStatus.Success -> {
                                 statusText = "授权成功，正在同步登录态..."
-                                try {
-                                    MusicApiService().refreshCurrentUserProfile()
-                                } catch (e: Exception) {
-                                    ApiLogger.w("AccountLoginPanel", "Failed to refresh user profile after QQ login", e)
-                                }
-                                UserSessionManager.save(context)
+                                syncSessionAfterLogin(context, "QQ 登录")
                                 isPolling = false
                                 break
                             }
@@ -265,12 +295,7 @@ fun AccountLoginPanel(
 
                             QrStatus.Success -> {
                                 statusText = "授权成功，正在同步登录态..."
-                                try {
-                                    MusicApiService().refreshCurrentUserProfile()
-                                } catch (e: Exception) {
-                                    ApiLogger.w("AccountLoginPanel", "Failed to refresh user profile after WeChat login", e)
-                                }
-                                UserSessionManager.save(context)
+                                syncSessionAfterLogin(context, "微信登录")
                                 isPolling = false
                                 break
                             }
@@ -316,12 +341,7 @@ fun AccountLoginPanel(
 
                             QrStatus.Success -> {
                                 statusText = "授权成功，正在同步登录态..."
-                                try {
-                                    MusicApiService().refreshCurrentUserProfile()
-                                } catch (e: Exception) {
-                                    ApiLogger.w("AccountLoginPanel", "Failed to refresh user profile after QQMusic login", e)
-                                }
-                                UserSessionManager.save(context)
+                                syncSessionAfterLogin(context, "QQ 音乐 App 登录")
                                 isPolling = false
                                 break
                             }
@@ -382,12 +402,12 @@ fun AccountLoginPanel(
                     modifier = btnModifier,
                     shape =
                         ButtonDefaults.shape(
-                            shape = MelodistShapes.PillCorner,
-                            focusedShape = MelodistShapes.PillCorner,
+                            shape = QQMusicShapes.PillCorner,
+                            focusedShape = QQMusicShapes.PillCorner,
                         ),
                     colors =
                         ButtonDefaults.colors(
-                            containerColor = if (isSelected) MelodistColors.AccentGreen else itemContainerBg,
+                            containerColor = if (isSelected) QQMusicColors.AccentGreen else itemContainerBg,
                             focusedContainerColor = Color.White,
                             contentColor = if (isSelected) Color.Black else Color.White,
                             focusedContentColor = Color.Black,
@@ -399,14 +419,14 @@ fun AccountLoginPanel(
                                     border =
                                         BorderStroke(
                                             1.dp,
-                                            if (isSelected) MelodistColors.AccentGreen else Color.White.copy(alpha = 0.10f),
+                                            if (isSelected) QQMusicColors.AccentGreen else Color.White.copy(alpha = 0.10f),
                                         ),
-                                    shape = MelodistShapes.PillCorner,
+                                    shape = QQMusicShapes.PillCorner,
                                 ),
                             focusedBorder =
                                 Border(
-                                    border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                    shape = MelodistShapes.PillCorner,
+                                    border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                    shape = QQMusicShapes.PillCorner,
                                 ),
                         ),
                     scale = ButtonDefaults.scale(focusedScale = 1.05f),
@@ -477,8 +497,8 @@ fun AccountLoginPanel(
             modifier = Modifier.then(if (menuRequester != null) Modifier.focusProperties { left = menuRequester } else Modifier),
             shape =
                 ButtonDefaults.shape(
-                    shape = MelodistShapes.ButtonCorner,
-                    focusedShape = MelodistShapes.ButtonCorner,
+                    shape = QQMusicShapes.ButtonCorner,
+                    focusedShape = QQMusicShapes.ButtonCorner,
                 ),
             colors =
                 ButtonDefaults.colors(
@@ -492,12 +512,12 @@ fun AccountLoginPanel(
                     border =
                         Border(
                             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                            shape = MelodistShapes.ButtonCorner,
+                            shape = QQMusicShapes.ButtonCorner,
                         ),
                     focusedBorder =
                         Border(
-                            border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                            shape = MelodistShapes.ButtonCorner,
+                            border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                            shape = QQMusicShapes.ButtonCorner,
                         ),
                 ),
             scale = ButtonDefaults.scale(focusedScale = 1.06f),

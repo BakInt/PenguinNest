@@ -21,8 +21,22 @@ class LoginApiService(
     internal val officialAppSessions = ConcurrentHashMap<String, OfficialAppLoginSession>()
 
     companion object {
+        private const val TAG = "LoginApiService"
+
+        /** QQ 音乐"鉴权凭据已过期"的业务错误码。 */
+        internal const val AUTH_EXPIRED_CODE = 2000
+
         internal val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
         private val refreshMutex = Mutex()
+
+        /**
+         * 进程内共享的登录服务实例。
+         *
+         * [refreshMutex] 是全局唯一的，但官方 App 授权会话表 `officialAppSessions` 挂在实例上；
+         * 各调用点若各自 `LoginApiService()`，会出现同一账号多份会话表、并发续签互相覆盖的问题。
+         * 业务代码应通过本属性取用，仅在需要注入自定义 [OkHttpClient] 时才直接构造。
+         */
+        val shared: LoginApiService by lazy { LoginApiService() }
 
         internal fun extractCookie(
             setCookies: List<String>,
@@ -44,15 +58,15 @@ class LoginApiService(
 
     suspend fun exchangeOAuthForMusicKey(cookies: MutableMap<String, String>): Boolean = exchangeOAuthForMusicKeyImpl(cookies)
 
-    suspend fun refreshByExistingMusicKey(
+    internal suspend fun refreshByExistingMusicKey(
         musicId: String,
         musicKey: String,
-    ): Boolean = refreshByExistingMusicKeyImpl(musicId, musicKey)
+    ): LegOutcome = refreshByExistingMusicKeyImpl(musicId, musicKey)
 
-    suspend fun refreshQQLoginToken(
+    internal suspend fun refreshQQLoginToken(
         openid: String,
         accessToken: String,
-    ): Boolean = refreshQQLoginTokenImpl(openid, accessToken)
+    ): LegOutcome = refreshQQLoginTokenImpl(openid, accessToken)
 
     suspend fun fetchWeChatQrCode(): QrCodeInfo = fetchWeChatQrCodeImpl()
 
@@ -66,7 +80,7 @@ class LoginApiService(
         cancelOfficialAppSessionImpl(identifier)
     }
 
-    suspend fun refreshOfficialAppToken(
+    internal suspend fun refreshOfficialAppToken(
         musicId: String,
         refreshToken: String,
         refreshKey: String,
@@ -74,7 +88,7 @@ class LoginApiService(
         loginType: Int,
         openid: String = "",
         accessToken: String = "",
-    ): Boolean =
+    ): LegOutcome =
         refreshOfficialAppTokenImpl(
             musicId = musicId,
             refreshToken = refreshToken,
@@ -90,65 +104,181 @@ class LoginApiService(
     /**
      * 校验当前会话中的 `qm_keyst` 凭据有效性；已失效或指定强制刷新时，加锁并发安全地执行登录凭据续签。
      *
+     * 判定不再只看"`qm_keyst` 是否存在"，而是由 [UserSession.isSessionStale] 结合服务端下发的
+     * 过期时间（或 [UserSession.MUSIC_KEY_TTL_MS] 兜底）决定是否已进入续签窗口。
+     *
      * @param forceRefresh 是否强制忽略现有凭证进行续签刷新
      * @return 刷新成功或现有凭据有效返回 `true`；刷新失败返回 `false`
      */
-    suspend fun ensureMusicKey(forceRefresh: Boolean = false): Boolean =
+    suspend fun ensureMusicKey(forceRefresh: Boolean = false): Boolean = renewSession(forceRefresh) is KeepAliveResult.Success
+
+    /**
+     * 执行一次"保活"：确保当前凭据可用，必要时续签，并把结果**分类**返回。
+     *
+     * 分类是整套 90 天方案的核心：`Transient`（网络/超时）值得短退避重试，
+     * `Rejected`/`NoTicket`（服务端拒绝、票据全缺）重试只会白撞风控，必须直接提示重新登录。
+     *
+     * @param force 忽略新鲜窗口、退避与"需重登"标记，强制发起一次续签
+     * @return 分类后的续签结果
+     */
+    internal suspend fun renewSession(force: Boolean = false): KeepAliveResult =
         withContext(Dispatchers.IO) {
-            val qmKey = UserSession.profile.cookies["qm_keyst"]
-            if (!forceRefresh && !qmKey.isNullOrEmpty()) {
-                return@withContext true
+            if (!force && isMusicKeyFresh()) {
+                return@withContext KeepAliveResult.Success
+            }
+            if (!force && UserSession.isSessionReauthRequired) {
+                // 已知凭据被服务端拒绝：不拿坏票据反复撞风控，等用户重新登录（或显式 force）。
+                ApiLogger.i(TAG, "Skip music key renewal: session requires re-login")
+                return@withContext KeepAliveResult.Rejected(AUTH_EXPIRED_CODE)
+            }
+            if (!force && UserSession.isRefreshBackingOff) {
+                ApiLogger.i(TAG, "Skip music key renewal: refresh backoff active (failCount=${UserSession.profile.refreshFailCount})")
+                return@withContext KeepAliveResult.Transient("refresh backoff active")
             }
             refreshMutex.withLock {
-                if (!forceRefresh) {
-                    val keyAfterLock = UserSession.profile.cookies["qm_keyst"]
-                    if (!keyAfterLock.isNullOrEmpty()) {
-                        return@withLock true
+                // 并发调用在等锁期间可能已被其它协程完成续签，锁内重新评估。
+                if (!force && isMusicKeyFresh()) {
+                    return@withLock KeepAliveResult.Success
+                }
+                UserSession.setSessionState(SessionState.Renewing)
+                val result = renewMusicKeyLocked()
+                when (result) {
+                    KeepAliveResult.Success -> {
+                        UserSession.recordRefreshResult(success = true)
+                        ApiLogger.i(TAG, "Music key renewed successfully")
+                    }
+
+                    is KeepAliveResult.Transient -> {
+                        UserSession.recordRefreshResult(success = false)
+                        UserSession.setSessionState(SessionState.TransientFailure)
+                        ApiLogger.w(
+                            TAG,
+                            "Music key renewal transient failure: ${result.reason} (failCount=${UserSession.profile.refreshFailCount})",
+                        )
+                    }
+
+                    is KeepAliveResult.Rejected, KeepAliveResult.NoTicket -> {
+                        // 明确失败：不进入退避重试循环，直接置为"需重新登录"。
+                        UserSession.recordRefreshResult(success = false)
+                        UserSession.setSessionState(SessionState.ReauthRequired)
+                        ApiLogger.w(TAG, "Music key renewal rejected: $result")
                     }
                 }
-                val cookies = UserSession.profile.cookies.toMutableMap()
-                val currentKey = UserSession.profile.musicKey.ifBlank { cookies["qm_keyst"] ?: cookies["musickey"] ?: "" }
-                val currentUin = UserSession.profile.uin.ifBlank { cookies["musicid"] ?: cookies["uin"] ?: "" }
-                val isWeChat = cookies["tmeLoginType"] == "1" || currentKey.startsWith("W_X_")
-
-                if (!isWeChat && currentKey.isNotEmpty() && currentUin.isNotEmpty()) {
-                    val refreshed = refreshByExistingMusicKey(currentUin, currentKey)
-                    if (refreshed) return@withLock true
-                }
-
-                val refreshToken = cookies["refresh_token"]
-                if (!refreshToken.isNullOrEmpty() && currentUin.isNotEmpty()) {
-                    val refreshKey = cookies["refresh_key"].orEmpty()
-                    val rawLoginType = cookies["tmeLoginType"]?.toIntOrNull() ?: UserSession.loginType
-                    val openid = cookies["psrf_qqopenid"].orEmpty()
-                    val accessToken = cookies["psrf_qqaccess_token"].orEmpty()
-                    val refreshed =
-                        refreshOfficialAppToken(
-                            musicId = currentUin,
-                            refreshToken = refreshToken,
-                            refreshKey = refreshKey,
-                            musicKey = currentKey,
-                            loginType = rawLoginType,
-                            openid = openid,
-                            accessToken = accessToken,
-                        )
-                    if (refreshed) return@withLock true
-                }
-
-                val openid = cookies["psrf_qqopenid"]
-                val accessToken = cookies["psrf_qqaccess_token"]
-                if (!openid.isNullOrEmpty() && !accessToken.isNullOrEmpty()) {
-                    val refreshed = refreshQQLoginToken(openid, accessToken)
-                    if (refreshed) return@withLock true
-                }
-
-                val pskey = cookies["p_skey"] ?: cookies["skey"]
-                if (!pskey.isNullOrEmpty()) {
-                    return@withLock exchangeOAuthForMusicKey(cookies)
-                }
-                false
+                result
             }
         }
+
+    /**
+     * 判断当前会话凭据是否仍处于新鲜窗口内。
+     *
+     * @return 存在 `qm_keyst` 且未进入 [UserSession.isSessionStale] 的续签窗口时返回 `true`
+     */
+    private fun isMusicKeyFresh(): Boolean {
+        val profile = UserSession.profile
+        val hasKey =
+            profile.musicKey.isNotBlank() ||
+                !profile.cookies["qm_keyst"].isNullOrEmpty() ||
+                !profile.cookies["musickey"].isNullOrEmpty() ||
+                !profile.cookies["qqmusic_key"].isNullOrEmpty()
+        if (!hasKey) return false
+        return !UserSession.isSessionStale
+    }
+
+    /**
+     * 判断当前 `musickey` 是否仍在有效期内（尚未过期）。
+     *
+     * 腿 ① `refreshByExistingMusicKey` 必须携带一个仍然存活的旧 key 才能换新；
+     * key 已死时先试这一腿只会白失败一次并污染失败计数，因此用它做前置判断。
+     */
+    private fun isCurrentKeyStillValid(): Boolean {
+        val profile = UserSession.profile
+        val now = System.currentTimeMillis()
+        if (profile.musicKeyExpireAt > 0L) return profile.musicKeyExpireAt > now
+        return profile.musicKeyIssuedAt > 0L && now - profile.musicKeyIssuedAt < UserSession.MUSIC_KEY_TTL_MS
+    }
+
+    /**
+     * 在已持有 [refreshMutex] 的前提下，按可用凭据类型依次尝试续签。
+     *
+     * 腿序按"票据寿命"而非"代码顺序"排列：旧 `musickey`（1–2 小时）只在仍存活时先试，
+     * 之后依次是官方 App `refresh_token`（数月）、QQ 互联 `access_token`（约 90 天）、
+     * `p_skey`/`skey`（约 1 天）。任何一腿成功即返回。
+     *
+     * @return 分类后的续签结果
+     */
+    private suspend fun renewMusicKeyLocked(): KeepAliveResult {
+        val cookies = UserSession.profile.cookies.toMutableMap()
+        val currentKey = UserSession.profile.musicKey.ifBlank { cookies["qm_keyst"] ?: cookies["musickey"] ?: "" }
+        val currentUin = UserSession.profile.uin.ifBlank { cookies["musicid"] ?: cookies["uin"] ?: "" }
+        val isWeChat = cookies["tmeLoginType"] == "1" || currentKey.startsWith("W_X_")
+
+        var attempted = false
+        var transientReason: String? = null
+        var rejectedCode = 0
+
+        // ① 旧 musickey 续签：仅在 key 尚未过期时才有意义。
+        if (!isWeChat && currentKey.isNotEmpty() && currentUin.isNotEmpty() && isCurrentKeyStillValid()) {
+            attempted = true
+            when (refreshByExistingMusicKey(currentUin, currentKey)) {
+                LegOutcome.Success -> return KeepAliveResult.Success
+                LegOutcome.Transient -> transientReason = "refreshByExistingMusicKey: network"
+                LegOutcome.Rejected -> rejectedCode = AUTH_EXPIRED_CODE
+                LegOutcome.Unavailable -> Unit
+            }
+        }
+
+        // ② 官方 App refresh_token：与 musickey 解耦，是"关 App 数天也不掉"的主腿。
+        val refreshToken = cookies["refresh_token"]
+        if (!refreshToken.isNullOrEmpty() && currentUin.isNotEmpty()) {
+            attempted = true
+            val refreshed =
+                refreshOfficialAppToken(
+                    musicId = currentUin,
+                    refreshToken = refreshToken,
+                    refreshKey = cookies["refresh_key"].orEmpty(),
+                    musicKey = currentKey,
+                    loginType = cookies["tmeLoginType"]?.toIntOrNull() ?: UserSession.loginType,
+                    // 官方 App 渠道历史上只写 `openid`/`access_token`，这里两套键都兼容读取。
+                    openid = cookies["psrf_qqopenid"] ?: cookies["openid"].orEmpty(),
+                    accessToken = cookies["psrf_qqaccess_token"] ?: cookies["access_token"].orEmpty(),
+                )
+            when (refreshed) {
+                LegOutcome.Success -> return KeepAliveResult.Success
+                LegOutcome.Transient -> transientReason = "refreshOfficialAppToken: network"
+                LegOutcome.Rejected -> rejectedCode = rejectedCode.takeIf { it != 0 } ?: -2
+                LegOutcome.Unavailable -> Unit
+            }
+        }
+
+        // ③ QQ 互联 openid + access_token：不依赖 musickey 是否存活。
+        val openid = cookies["psrf_qqopenid"] ?: cookies["openid"]
+        val accessToken = cookies["psrf_qqaccess_token"] ?: cookies["access_token"]
+        if (!openid.isNullOrEmpty() && !accessToken.isNullOrEmpty()) {
+            attempted = true
+            when (refreshQQLoginToken(openid, accessToken)) {
+                LegOutcome.Success -> return KeepAliveResult.Success
+                LegOutcome.Transient -> transientReason = "refreshQQLoginToken: network"
+                LegOutcome.Rejected -> rejectedCode = rejectedCode.takeIf { it != 0 } ?: -3
+                LegOutcome.Unavailable -> Unit
+            }
+        }
+
+        // ④ p_skey / skey 换 musickey：兜底腿。失败多为网络或 skey 已过期，
+        //    不单独据此判定"需重新登录"，避免一次网络抖动就把用户踢下线。
+        val pskey = cookies["p_skey"] ?: cookies["skey"]
+        if (!pskey.isNullOrEmpty()) {
+            attempted = true
+            if (exchangeOAuthForMusicKey(cookies)) return KeepAliveResult.Success
+            transientReason = transientReason ?: "exchangeOAuthForMusicKey: failed"
+        }
+
+        return when {
+            !attempted -> KeepAliveResult.NoTicket
+            rejectedCode != 0 -> KeepAliveResult.Rejected(rejectedCode)
+            transientReason != null -> KeepAliveResult.Transient(transientReason)
+            else -> KeepAliveResult.Rejected(-9)
+        }
+    }
 
     /**
      * 强制执行一次音乐鉴权凭证 `qm_keyst` 的续期与刷新。

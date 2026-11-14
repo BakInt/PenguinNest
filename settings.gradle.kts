@@ -24,7 +24,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "melodist-tv"
+rootProject.name = "qqmusic-tv"
 include(":core-model")
 include(":core-api")
 include(":core-data")

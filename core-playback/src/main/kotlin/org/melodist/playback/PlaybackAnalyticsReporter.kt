@@ -44,7 +44,7 @@ class PlaybackAnalyticsReporter(
         song: Song,
         playedDurationMs: Long,
     ) {
-        if (song.isLocal || song.isWebDav || song.songMid.startsWith("local_") || song.songMid.startsWith("webdav_")) {
+        if (song.isLocal || song.songMid.startsWith("local_")) {
             return
         }
         if (song.songId <= 0L) {
@@ -77,7 +77,7 @@ class PlaybackAnalyticsReporter(
                 )
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                Log.w("MelodistPlayback", "Failed to report play stream for song: ${song.songMid}", e)
+                Log.w("QQMusicPlayback", "Failed to report play stream for song: ${song.songMid}", e)
             }
         }
     }
@@ -88,7 +88,7 @@ class PlaybackAnalyticsReporter(
      * @param song 播放曲目实体
      */
     fun onSongActivePlaybackQualified(song: Song) {
-        if (song.isLocal || song.isWebDav || song.songMid.startsWith("local_") || song.songMid.startsWith("webdav_")) {
+        if (song.isLocal || song.songMid.startsWith("local_")) {
             return
         }
         if (!UserSession.isLoggedIn) {
@@ -105,7 +105,7 @@ class PlaybackAnalyticsReporter(
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                Log.w("MelodistPlayback", "Failed to report recent history for song: ${song.songMid}", e)
+                Log.w("QQMusicPlayback", "Failed to report recent history for song: ${song.songMid}", e)
             }
         }
     }
@@ -117,7 +117,7 @@ class PlaybackAnalyticsReporter(
         if (hasReportedCurrentContext) return
         val context = getSourceContext() ?: return
         val currSong = getCurrentSong()
-        if (currSong == null || currSong.isLocal || currSong.isWebDav || currSong.songMid.startsWith("local_") || currSong.songMid.startsWith("webdav_")) {
+        if (currSong == null || currSong.isLocal || currSong.songMid.startsWith("local_")) {
             return
         }
         if (!UserSession.isLoggedIn) {
@@ -129,21 +129,21 @@ class PlaybackAnalyticsReporter(
                 when (context) {
                     is PlaybackSourceContext.Album -> {
                         val id = if (context.albumId > 0L) context.albumId.toString() else context.albumMid
-                        if (id.isNotBlank() && !id.startsWith("local_") && !id.startsWith("webdav_")) {
+                        if (id.isNotBlank() && !id.startsWith("local_")) {
                             apiService.reportRecentHistory(id = id, type = RecentHistoryType.Album)
                         }
                     }
 
                     is PlaybackSourceContext.Playlist -> {
                         val id = context.id
-                        if (id.isNotBlank() && !id.startsWith("local_") && !id.startsWith("webdav_")) {
+                        if (id.isNotBlank() && !id.startsWith("local_")) {
                             apiService.reportRecentHistory(id = id, type = RecentHistoryType.Playlist)
                         }
                     }
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                Log.w("MelodistPlayback", "Failed to report recent context: $context", e)
+                Log.w("QQMusicPlayback", "Failed to report recent context: $context", e)
             }
         }
     }

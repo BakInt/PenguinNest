@@ -20,8 +20,8 @@ import androidx.tv.material3.*
 import org.melodist.data.AppSettingsManager
 import org.melodist.model.AudioQualityTier
 import org.melodist.playback.PlaybackManager
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -98,21 +98,21 @@ fun AudioQualityPanel(menuRequester: FocusRequester) {
                             modifier = btnModifier,
                             shape =
                                 ButtonDefaults.shape(
-                                    shape = MelodistShapes.ButtonCorner,
-                                    focusedShape = MelodistShapes.ButtonCorner,
+                                    shape = QQMusicShapes.ButtonCorner,
+                                    focusedShape = QQMusicShapes.ButtonCorner,
                                 ),
                             colors =
                                 ButtonDefaults.colors(
                                     containerColor =
                                         if (isSelected) {
-                                            MelodistColors.AccentGreen.copy(
+                                            QQMusicColors.AccentGreen.copy(
                                                 alpha = 0.25f,
                                             )
                                         } else {
                                             Color.White.copy(alpha = 0.05f)
                                         },
                                     focusedContainerColor = Color.White,
-                                    contentColor = if (isSelected) MelodistColors.AccentGreen else Color.White,
+                                    contentColor = if (isSelected) QQMusicColors.AccentGreen else Color.White,
                                     focusedContentColor = Color.Black,
                                     disabledContainerColor = Color.White.copy(alpha = 0.02f),
                                     disabledContentColor = Color.White.copy(alpha = 0.35f),
@@ -125,19 +125,19 @@ fun AudioQualityPanel(menuRequester: FocusRequester) {
                                                 BorderStroke(
                                                     1.dp,
                                                     if (isSelected) {
-                                                        MelodistColors.AccentGreen.copy(
+                                                        QQMusicColors.AccentGreen.copy(
                                                             alpha = 0.7f,
                                                         )
                                                     } else {
                                                         Color.White.copy(alpha = if (isSupported) 0.12f else 0.04f)
                                                     },
                                                 ),
-                                            shape = MelodistShapes.ButtonCorner,
+                                            shape = QQMusicShapes.ButtonCorner,
                                         ),
                                     focusedBorder =
                                         Border(
-                                            border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                            shape = MelodistShapes.ButtonCorner,
+                                            border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                            shape = QQMusicShapes.ButtonCorner,
                                         ),
                                 ),
                             scale = ButtonDefaults.scale(focusedScale = 1.04f),
@@ -174,21 +174,21 @@ fun AudioQualityPanel(menuRequester: FocusRequester) {
                             modifier = btnModifier,
                             shape =
                                 ButtonDefaults.shape(
-                                    shape = MelodistShapes.ButtonCorner,
-                                    focusedShape = MelodistShapes.ButtonCorner,
+                                    shape = QQMusicShapes.ButtonCorner,
+                                    focusedShape = QQMusicShapes.ButtonCorner,
                                 ),
                             colors =
                                 ButtonDefaults.colors(
                                     containerColor =
                                         if (isSelected) {
-                                            MelodistColors.AccentGreen.copy(
+                                            QQMusicColors.AccentGreen.copy(
                                                 alpha = 0.25f,
                                             )
                                         } else {
                                             Color.White.copy(alpha = 0.05f)
                                         },
                                     focusedContainerColor = Color.White,
-                                    contentColor = if (isSelected) MelodistColors.AccentGreen else Color.White,
+                                    contentColor = if (isSelected) QQMusicColors.AccentGreen else Color.White,
                                     focusedContentColor = Color.Black,
                                 ),
                             border =
@@ -199,19 +199,19 @@ fun AudioQualityPanel(menuRequester: FocusRequester) {
                                                 BorderStroke(
                                                     1.dp,
                                                     if (isSelected) {
-                                                        MelodistColors.AccentGreen.copy(
+                                                        QQMusicColors.AccentGreen.copy(
                                                             alpha = 0.7f,
                                                         )
                                                     } else {
                                                         Color.White.copy(alpha = 0.12f)
                                                     },
                                                 ),
-                                            shape = MelodistShapes.ButtonCorner,
+                                            shape = QQMusicShapes.ButtonCorner,
                                         ),
                                     focusedBorder =
                                         Border(
-                                            border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                            shape = MelodistShapes.ButtonCorner,
+                                            border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                            shape = QQMusicShapes.ButtonCorner,
                                         ),
                                 ),
                             scale = ButtonDefaults.scale(focusedScale = 1.04f),
@@ -262,9 +262,9 @@ fun AudioQualityPanel(menuRequester: FocusRequester) {
             },
         )
 
-        // 本地与 WebDAV 歌词文件名匹配
+        // 本地歌词文件名匹配
         SettingSwitchCard(
-            title = "本地与WebDAV音乐匹配歌词",
+            title = "本地音乐匹配歌词",
             checked = settings.enableAutoMatchLyrics,
             menuRequester = menuRequester,
             onToggle = {

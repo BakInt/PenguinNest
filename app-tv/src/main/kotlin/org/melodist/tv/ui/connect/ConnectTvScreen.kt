@@ -32,7 +32,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.*
 import org.melodist.core.connect.model.ConnectDevice
 import org.melodist.tv.connect.TvConnectManager
-import org.melodist.tv.ui.theme.MelodistColors
+import org.melodist.tv.ui.theme.QQMusicColors
 import org.melodist.tv.ui.theme.rememberTvWindowMetrics
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -83,27 +83,27 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                         text = "配置电视端服务 IP",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MelodistColors.TextPrimary,
+                        color = QQMusicColors.TextPrimary,
                     )
 
                     if (isEmulator) {
                         Text(
                             text = "检测到当前处于模拟器环境（内部 IP: 10.0.2.15），局域网外部手机无法直连。请填写电脑物理网卡 Wi-Fi IP（例如 192.168.110.244）",
                             fontSize = 12.sp,
-                            color = MelodistColors.FocusTeal,
+                            color = QQMusicColors.FocusTeal,
                             lineHeight = 16.sp,
                         )
                     } else {
                         Text(
                             text = "当前使用 IP: $localIp (端口: 8765)\n若开启了 TUN 模式或存在多网卡，可手动指定局域网物理 IP",
                             fontSize = 13.sp,
-                            color = MelodistColors.TextSecondary,
+                            color = QQMusicColors.TextSecondary,
                         )
                     }
 
                     // 手动输入 IP 区块
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("手动输入 IP 地址：", fontSize = 13.sp, color = MelodistColors.TextSecondary)
+                        Text("手动输入 IP 地址：", fontSize = 13.sp, color = QQMusicColors.TextSecondary)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -130,13 +130,13 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                                         ),
                                     cursorBrush =
                                         androidx.compose.ui.graphics
-                                            .SolidColor(MelodistColors.FocusTeal),
+                                            .SolidColor(QQMusicColors.FocusTeal),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 if (manualIpText.isBlank()) {
                                     Text(
                                         "例如 192.168.110.244",
-                                        color = MelodistColors.TextMuted,
+                                        color = QQMusicColors.TextMuted,
                                         fontSize = 14.sp,
                                         fontFamily = FontFamily.Monospace,
                                     )
@@ -152,7 +152,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                                 },
                                 colors =
                                     ButtonDefaults.colors(
-                                        containerColor = MelodistColors.FocusTeal,
+                                        containerColor = QQMusicColors.FocusTeal,
                                         focusedContainerColor = Color.White,
                                     ),
                             ) {
@@ -162,7 +162,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                     }
 
                     if (availableIps.isNotEmpty()) {
-                        Text("自动检测到的可用候选网卡：", fontSize = 13.sp, color = MelodistColors.TextSecondary)
+                        Text("自动检测到的可用候选网卡：", fontSize = 13.sp, color = QQMusicColors.TextSecondary)
                         LazyColumn(
                             modifier =
                                 Modifier
@@ -181,7 +181,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                                     colors =
                                         ButtonDefaults.colors(
                                             containerColor = if (isSelected) Color(0xFF2E7D32).copy(alpha = 0.35f) else Color.White.copy(alpha = 0.08f),
-                                            focusedContainerColor = MelodistColors.FocusTeal,
+                                            focusedContainerColor = QQMusicColors.FocusTeal,
                                         ),
                                 ) {
                                     Row(
@@ -212,7 +212,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                             colors =
                                 ButtonDefaults.colors(
                                     containerColor = Color.White.copy(alpha = 0.08f),
-                                    focusedContainerColor = MelodistColors.FocusTeal,
+                                    focusedContainerColor = QQMusicColors.FocusTeal,
                                 ),
                         ) {
                             Text("恢复自动选择", fontSize = 13.sp)
@@ -223,7 +223,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                             colors =
                                 ButtonDefaults.colors(
                                     containerColor = Color.White.copy(alpha = 0.08f),
-                                    focusedContainerColor = MelodistColors.FocusTeal,
+                                    focusedContainerColor = QQMusicColors.FocusTeal,
                                 ),
                         ) {
                             Text("关闭", fontSize = 13.sp)
@@ -257,19 +257,19 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                         text = "设备配对请求",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MelodistColors.TextPrimary,
+                        color = QQMusicColors.TextPrimary,
                     )
                     Text(
                         text = "设备 \"${req.device.name}\" 请求与此电视配对并接管播控",
                         fontSize = 15.sp,
-                        color = MelodistColors.TextSecondary,
+                        color = QQMusicColors.TextSecondary,
                     )
                     if (req.pinCode.isNotBlank()) {
                         Text(
                             text = "配对验证码: ${req.pinCode}",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MelodistColors.QualityGoldText,
+                            color = QQMusicColors.QualityGoldText,
                         )
                     }
                     Row(
@@ -284,7 +284,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                                     .focusRequester(acceptRequester),
                             colors =
                                 ButtonDefaults.colors(
-                                    containerColor = MelodistColors.AccentGreen,
+                                    containerColor = QQMusicColors.AccentGreen,
                                     focusedContainerColor = Color.White,
                                 ),
                         ) {
@@ -302,7 +302,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                             colors =
                                 ButtonDefaults.colors(
                                     containerColor = Color.White.copy(alpha = 0.1f),
-                                    focusedContainerColor = MelodistColors.FavoriteRed,
+                                    focusedContainerColor = QQMusicColors.FavoriteRed,
                                 ),
                         ) {
                             Row(
@@ -339,12 +339,12 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                     text = "远程互联与播控",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MelodistColors.TextPrimary,
+                    color = QQMusicColors.TextPrimary,
                 )
                 Text(
                     text = "通过手机扫描二维码或局域网发现连接，实现双端接力与遥控同步",
                     fontSize = 14.sp,
-                    color = MelodistColors.TextSecondary,
+                    color = QQMusicColors.TextSecondary,
                 )
             }
             if (connectedDevice != null) {
@@ -423,7 +423,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                                     .background(Color.White.copy(alpha = 0.1f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("正在生成配对二维码...", color = MelodistColors.TextMuted)
+                            Text("正在生成配对二维码...", color = QQMusicColors.TextMuted)
                         }
                     }
 
@@ -438,7 +438,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace,
-                            color = MelodistColors.QualityGoldText,
+                            color = QQMusicColors.QualityGoldText,
                         )
                         Button(
                             onClick = { TvConnectManager.refreshPinCode() },
@@ -453,7 +453,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                Icon(Icons.Filled.Refresh, contentDescription = null, tint = MelodistColors.TextPrimary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Filled.Refresh, contentDescription = null, tint = QQMusicColors.TextPrimary, modifier = Modifier.size(16.dp))
                                 Text("刷新配对码", fontSize = 13.sp)
                             }
                         }
@@ -475,13 +475,13 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                             Text(
                                 text = "本机 IP: $localIp : 8765",
                                 fontSize = 13.sp,
-                                color = MelodistColors.TextSecondary,
+                                color = QQMusicColors.TextSecondary,
                                 fontFamily = FontFamily.Monospace,
                             )
                             Text(
                                 text = "[切换网卡]",
                                 fontSize = 12.sp,
-                                color = MelodistColors.FocusTeal,
+                                color = QQMusicColors.FocusTeal,
                             )
                         }
                     }
@@ -512,7 +512,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                             text = "已配对设备",
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MelodistColors.TextPrimary,
+                            color = QQMusicColors.TextPrimary,
                         )
                         if (pairedDevices.isNotEmpty()) {
                             Button(
@@ -520,7 +520,7 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                                 colors =
                                     ButtonDefaults.colors(
                                         containerColor = Color.White.copy(alpha = 0.08f),
-                                        focusedContainerColor = MelodistColors.FavoriteRed,
+                                        focusedContainerColor = QQMusicColors.FavoriteRed,
                                     ),
                             ) {
                                 Text("全部解除", fontSize = 12.sp)
@@ -537,8 +537,8 @@ fun ConnectTvScreen(onBack: () -> Unit = {}) {
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = "暂无已配对设备\n使用手机端打开 Melodist 即可扫码配对",
-                                color = MelodistColors.TextMuted,
+                                text = "暂无已配对设备\n使用手机端打开 QQMusic 即可扫码配对",
+                                color = QQMusicColors.TextMuted,
                                 fontSize = 14.sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             )
@@ -581,7 +581,7 @@ private fun PairedDeviceRowItem(
                 .clip(RoundedCornerShape(10.dp))
                 .background(if (isFocused) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.04f))
                 .border(
-                    BorderStroke(1.dp, if (isFocused) MelodistColors.FocusTeal else Color.White.copy(alpha = 0.06f)),
+                    BorderStroke(1.dp, if (isFocused) QQMusicColors.FocusTeal else Color.White.copy(alpha = 0.06f)),
                     RoundedCornerShape(10.dp),
                 ).padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -594,7 +594,7 @@ private fun PairedDeviceRowItem(
             Icon(
                 Icons.Filled.PhoneAndroid,
                 contentDescription = null,
-                tint = if (isCurrentConnected) Color(0xFF81C784) else MelodistColors.TextSecondary,
+                tint = if (isCurrentConnected) Color(0xFF81C784) else QQMusicColors.TextSecondary,
                 modifier = Modifier.size(22.dp),
             )
             Column {
@@ -602,12 +602,12 @@ private fun PairedDeviceRowItem(
                     text = device.name,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
-                    color = MelodistColors.TextPrimary,
+                    color = QQMusicColors.TextPrimary,
                 )
                 Text(
                     text = if (isCurrentConnected) "当前在线连接" else "已离线",
                     fontSize = 12.sp,
-                    color = if (isCurrentConnected) Color(0xFF81C784) else MelodistColors.TextMuted,
+                    color = if (isCurrentConnected) Color(0xFF81C784) else QQMusicColors.TextMuted,
                 )
             }
         }
@@ -618,7 +618,7 @@ private fun PairedDeviceRowItem(
             colors =
                 ButtonDefaults.colors(
                     containerColor = Color.Transparent,
-                    focusedContainerColor = MelodistColors.FavoriteRed,
+                    focusedContainerColor = QQMusicColors.FavoriteRed,
                 ),
         ) {
             Row(

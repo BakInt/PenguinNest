@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 
 object SearchKeywordHistoryManager {
     private const val TAG = "SearchKeywordHistoryManager"
-    private const val PREF_NAME = "melodist_search_keyword_history"
+    private const val PREF_NAME = "qqmusic_search_keyword_history"
     private const val KEY_KEYWORDS = "search_keywords"
     private const val MAX_HISTORY_ITEMS = 30
 

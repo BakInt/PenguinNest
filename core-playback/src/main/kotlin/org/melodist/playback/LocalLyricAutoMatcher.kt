@@ -41,7 +41,7 @@ data class CachedLyricLine(
 }
 
 /**
- * 本地与 WebDAV 音乐歌词匹配器
+ * 本地音乐歌词匹配器
  * 采用文本初筛与音频切片声学指纹 (ACR) 双轨级联机制，
  * 匹配到的歌词保存至应用私有缓存目录。
  */
@@ -106,9 +106,9 @@ object LocalLyricAutoMatcher {
     }
 
     /**
-     * 异步为本地或 WebDAV 歌曲匹配歌词
+     * 异步为本地歌曲匹配歌词
      * @param song 当前播放歌曲
-     * @param audioFile 可读的本地音频文件或已缓存的 WebDAV 文件
+     * @param audioFile 可读的本地音频文件
      * @param currentLyrics 当前已装载的本地歌词
      * @return 匹配成功返回新的双语 LyricLine 列表，未命中或已为最新则返回 null
      */
@@ -224,7 +224,7 @@ object LocalLyricAutoMatcher {
         }
 
     /**
-     * 为本地或 WebDAV 歌曲自动校准官方歌词时间轴偏移量 (Offset in milliseconds)
+     * 为本地歌曲自动校准官方歌词时间轴偏移量 (Offset in milliseconds)
      * 针对本地音频存在片头静音削减/母带版本差异的情况 (如 5:08 本地文件 vs 5:11 官方数字版)
      * 计算规则：
      * - 若已有校准记录则直接返回 (0 网络开销)
@@ -237,7 +237,7 @@ object LocalLyricAutoMatcher {
         audioFile: File?,
     ): Long =
         withContext(Dispatchers.IO) {
-            if (!song.isLocal && song.localFilePath.isNullOrBlank() && !song.songMid.startsWith("webdav_")) {
+            if (!song.isLocal && song.localFilePath.isNullOrBlank()) {
                 return@withContext 0L
             }
 

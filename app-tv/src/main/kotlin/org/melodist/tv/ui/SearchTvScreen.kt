@@ -41,10 +41,10 @@ import org.melodist.api.search
 import org.melodist.data.SearchKeywordHistoryManager
 import org.melodist.model.Song
 import org.melodist.playback.PlaybackManager
-import org.melodist.tv.ui.components.MelodistAsyncImage
+import org.melodist.tv.ui.components.QQMusicAsyncImage
 import org.melodist.tv.ui.components.TvOnScreenKeyboard
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberTvWindowMetrics
 
 internal object SearchStateHolder {
@@ -236,7 +236,7 @@ fun SearchTvScreen(
                         text = "曲库搜索",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MelodistColors.TextPrimary,
+                        color = QQMusicColors.TextPrimary,
                     )
                 }
 
@@ -245,8 +245,8 @@ fun SearchTvScreen(
                         Modifier
                             .fillMaxWidth()
                             .height(48.dp)
-                            .background(Color.White.copy(alpha = 0.10f), MelodistShapes.PillCorner)
-                            .border(1.dp, Color.White.copy(alpha = 0.18f), MelodistShapes.PillCorner)
+                            .background(Color.White.copy(alpha = 0.10f), QQMusicShapes.PillCorner)
+                            .border(1.dp, Color.White.copy(alpha = 0.18f), QQMusicShapes.PillCorner)
                             .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
@@ -258,14 +258,14 @@ fun SearchTvScreen(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = null,
-                            tint = MelodistColors.AccentGreen,
+                            tint = QQMusicColors.AccentGreen,
                             modifier = Modifier.size(20.dp),
                         )
 
                         Text(
                             text = if (searchQuery.isEmpty()) "输入歌曲/歌手/拼音首字母..." else searchQuery,
                             fontSize = 15.sp,
-                            color = if (searchQuery.isEmpty()) Color.White.copy(alpha = 0.75f) else MelodistColors.TextPrimary,
+                            color = if (searchQuery.isEmpty()) Color.White.copy(alpha = 0.75f) else QQMusicColors.TextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
@@ -287,7 +287,7 @@ fun SearchTvScreen(
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "清空",
-                                    tint = MelodistColors.TextSecondary,
+                                    tint = QQMusicColors.TextSecondary,
                                     modifier = Modifier.size(14.dp),
                                 )
                             }
@@ -370,14 +370,14 @@ fun SearchTvScreen(
                             },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MelodistColors.TextPrimary,
+                        color = QQMusicColors.TextPrimary,
                     )
 
                     if (isSearching) {
                         Text(
                             text = "正在检索曲库...",
                             fontSize = 13.sp,
-                            color = MelodistColors.AccentGreen,
+                            color = QQMusicColors.AccentGreen,
                         )
                     } else if (isShowingKeywords && historyKeywords.isNotEmpty()) {
                         ClearHistoryButton(
@@ -406,7 +406,7 @@ fun SearchTvScreen(
                             Text(
                                 text = "正在搜索中...",
                                 fontSize = 16.sp,
-                                color = MelodistColors.TextSecondary,
+                                color = QQMusicColors.TextSecondary,
                             )
                         }
                     } else if (!isShowingKeywords && searchResults.isEmpty() && !isSearching) {
@@ -421,13 +421,13 @@ fun SearchTvScreen(
                                 Icon(
                                     imageVector = Icons.Default.SearchOff,
                                     contentDescription = null,
-                                    tint = MelodistColors.TextMuted,
+                                    tint = QQMusicColors.TextMuted,
                                     modifier = Modifier.size(48.dp),
                                 )
                                 Text(
                                     text = "未找到与 \"$searchQuery\" 相关的歌曲",
                                     fontSize = 15.sp,
-                                    color = MelodistColors.TextSecondary,
+                                    color = QQMusicColors.TextSecondary,
                                 )
                             }
                         }
@@ -444,13 +444,13 @@ fun SearchTvScreen(
                                     Icon(
                                         imageVector = Icons.Default.History,
                                         contentDescription = null,
-                                        tint = MelodistColors.AccentGreen.copy(alpha = 0.6f),
+                                        tint = QQMusicColors.AccentGreen.copy(alpha = 0.6f),
                                         modifier = Modifier.size(54.dp),
                                     )
                                     Text(
                                         text = "暂无搜索关键词记录，搜索后播放歌曲将记录关键词",
                                         fontSize = 15.sp,
-                                        color = MelodistColors.TextSecondary,
+                                        color = QQMusicColors.TextSecondary,
                                     )
                                 }
                             }
@@ -561,13 +561,13 @@ fun SearchTvScreen(
                                     if (isLoadingMore) {
                                         Text(
                                             text = "正在载入更多搜索结果...",
-                                            color = MelodistColors.AccentGreen,
+                                            color = QQMusicColors.AccentGreen,
                                             fontSize = 14.sp,
                                         )
                                     } else if (!hasMore) {
                                         Text(
                                             text = "已展示全部 ${searchResults.size} 条搜索结果",
-                                            color = MelodistColors.TextMuted,
+                                            color = QQMusicColors.TextMuted,
                                             fontSize = 13.sp,
                                         )
                                     }
@@ -626,12 +626,12 @@ private fun KeywordChip(
                     border =
                         BorderStroke(
                             width = if (isFocused) 2.dp else 1.dp,
-                            color = if (isFocused) MelodistColors.FocusTeal else Color.White.copy(alpha = 0.18f),
+                            color = if (isFocused) QQMusicColors.FocusTeal else Color.White.copy(alpha = 0.18f),
                         ),
-                    shape = MelodistShapes.PillCorner,
+                    shape = QQMusicShapes.PillCorner,
                 ).background(
                     color = if (isFocused) Color.White else Color.White.copy(alpha = 0.12f),
-                    shape = MelodistShapes.PillCorner,
+                    shape = QQMusicShapes.PillCorner,
                 ).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -639,14 +639,14 @@ private fun KeywordChip(
         Icon(
             imageVector = Icons.Default.Search,
             contentDescription = null,
-            tint = if (isFocused) Color.Black else MelodistColors.AccentGreen,
+            tint = if (isFocused) Color.Black else QQMusicColors.AccentGreen,
             modifier = Modifier.size(16.dp),
         )
         Text(
             text = keyword,
             fontSize = 14.sp,
             fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
-            color = if (isFocused) Color.Black else MelodistColors.TextPrimary,
+            color = if (isFocused) Color.Black else QQMusicColors.TextPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -681,12 +681,12 @@ private fun ClearHistoryButton(
                     border =
                         BorderStroke(
                             width = if (isFocused) 2.dp else 1.dp,
-                            color = if (isFocused) MelodistColors.FocusTeal else Color.White.copy(alpha = 0.18f),
+                            color = if (isFocused) QQMusicColors.FocusTeal else Color.White.copy(alpha = 0.18f),
                         ),
-                    shape = MelodistShapes.PillCorner,
+                    shape = QQMusicShapes.PillCorner,
                 ).background(
                     color = if (isFocused) Color.White else Color.White.copy(alpha = 0.12f),
-                    shape = MelodistShapes.PillCorner,
+                    shape = QQMusicShapes.PillCorner,
                 ).padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -694,14 +694,14 @@ private fun ClearHistoryButton(
         Icon(
             imageVector = Icons.Default.DeleteOutline,
             contentDescription = "清空历史",
-            tint = if (isFocused) Color.Black else MelodistColors.TextPrimary,
+            tint = if (isFocused) Color.Black else QQMusicColors.TextPrimary,
             modifier = Modifier.size(16.dp),
         )
         Text(
             text = "清空记录",
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            color = if (isFocused) Color.Black else MelodistColors.TextPrimary,
+            color = if (isFocused) Color.Black else QQMusicColors.TextPrimary,
         )
     }
 }
@@ -723,12 +723,12 @@ private fun SearchBackButton(onClick: () -> Unit) {
                     border =
                         BorderStroke(
                             width = if (isFocused) 2.dp else 1.dp,
-                            color = if (isFocused) MelodistColors.FocusTeal else Color.White.copy(alpha = 0.18f),
+                            color = if (isFocused) QQMusicColors.FocusTeal else Color.White.copy(alpha = 0.18f),
                         ),
-                    shape = MelodistShapes.PillCorner,
+                    shape = QQMusicShapes.PillCorner,
                 ).background(
                     color = if (isFocused) Color.White else Color.White.copy(alpha = 0.12f),
-                    shape = MelodistShapes.PillCorner,
+                    shape = QQMusicShapes.PillCorner,
                 ).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -736,13 +736,13 @@ private fun SearchBackButton(onClick: () -> Unit) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
             contentDescription = "返回",
-            tint = if (isFocused) Color.Black else MelodistColors.TextPrimary,
+            tint = if (isFocused) Color.Black else QQMusicColors.TextPrimary,
             modifier = Modifier.size(16.dp),
         )
         Text(
             text = "返回",
             fontSize = 14.sp,
-            color = if (isFocused) Color.Black else MelodistColors.TextPrimary,
+            color = if (isFocused) Color.Black else QQMusicColors.TextPrimary,
         )
     }
 }
@@ -772,7 +772,7 @@ private fun SearchResultSongItem(
             CardDefaults.colors(
                 containerColor = Color.Transparent,
                 focusedContainerColor = Color.White,
-                contentColor = if (isPlaying) MelodistColors.AccentGreen else Color.White,
+                contentColor = if (isPlaying) QQMusicColors.AccentGreen else Color.White,
                 focusedContentColor = Color.Black,
             ),
         border =
@@ -784,7 +784,7 @@ private fun SearchResultSongItem(
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
                         shape = RoundedCornerShape(8.dp),
                     ),
             ),
@@ -802,7 +802,7 @@ private fun SearchResultSongItem(
                 text = String.format("%02d", index),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isPlaying) MelodistColors.AccentGreen else LocalContentColor.current,
+                color = if (isPlaying) QQMusicColors.AccentGreen else LocalContentColor.current,
                 modifier = Modifier.width(36.dp),
             )
 
@@ -814,7 +814,7 @@ private fun SearchResultSongItem(
                         .clip(RoundedCornerShape(6.dp))
                         .background(Color.White.copy(alpha = 0.08f)),
             ) {
-                MelodistAsyncImage(
+                QQMusicAsyncImage(
                     coverUrl = song.coverUrl,
                     albumMid = song.albumMid,
                     contentDescription = null,
@@ -830,7 +830,7 @@ private fun SearchResultSongItem(
                 text = song.name,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = if (isPlaying) MelodistColors.AccentGreen else LocalContentColor.current,
+                color = if (isPlaying) QQMusicColors.AccentGreen else LocalContentColor.current,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(0.45f),

@@ -251,7 +251,7 @@ private suspend fun MusicApiService.probeSongQualitiesInternal(
                     val current = PlaybackCredentialsManager.currentCredentials
                     if (current != null) {
                         ApiLogger.i("MusicApiPlayback", "probeSongQualities: Custom credentials support refresh, attempting auto-renewal...")
-                        val refreshed = LoginApiService().refreshPlaybackCredentials(current)
+                        val refreshed = LoginApiService.shared.refreshPlaybackCredentials(current)
                         if (refreshed != null) {
                             PlaybackCredentialsManager.setCredentials(refreshed)
                             return@withContext probeSongQualitiesInternal(songMid, mediaMid, canRetryWithRenew = false)
@@ -264,9 +264,25 @@ private suspend fun MusicApiService.probeSongQualitiesInternal(
             if (canRetryWithRenew && UserSession.isLoggedIn && !PlaybackCredentialsManager.hasCustomCredentials) {
                 if (hasVipSource && !hasVipUrl) {
                     ApiLogger.i("MusicApiPlayback", "probeSongQualities: VIP track detected without valid URL, attempting token renewal...")
-                    val renewed = LoginApiService().forceRefreshMusicKey()
-                    if (renewed) {
-                        return@withContext probeSongQualitiesInternal(songMid, mediaMid, canRetryWithRenew = false)
+                    when (val outcome = SessionKeeper.keepAlive(force = true)) {
+                        is KeepAliveResult.Success ->
+                            return@withContext probeSongQualitiesInternal(songMid, mediaMid, canRetryWithRenew = false)
+
+                        is KeepAliveResult.Transient ->
+                            // 网络/5xx/超时：凭据本身可能仍然有效，保持可重试状态，
+                            // 不要把一次网络抖动判定成"需要重新登录"。
+                            ApiLogger.w(
+                                "MusicApiPlayback",
+                                "probeSongQualities: Token renewal hit a transient failure (${outcome.reason})",
+                            )
+
+                        is KeepAliveResult.Rejected, KeepAliveResult.NoTicket -> {
+                            // 服务端明确拒绝 / 四条腿全无票据：确实需要重新登录，
+                            // 否则界面只会显示"无音源"，用户无法得知真正原因。
+                            ApiLogger.w("MusicApiPlayback", "probeSongQualities: Token renewal rejected, session requires re-login.")
+                            UserSession.invalidateMusicKey()
+                            UserSession.setSessionState(SessionState.ReauthRequired)
+                        }
                     }
                 }
             }
@@ -467,7 +483,7 @@ private suspend fun MusicApiService.getPlayUrlInternal(
                     val current = PlaybackCredentialsManager.currentCredentials
                     if (current != null) {
                         ApiLogger.i("MusicApiPlayback", "getPlayUrl: Custom credentials support refresh, attempting auto-renewal...")
-                        val refreshed = LoginApiService().refreshPlaybackCredentials(current)
+                        val refreshed = LoginApiService.shared.refreshPlaybackCredentials(current)
                         if (refreshed != null) {
                             PlaybackCredentialsManager.setCredentials(refreshed)
                             return@withContext getPlayUrlInternal(songMid, mediaMid, preferredTier, canRetryWithRenew = false)
@@ -479,9 +495,21 @@ private suspend fun MusicApiService.getPlayUrlInternal(
             }
             if (canRetryWithRenew && UserSession.isLoggedIn && !PlaybackCredentialsManager.hasCustomCredentials && hasVipSource && !hasVipUrl) {
                 ApiLogger.i("MusicApiPlayback", "getPlayUrl: VIP tracks available but no valid VIP URL obtained, attempting token renewal...")
-                val refreshed = LoginApiService().forceRefreshMusicKey()
-                if (refreshed) {
-                    return@withContext getPlayUrlInternal(songMid, mediaMid, preferredTier, canRetryWithRenew = false)
+                when (val outcome = SessionKeeper.keepAlive(force = true)) {
+                    is KeepAliveResult.Success ->
+                        return@withContext getPlayUrlInternal(songMid, mediaMid, preferredTier, canRetryWithRenew = false)
+
+                    is KeepAliveResult.Transient ->
+                        // 网络抖动不判定为登录失效，留给上层重试。
+                        ApiLogger.w("MusicApiPlayback", "getPlayUrl: Token renewal hit a transient failure (${outcome.reason})")
+
+                    is KeepAliveResult.Rejected, KeepAliveResult.NoTicket -> {
+                        // 续签被拒：会话凭据已不可用，明确置为待重新登录，
+                        // 否则界面只会显示"无音源"，用户无法得知真正原因。
+                        ApiLogger.w("MusicApiPlayback", "getPlayUrl: Token renewal rejected, session requires re-login.")
+                        UserSession.invalidateMusicKey()
+                        UserSession.setSessionState(SessionState.ReauthRequired)
+                    }
                 }
             }
 
@@ -602,7 +630,12 @@ private suspend fun MusicApiService.getPlayUrlInternal(
                 }
             }
 
-            QualityResult(null, AudioQualityTier.Standard, "无音源")
+            // 会话凭据已失效时给出可操作的提示，避免与"该曲目确实无音源"混淆。
+            if (UserSession.isSessionStale && hasVipSource && PlaybackCredentialsManager.hasCustomCredentials.not()) {
+                QualityResult(null, AudioQualityTier.Standard, "登录已过期，请重新登录")
+            } else {
+                QualityResult(null, AudioQualityTier.Standard, "无音源")
+            }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             ApiLogger.w("MusicApiPlayback", "getPlayUrl failed: songMid=$songMid", e)

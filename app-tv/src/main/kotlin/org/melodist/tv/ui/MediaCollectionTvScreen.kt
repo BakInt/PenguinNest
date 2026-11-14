@@ -33,9 +33,9 @@ import org.melodist.api.getFavoriteAlbums
 import org.melodist.api.getPlaylists
 import org.melodist.model.Album
 import org.melodist.model.Playlist
-import org.melodist.tv.ui.components.MelodistAsyncImage
-import org.melodist.tv.ui.theme.MelodistColors
-import org.melodist.tv.ui.theme.MelodistShapes
+import org.melodist.tv.ui.components.QQMusicAsyncImage
+import org.melodist.tv.ui.theme.QQMusicColors
+import org.melodist.tv.ui.theme.QQMusicShapes
 import org.melodist.tv.ui.theme.rememberMonetSurfaceColor
 import org.melodist.tv.ui.theme.rememberTvWindowMetrics
 
@@ -121,12 +121,12 @@ fun MediaCollectionTvScreen(
                     text = pageTitle,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MelodistColors.TextPrimary,
+                    color = QQMusicColors.TextPrimary,
                 )
                 Text(
                     text = pageSubtitle,
                     fontSize = 14.sp,
-                    color = MelodistColors.TextSecondary,
+                    color = QQMusicColors.TextSecondary,
                 )
             }
 
@@ -143,7 +143,7 @@ fun MediaCollectionTvScreen(
                     Icon(
                         imageVector = Icons.Filled.AccountCircle,
                         contentDescription = "未登录",
-                        tint = MelodistColors.TextMuted,
+                        tint = QQMusicColors.TextMuted,
                         modifier = Modifier.size(64.dp),
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -151,21 +151,21 @@ fun MediaCollectionTvScreen(
                         text = "尚未登录 QQ 音乐账号",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MelodistColors.TextPrimary,
+                        color = QQMusicColors.TextPrimary,
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "登录后即可同步查看个人自建歌单与收藏的专辑资产",
                         fontSize = 14.sp,
-                        color = MelodistColors.TextMuted,
+                        color = QQMusicColors.TextMuted,
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
                         onClick = onNavigateToSettings,
-                        shape = ButtonDefaults.shape(MelodistShapes.PillCorner),
+                        shape = ButtonDefaults.shape(QQMusicShapes.PillCorner),
                         colors =
                             ButtonDefaults.colors(
-                                containerColor = MelodistColors.AccentGreen,
+                                containerColor = QQMusicColors.AccentGreen,
                                 focusedContainerColor = Color.White,
                                 contentColor = Color.Black,
                                 focusedContentColor = Color.Black,
@@ -174,8 +174,8 @@ fun MediaCollectionTvScreen(
                             ButtonDefaults.border(
                                 focusedBorder =
                                     Border(
-                                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                                        shape = MelodistShapes.PillCorner,
+                                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                                        shape = QQMusicShapes.PillCorner,
                                     ),
                             ),
                         scale = ButtonDefaults.scale(focusedScale = 1.06f),
@@ -195,7 +195,7 @@ fun MediaCollectionTvScreen(
                 ) {
                     Text(
                         text = "正在同步资产列表...",
-                        color = MelodistColors.TextSecondary,
+                        color = QQMusicColors.TextSecondary,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Medium,
                     )
@@ -207,7 +207,7 @@ fun MediaCollectionTvScreen(
                 ) {
                     Text(
                         text = "暂无自建或收藏的歌单",
-                        color = MelodistColors.TextMuted,
+                        color = QQMusicColors.TextMuted,
                         fontSize = 16.sp,
                     )
                 }
@@ -218,7 +218,7 @@ fun MediaCollectionTvScreen(
                 ) {
                     Text(
                         text = "暂无收藏的专辑",
-                        color = MelodistColors.TextMuted,
+                        color = QQMusicColors.TextMuted,
                         fontSize = 16.sp,
                     )
                 }
@@ -288,12 +288,12 @@ private fun CollectionCardItem(
                 .onFocusChanged { isFocused = it.isFocused },
         shape =
             CardDefaults.shape(
-                shape = MelodistShapes.CardCorner,
-                focusedShape = MelodistShapes.CardCorner,
+                shape = QQMusicShapes.CardCorner,
+                focusedShape = QQMusicShapes.CardCorner,
             ),
         colors =
             CardDefaults.colors(
-                containerColor = MelodistColors.ContainerDarkSecondary,
+                containerColor = QQMusicColors.ContainerDarkSecondary,
                 focusedContainerColor = Color.White,
             ),
         border =
@@ -301,12 +301,12 @@ private fun CollectionCardItem(
                 border =
                     Border(
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-                        shape = MelodistShapes.CardCorner,
+                        shape = QQMusicShapes.CardCorner,
                     ),
                 focusedBorder =
                     Border(
-                        border = BorderStroke(2.5.dp, MelodistColors.FocusTeal),
-                        shape = MelodistShapes.CardCorner,
+                        border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal),
+                        shape = QQMusicShapes.CardCorner,
                     ),
             ),
         scale = CardDefaults.scale(focusedScale = 1.06f),
@@ -329,7 +329,7 @@ private fun CollectionCardItem(
                 contentAlignment = Alignment.Center,
             ) {
                 if (coverUrl.isNotBlank() || albumMid.isNotBlank()) {
-                    MelodistAsyncImage(
+                    QQMusicAsyncImage(
                         coverUrl = coverUrl,
                         albumMid = albumMid,
                         contentDescription = title,
@@ -340,7 +340,7 @@ private fun CollectionCardItem(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                         contentDescription = null,
-                        tint = MelodistColors.TextMuted,
+                        tint = QQMusicColors.TextMuted,
                         modifier = Modifier.size(48.dp),
                     )
                 }
@@ -371,14 +371,14 @@ private fun CollectionCardItem(
                     text = title,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isFocused) Color(0xFF12141A) else MelodistColors.TextPrimary,
+                    color = if (isFocused) Color(0xFF12141A) else QQMusicColors.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = subtitle,
                     fontSize = 12.sp,
-                    color = if (isFocused) Color(0xFF4A5568) else MelodistColors.TextSecondary,
+                    color = if (isFocused) Color(0xFF4A5568) else QQMusicColors.TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

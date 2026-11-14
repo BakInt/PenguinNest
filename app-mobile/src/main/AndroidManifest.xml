@@ -32,8 +32,13 @@
         android:name="android.hardware.usb.host"
         android:required="false" />
 
+    <!-- 官方 App 一键唤醒登录：API 30+ 查询/拉起 QQ 音乐官方 App 的包可见性声明 -->
+    <queries>
+        <package android:name="com.tencent.qqmusic" />
+    </queries>
+
     <application
-        android:name=".MelodistMobileApp"
+        android:name=".QQMusicMobileApp"
         android:allowBackup="true"
         android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
@@ -43,7 +48,7 @@
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:theme="@style/Theme.MelodistMobile">
+        android:theme="@style/Theme.QQMusicMobile">
 
         <provider
             android:name="androidx.core.content.FileProvider"

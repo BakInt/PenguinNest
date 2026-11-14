@@ -26,7 +26,7 @@ import org.melodist.data.DailyRecommendCacheManager
 import org.melodist.data.GuessRecommendManager
 import org.melodist.data.UserLibraryCacheManager
 import org.melodist.playback.PlaybackManager
-import org.melodist.tv.ui.theme.MelodistColors
+import org.melodist.tv.ui.theme.QQMusicColors
 
 object HomeCardsCache {
     var favSongs: List<org.melodist.model.Song> = emptyList()
@@ -381,7 +381,7 @@ fun HomeCoreTracksRow(
             text = "每日精选与常听雷达",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = MelodistColors.TextPrimary,
+            color = QQMusicColors.TextPrimary,
         )
 
         var focusedCardIndex by remember { mutableIntStateOf(initialFocusedIndex) }

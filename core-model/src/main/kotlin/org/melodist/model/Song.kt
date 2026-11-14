@@ -33,14 +33,11 @@ data class Song(
             return "%02d:%02d".format(minutes, seconds)
         }
 
-    val isWebDav: Boolean
-        get() = songMid.startsWith("webdav_")
-
     val isLocal: Boolean
         get() = songMid.startsWith("local_")
 
     val canShowArtistAlbumDialog: Boolean
-        get() = !songMid.startsWith("webdav_") && !songMid.startsWith("local_")
+        get() = !songMid.startsWith("local_")
 
     val thumbnailCoverUrl: String
         get() = CoverUrlResolver.getThumbnailUrl(coverUrl)

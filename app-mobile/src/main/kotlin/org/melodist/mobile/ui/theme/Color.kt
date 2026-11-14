@@ -2,27 +2,59 @@ package org.melodist.mobile.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val MelodistPrimary = Color(0xFFA8C7FA)
-val MelodistOnPrimary = Color(0xFF003062)
-val MelodistPrimaryContainer = Color(0xFF004689)
-val MelodistOnPrimaryContainer = Color(0xFFD6E3FF)
+// MusicFree 风格默认色板（取自 MusicFree src/core/theme.ts）：
+// 暗色主色 #3FA3B5（青），亮色主色 #F17D34（橙）；
+// 暗色页面底 #202020、文字 #FCFCFC、卡片 #33333388；亮色页面底 #FAFAFA、文字 #333333。
+val QQMusicPrimary = Color(0xFF3FA3B5)
+val QQMusicOnPrimary = Color(0xFFFFFFFF)
+val QQMusicPrimaryContainer = Color(0xFF2A6E7C)
+val QQMusicOnPrimaryContainer = Color(0xFFB8E5EE)
 
-val MelodistSecondary = Color(0xFFBDC7DC)
-val MelodistOnSecondary = Color(0xFF283141)
-val MelodistSecondaryContainer = Color(0xFF3E4758)
-val MelodistOnSecondaryContainer = Color(0xFFD9E3F8)
+val QQMusicSecondary = Color(0xFFA8A8A8)
+val QQMusicOnSecondary = Color(0xFF1F1F1F)
+val QQMusicSecondaryContainer = Color(0xFF333333)
+val QQMusicOnSecondaryContainer = Color(0xFFFCFCFC)
 
-val MelodistBackground = Color(0xFF121212)
-val MelodistOnBackground = Color(0xFFE2E2E2)
-val MelodistSurface = Color(0xFF1A1A1A)
-val MelodistOnSurface = Color(0xFFE2E2E2)
-val MelodistSurfaceVariant = Color(0xFF242424)
-val MelodistOnSurfaceVariant = Color(0xFFC4C7C5)
-val MelodistSurfaceContainer = Color(0xFF202020)
-val MelodistSurfaceContainerHigh = Color(0xFF2A2A2A)
+val QQMusicBackground = Color(0xFF202020)
+val QQMusicOnBackground = Color(0xFFFCFCFC)
+val QQMusicSurface = Color(0xFF202020)
+val QQMusicOnSurface = Color(0xFFFCFCFC)
+val QQMusicSurfaceVariant = Color(0xFF2A2A2A)
+val QQMusicOnSurfaceVariant = Color(0xFFBBBBBB)
+val QQMusicSurfaceContainer = Color(0xFF2A2A2A)
+val QQMusicSurfaceContainerHigh = Color(0xFF333333)
 
-val MelodistError = Color(0xFFFFB4AB)
-val MelodistOnError = Color(0xFF690005)
+val QQMusicOutline = Color(0xFF4A4A4A)
+val QQMusicOutlineVariant = Color(0xFF333333)
+
+val QQMusicError = Color(0xFFFC5F5F)
+val QQMusicOnError = Color(0xFFFFFFFF)
+
+// MusicFree 亮色中性色（pageBackground #FAFAFA / tabBar #F0F0F0 / placeholder #EAEAEA / text #333333）
+val MusicFreeLightPrimary = Color(0xFFF17D34)
+val MusicFreeLightOnPrimary = Color(0xFFFFFFFF)
+val MusicFreeLightPrimaryContainer = Color(0xFFFFE2CF)
+val MusicFreeLightOnPrimaryContainer = Color(0xFF7C3A0F)
+
+val MusicFreeLightSecondary = Color(0xFF757575)
+val MusicFreeLightOnSecondary = Color(0xFFFFFFFF)
+val MusicFreeLightSecondaryContainer = Color(0xFFF0F0F0)
+val MusicFreeLightOnSecondaryContainer = Color(0xFF333333)
+
+val MusicFreeLightBackground = Color(0xFFFAFAFA)
+val MusicFreeLightOnBackground = Color(0xFF333333)
+val MusicFreeLightSurface = Color(0xFFFAFAFA)
+val MusicFreeLightOnSurface = Color(0xFF333333)
+val MusicFreeLightSurfaceVariant = Color(0xFFF0F0F0)
+val MusicFreeLightOnSurfaceVariant = Color(0xFF6E6E6E)
+val MusicFreeLightSurfaceContainer = Color(0xFFF0F0F0)
+val MusicFreeLightSurfaceContainerHigh = Color(0xFFEAEAEA)
+
+val MusicFreeLightOutline = Color(0xFFD9D9D9)
+val MusicFreeLightOutlineVariant = Color(0xFFEAEAEA)
+
+val MusicFreeLightError = Color(0xFFFC5F5F)
+val MusicFreeLightOnError = Color(0xFFFFFFFF)
 
 // Violet (极光紫)
 val VioletPrimary = Color(0xFFCFBCFF)

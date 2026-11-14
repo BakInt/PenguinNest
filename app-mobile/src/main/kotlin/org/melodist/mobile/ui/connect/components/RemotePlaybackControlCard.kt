@@ -386,9 +386,9 @@ fun RemotePlaybackControlCard(
                     }
 
                     val currentTvTier = curSong.currentTier
-                    val isTvLocalOrWebDav = curSong.isLocal || curSong.isWebDav || !curSong.localFilePath.isNullOrBlank()
+                    val isTvLocal = curSong.isLocal || !curSong.localFilePath.isNullOrBlank()
                     Surface(
-                        onClick = { if (!isTvLocalOrWebDav) onRequestTvQualitySheet() },
+                        onClick = { if (!isTvLocal) onRequestTvQualitySheet() },
                         shape = CircleShape,
                         color = auxButtonBgColor,
                         modifier = Modifier.size(46.dp),
