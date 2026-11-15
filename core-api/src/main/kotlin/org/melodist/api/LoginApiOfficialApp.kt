@@ -215,6 +215,8 @@ internal suspend fun LoginApiService.refreshOfficialAppTokenImpl(
             val paramObj =
                 buildJsonObject {
                     put("musicid", numericUin)
+                    // 上游 v1.8.0：网关靠 str_musicid 把票据绑定到具体账号，缺了会降低续签成功率。
+                    if (musicId.isNotEmpty()) put("str_musicid", musicId)
                     put("refresh_token", refreshToken)
                     if (refreshKey.isNotEmpty()) put("refresh_key", refreshKey)
                     if (musicKey.isNotEmpty()) put("musickey", musicKey)
@@ -277,18 +279,32 @@ internal suspend fun LoginApiService.refreshOfficialAppTokenImpl(
                 cookies["musickey"] = newMusicKey
                 cookies["qm_keyst"] = newMusicKey
                 cookies["qqmusic_key"] = newMusicKey
-                data["refresh_token"]?.jsonPrimitive?.contentOrNull?.let { cookies["refresh_token"] = it }
+                val newRefreshToken =
+                    data["refresh_token"]?.jsonPrimitive?.contentOrNull
+                        ?: (if (actualLoginType == 1) data["psrf_wxrefresh_token"]?.jsonPrimitive?.contentOrNull else null)
+                        ?: refreshToken
+                if (newRefreshToken.isNotEmpty()) {
+                    cookies["refresh_token"] = newRefreshToken
+                    // 按渠道落盘专用票据：微信账号写 psrf_wxrefresh_token、QQ 账号写 psrf_qqrefresh_token，
+                    // 否则下一次 isWeChat 判定与腿选择会互相矛盾（上游 v1.8.0 行为）。
+                    if (actualLoginType == 1) cookies["psrf_wxrefresh_token"] = newRefreshToken
+                    if (actualLoginType == 2) cookies["psrf_qqrefresh_token"] = newRefreshToken
+                }
                 data["refresh_key"]?.jsonPrimitive?.contentOrNull?.let { cookies["refresh_key"] = it }
-                // 关键修复：官方 App 渠道历史上只写 `openid`/`access_token`，而续签链腿 ③
-                // 读的是 `psrf_qqopenid`/`psrf_qqaccess_token`，导致该渠道只有一条腿可用。
-                // 两套键双写后，官方 App 账号在 refresh_token 失效时还有 QQ 互联腿兜底。
+                // 按渠道写回：官方 App 渠道历史上只写 `openid`/`access_token`，而续签链读的是
+                // `psrf_wx*`/`psrf_qq*`，导致该渠道只有一条腿可用。补上渠道专用键后，
+                // 官方 App / 微信 / QQ 互联三种账号都能落到正确的腿上（上游 v1.8.0 行为）。
                 data["openid"]?.jsonPrimitive?.contentOrNull?.let {
                     cookies["openid"] = it
-                    cookies["psrf_qqopenid"] = it
+                    if (actualLoginType == 1) cookies["psrf_wxopenid"] = it else cookies["psrf_qqopenid"] = it
                 }
                 data["access_token"]?.jsonPrimitive?.contentOrNull?.let {
                     cookies["access_token"] = it
-                    cookies["psrf_qqaccess_token"] = it
+                    if (actualLoginType == 1) {
+                        cookies["psrf_wx_access_token"] = it
+                    } else {
+                        cookies["psrf_qqaccess_token"] = it
+                    }
                 }
 
                 UserSession.update(
@@ -326,24 +342,27 @@ suspend fun LoginApiService.refreshPlaybackCredentialsImpl(creds: PlaybackCreden
         val currentMusicKey = creds.musicKey.ifBlank { cookies["musickey"] ?: cookies["qm_keyst"] ?: "" }
         val isWeChat = cookies["tmeLoginType"] == "1" || currentMusicKey.startsWith("W_X_")
 
-        if (!isWeChat && creds.allowRefresh && musicId.isNotBlank() && currentMusicKey.isNotBlank()) {
-            val refreshed = refreshByExistingMusicPlaybackCredentials(creds, musicId, currentMusicKey)
-            if (refreshed != null) return@withContext refreshed
-        }
-
-        // 若具备官方 App 扫码续签票据 (refresh_token)
-        val refreshToken = cookies["refresh_token"]
+        // 腿 ① 统一账户网关续签（覆盖官方 App 扫码、微信扫码与 QQ 互联扫码）
+        val refreshToken =
+            cookies["refresh_token"]
+                ?: if (isWeChat) cookies["psrf_wxrefresh_token"] else cookies["psrf_qqrefresh_token"]
         if (!refreshToken.isNullOrEmpty() && musicId.isNotBlank()) {
             val refreshed = refreshOfficialPlaybackCredentials(creds, musicId, refreshToken)
             if (refreshed != null) return@withContext refreshed
         }
 
-        val openid = cookies["psrf_qqopenid"] ?: if (!isWeChat) cookies["openid"] else null
-        val accessToken = cookies["psrf_qqaccess_token"] ?: if (!isWeChat) cookies["access_token"] else null
-
-        // 若具备 QQ 互联扫码续签票据 (openid + accessToken)
+        // 腿 ② QQ 互联 OAuth 换票降级兜底
+        val openid = if (!isWeChat) cookies["psrf_qqopenid"] ?: cookies["openid"] else null
+        val accessToken = if (!isWeChat) cookies["psrf_qqaccess_token"] ?: cookies["access_token"] else null
+        val qqRefreshToken = if (!isWeChat) cookies["psrf_qqrefresh_token"] ?: cookies["refresh_token"] else null
         if (!openid.isNullOrEmpty() && !accessToken.isNullOrEmpty()) {
-            val refreshed = refreshQQPlaybackCredentials(creds, openid, accessToken)
+            val refreshed = refreshQQPlaybackCredentials(creds, openid, accessToken, qqRefreshToken.orEmpty())
+            if (refreshed != null) return@withContext refreshed
+        }
+
+        // 腿 ③ 使用现有 musickey 申请续期（上游 v1.8.0 起不再限制渠道）
+        if (creds.allowRefresh && musicId.isNotBlank() && currentMusicKey.isNotBlank()) {
+            val refreshed = refreshByExistingMusicPlaybackCredentials(creds, musicId, currentMusicKey)
             if (refreshed != null) return@withContext refreshed
         }
 
@@ -361,14 +380,33 @@ internal suspend fun LoginApiService.refreshOfficialPlaybackCredentials(
             val numericUin = musicId.trimStart('o').toLongOrNull() ?: 0L
             val refreshKey = cookies["refresh_key"].orEmpty()
             val currentMusicKey = creds.musicKey.ifBlank { cookies["musickey"] ?: cookies["qm_keyst"] ?: "" }
-            val openid = cookies["psrf_qqopenid"] ?: cookies["openid"].orEmpty()
-            val accessToken = cookies["psrf_qqaccess_token"] ?: cookies["access_token"].orEmpty()
-            val loginType = cookies["tmeLoginType"]?.toIntOrNull() ?: 2
-            val actualLoginType = if (loginType in listOf(1, 2)) loginType else 2
+            val isWeChat = cookies["tmeLoginType"] == "1" || currentMusicKey.startsWith("W_X_")
+            val openid =
+                if (isWeChat) {
+                    cookies["openid"] ?: cookies["psrf_wxopenid"].orEmpty()
+                } else {
+                    cookies["psrf_qqopenid"] ?: cookies["openid"].orEmpty()
+                }
+            val accessToken =
+                if (isWeChat) {
+                    cookies["access_token"] ?: cookies["psrf_wx_access_token"].orEmpty()
+                } else {
+                    cookies["psrf_qqaccess_token"] ?: cookies["access_token"].orEmpty()
+                }
+            val loginType = cookies["tmeLoginType"]?.toIntOrNull() ?: if (isWeChat) 1 else 2
+            val actualLoginType =
+                if (loginType in listOf(1, 2)) {
+                    loginType
+                } else if (isWeChat) {
+                    1
+                } else {
+                    2
+                }
 
             val paramObj =
                 buildJsonObject {
                     put("musicid", numericUin)
+                    if (musicId.isNotEmpty()) put("str_musicid", musicId)
                     put("refresh_token", refreshToken)
                     if (refreshKey.isNotEmpty()) put("refresh_key", refreshKey)
                     if (currentMusicKey.isNotEmpty()) put("musickey", currentMusicKey)
@@ -423,10 +461,26 @@ internal suspend fun LoginApiService.refreshOfficialPlaybackCredentials(
                 updatedCookies["musickey"] = newMusicKey
                 updatedCookies["qm_keyst"] = newMusicKey
                 updatedCookies["qqmusic_key"] = newMusicKey
-                data["refresh_token"]?.jsonPrimitive?.contentOrNull?.let { updatedCookies["refresh_token"] = it }
+                val newRefreshToken =
+                    data["refresh_token"]?.jsonPrimitive?.contentOrNull
+                        ?: (if (isWeChat) data["psrf_wxrefresh_token"]?.jsonPrimitive?.contentOrNull else null)
+                        ?: refreshToken
+                if (newRefreshToken.isNotEmpty()) {
+                    updatedCookies["refresh_token"] = newRefreshToken
+                    if (isWeChat) updatedCookies["psrf_wxrefresh_token"] = newRefreshToken
+                    if (!isWeChat) updatedCookies["psrf_qqrefresh_token"] = newRefreshToken
+                }
                 data["refresh_key"]?.jsonPrimitive?.contentOrNull?.let { updatedCookies["refresh_key"] = it }
-                data["openid"]?.jsonPrimitive?.contentOrNull?.let { updatedCookies["openid"] = it }
-                data["access_token"]?.jsonPrimitive?.contentOrNull?.let { updatedCookies["access_token"] = it }
+                data["openid"]?.jsonPrimitive?.contentOrNull?.let {
+                    updatedCookies["openid"] = it
+                    if (isWeChat) updatedCookies["psrf_wxopenid"] = it
+                    if (!isWeChat) updatedCookies["psrf_qqopenid"] = it
+                }
+                data["access_token"]?.jsonPrimitive?.contentOrNull?.let {
+                    updatedCookies["access_token"] = it
+                    if (isWeChat) updatedCookies["psrf_wx_access_token"] = it
+                    if (!isWeChat) updatedCookies["psrf_qqaccess_token"] = it
+                }
 
                 creds.copy(
                     musicKey = newMusicKey,

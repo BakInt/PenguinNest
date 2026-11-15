@@ -66,7 +66,30 @@ class LoginApiService(
     internal suspend fun refreshQQLoginToken(
         openid: String,
         accessToken: String,
-    ): LegOutcome = refreshQQLoginTokenImpl(openid, accessToken)
+        refreshToken: String = "",
+        musicId: String = "",
+        musicKey: String = "",
+    ): LegOutcome =
+        refreshQQLoginTokenImpl(
+            openid = openid,
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            musicId = musicId,
+            musicKey = musicKey,
+        )
+
+    internal suspend fun refreshWeChatLoginToken(
+        musicId: String,
+        musicKey: String,
+        refreshToken: String,
+        openid: String = "",
+    ): LegOutcome =
+        refreshWeChatLoginTokenImpl(
+            musicId = musicId,
+            musicKey = musicKey,
+            refreshToken = refreshToken,
+            openid = openid,
+        )
 
     suspend fun fetchWeChatQrCode(): QrCodeInfo = fetchWeChatQrCodeImpl()
 
@@ -171,7 +194,11 @@ class LoginApiService(
     /**
      * 判断当前会话凭据是否仍处于新鲜窗口内。
      *
-     * @return 存在 `qm_keyst` 且未进入 [UserSession.isSessionStale] 的续签窗口时返回 `true`
+     * 与上游 v1.8.0 的"`qm_keyst` 非空即新鲜"快速通道对齐，但保留 [UserSession.isSessionStale]
+     * 的临近过期判断：只判非空会让 90 天保活退化成"等失败再续"，与本项目"永不让用户看到过期"
+     * 的目标冲突。
+     *
+     * @return 存在任一 musickey 键且未进入 [UserSession.isSessionStale] 的续签窗口时返回 `true`
      */
     private fun isMusicKeyFresh(): Boolean {
         val profile = UserSession.profile
@@ -185,24 +212,11 @@ class LoginApiService(
     }
 
     /**
-     * 判断当前 `musickey` 是否仍在有效期内（尚未过期）。
+     * 在已持有 [refreshMutex] 的前提下，按上游 v1.8.0 的腿序依次尝试续签。
      *
-     * 腿 ① `refreshByExistingMusicKey` 必须携带一个仍然存活的旧 key 才能换新；
-     * key 已死时先试这一腿只会白失败一次并污染失败计数，因此用它做前置判断。
-     */
-    private fun isCurrentKeyStillValid(): Boolean {
-        val profile = UserSession.profile
-        val now = System.currentTimeMillis()
-        if (profile.musicKeyExpireAt > 0L) return profile.musicKeyExpireAt > now
-        return profile.musicKeyIssuedAt > 0L && now - profile.musicKeyIssuedAt < UserSession.MUSIC_KEY_TTL_MS
-    }
-
-    /**
-     * 在已持有 [refreshMutex] 的前提下，按可用凭据类型依次尝试续签。
-     *
-     * 腿序按"票据寿命"而非"代码顺序"排列：旧 `musickey`（1–2 小时）只在仍存活时先试，
-     * 之后依次是官方 App `refresh_token`（数月）、QQ 互联 `access_token`（约 90 天）、
-     * `p_skey`/`skey`（约 1 天）。任何一腿成功即返回。
+     * 腿序按"票据寿命"而非"代码顺序"排列：统一账户网关 `refresh_token`（数月，三渠道共用）
+     * → 微信专有换票 → QQ 互联 `access_token`（约 90 天）→ 旧 `musickey`（1–2 小时）
+     * → `p_skey`/`skey`（约 1 天）。任何一腿成功即返回。
      *
      * @return 分类后的续签结果
      */
@@ -212,37 +226,42 @@ class LoginApiService(
         val currentUin = UserSession.profile.uin.ifBlank { cookies["musicid"] ?: cookies["uin"] ?: "" }
         val isWeChat = cookies["tmeLoginType"] == "1" || currentKey.startsWith("W_X_")
 
+        val refreshKey = cookies["refresh_key"].orEmpty()
+        val rawLoginType =
+            cookies["tmeLoginType"]?.toIntOrNull()?.takeIf { it in listOf(1, 2) }
+                ?: if (isWeChat) 1 else 2
+        val refreshToken =
+            cookies["refresh_token"]
+                ?: if (isWeChat) cookies["psrf_wxrefresh_token"] else cookies["psrf_qqrefresh_token"]
+        val openid =
+            if (isWeChat) {
+                cookies["openid"] ?: cookies["psrf_wxopenid"].orEmpty()
+            } else {
+                cookies["psrf_qqopenid"] ?: cookies["openid"].orEmpty()
+            }
+        val accessToken =
+            if (isWeChat) {
+                cookies["access_token"] ?: cookies["psrf_wx_access_token"].orEmpty()
+            } else {
+                cookies["psrf_qqaccess_token"] ?: cookies["access_token"].orEmpty()
+            }
+
         var attempted = false
         var transientReason: String? = null
         var rejectedCode = 0
 
-        // ① 旧 musickey 续签：仅在 key 尚未过期时才有意义。
-        if (!isWeChat && currentKey.isNotEmpty() && currentUin.isNotEmpty() && isCurrentKeyStillValid()) {
-            attempted = true
-            when (refreshByExistingMusicKey(currentUin, currentKey)) {
-                LegOutcome.Success -> return KeepAliveResult.Success
-                LegOutcome.Transient -> transientReason = "refreshByExistingMusicKey: network"
-                LegOutcome.Rejected -> rejectedCode = AUTH_EXPIRED_CODE
-                LegOutcome.Unavailable -> Unit
-            }
-        }
-
-        // ② 官方 App refresh_token：与 musickey 解耦，是"关 App 数天也不掉"的主腿。
-        val refreshToken = cookies["refresh_token"]
+        // ① 统一账户网关续签通道（覆盖官方 App 扫码、微信扫码与 QQ 互联扫码）。
         if (!refreshToken.isNullOrEmpty() && currentUin.isNotEmpty()) {
             attempted = true
-            val refreshed =
-                refreshOfficialAppToken(
-                    musicId = currentUin,
-                    refreshToken = refreshToken,
-                    refreshKey = cookies["refresh_key"].orEmpty(),
-                    musicKey = currentKey,
-                    loginType = cookies["tmeLoginType"]?.toIntOrNull() ?: UserSession.loginType,
-                    // 官方 App 渠道历史上只写 `openid`/`access_token`，这里两套键都兼容读取。
-                    openid = cookies["psrf_qqopenid"] ?: cookies["openid"].orEmpty(),
-                    accessToken = cookies["psrf_qqaccess_token"] ?: cookies["access_token"].orEmpty(),
-                )
-            when (refreshed) {
+            when (refreshOfficialAppToken(
+                musicId = currentUin,
+                refreshToken = refreshToken,
+                refreshKey = refreshKey,
+                musicKey = currentKey,
+                loginType = rawLoginType,
+                openid = openid,
+                accessToken = accessToken,
+            )) {
                 LegOutcome.Success -> return KeepAliveResult.Success
                 LegOutcome.Transient -> transientReason = "refreshOfficialAppToken: network"
                 LegOutcome.Rejected -> rejectedCode = rejectedCode.takeIf { it != 0 } ?: -2
@@ -250,12 +269,33 @@ class LoginApiService(
             }
         }
 
-        // ③ QQ 互联 openid + access_token：不依赖 musickey 是否存活。
-        val openid = cookies["psrf_qqopenid"] ?: cookies["openid"]
-        val accessToken = cookies["psrf_qqaccess_token"] ?: cookies["access_token"]
-        if (!openid.isNullOrEmpty() && !accessToken.isNullOrEmpty()) {
+        // ② 微信登录专有换票重试（上游 v1.8.0 新增腿，微信账号在网关腿失败后的专用通道）。
+        if (isWeChat && !refreshToken.isNullOrEmpty() && currentUin.isNotEmpty()) {
             attempted = true
-            when (refreshQQLoginToken(openid, accessToken)) {
+            when (refreshWeChatLoginToken(
+                musicId = currentUin,
+                musicKey = currentKey,
+                refreshToken = refreshToken,
+                openid = openid,
+            )) {
+                LegOutcome.Success -> return KeepAliveResult.Success
+                LegOutcome.Transient -> transientReason = "refreshWeChatLoginToken: network"
+                LegOutcome.Rejected -> rejectedCode = rejectedCode.takeIf { it != 0 } ?: -4
+                LegOutcome.Unavailable -> Unit
+            }
+        }
+
+        // ③ QQ 互联 OAuth 降级换票兜底（非微信账号且具备 openid 与 accessToken）。
+        if (!isWeChat && openid.isNotEmpty() && accessToken.isNotEmpty()) {
+            attempted = true
+            val qqRefreshToken = cookies["psrf_qqrefresh_token"] ?: cookies["refresh_token"].orEmpty()
+            when (refreshQQLoginToken(
+                openid = openid,
+                accessToken = accessToken,
+                refreshToken = qqRefreshToken,
+                musicId = currentUin,
+                musicKey = currentKey,
+            )) {
                 LegOutcome.Success -> return KeepAliveResult.Success
                 LegOutcome.Transient -> transientReason = "refreshQQLoginToken: network"
                 LegOutcome.Rejected -> rejectedCode = rejectedCode.takeIf { it != 0 } ?: -3
@@ -263,7 +303,18 @@ class LoginApiService(
             }
         }
 
-        // ④ p_skey / skey 换 musickey：兜底腿。失败多为网络或 skey 已过期，
+        // ④ 使用现有 musickey 申请续期：上游 v1.8.0 起不再限制渠道，也不再前置判断 key 是否过期。
+        if (currentUin.isNotEmpty() && currentKey.isNotEmpty()) {
+            attempted = true
+            when (refreshByExistingMusicKey(currentUin, currentKey)) {
+                LegOutcome.Success -> return KeepAliveResult.Success
+                LegOutcome.Transient -> transientReason = transientReason ?: "refreshByExistingMusicKey: network"
+                LegOutcome.Rejected -> rejectedCode = rejectedCode.takeIf { it != 0 } ?: AUTH_EXPIRED_CODE
+                LegOutcome.Unavailable -> Unit
+            }
+        }
+
+        // ⑤ p_skey / skey 换 musickey：兜底腿。失败多为网络或 skey 已过期，
         //    不单独据此判定"需重新登录"，避免一次网络抖动就把用户踢下线。
         val pskey = cookies["p_skey"] ?: cookies["skey"]
         if (!pskey.isNullOrEmpty()) {

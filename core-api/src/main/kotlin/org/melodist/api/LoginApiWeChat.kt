@@ -191,18 +191,22 @@ private suspend fun LoginApiService.exchangeWeChatCode(code: String): Boolean =
 /**
  * 使用微信登录下发的 refresh_token 与 openid 刷新 musickey 鉴权凭证。
  *
+ * 返回类型为 [LegOutcome] 而非 `Boolean`：微信腿在续签链里与其它腿同权，
+ * 必须把「网络抖动」与「服务端拒绝」区分开，否则一次抖动就会把用户踢下线。
+ *
  * @param musicId 微信用户标识
  * @param musicKey 当前生效的旧 musickey
  * @param refreshToken 微信授权长效刷新令牌
  * @param openid 微信授权 openid 标识
- * @return 刷新并写入新凭证成功返回 true，失败返回 false
+ * @return 刷新并写入新凭证成功返回 [LegOutcome.Success]；网络异常返回 [LegOutcome.Transient]；
+ *         服务端拒绝或响应缺字段返回 [LegOutcome.Rejected]
  */
 internal suspend fun LoginApiService.refreshWeChatLoginTokenImpl(
     musicId: String,
     musicKey: String,
     refreshToken: String,
     openid: String = "",
-): Boolean =
+): LegOutcome =
     withContext(Dispatchers.IO) {
         try {
             val numericUin = musicId.trimStart('o').toLongOrNull() ?: 0L
@@ -248,15 +252,15 @@ internal suspend fun LoginApiService.refreshWeChatLoginTokenImpl(
                     .build()
 
             client.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext false
+                if (!resp.isSuccessful) return@withContext LegOutcome.Transient
                 val json = resp.body.string()
                 val jsonElement = Json.parseToJsonElement(json).jsonObject
-                val req0 = jsonElement["req_0"]?.jsonObject ?: return@withContext false
-                if (req0["code"]?.jsonPrimitive?.intOrNull != 0) return@withContext false
+                val req0 = jsonElement["req_0"]?.jsonObject ?: return@withContext LegOutcome.Rejected
+                if (req0["code"]?.jsonPrimitive?.intOrNull != 0) return@withContext LegOutcome.Rejected
 
-                val data = req0["data"]?.jsonObject ?: return@withContext false
-                val newMusicKey = data["musickey"]?.jsonPrimitive?.contentOrNull ?: return@withContext false
-                if (newMusicKey.isEmpty()) return@withContext false
+                val data = req0["data"]?.jsonObject ?: return@withContext LegOutcome.Rejected
+                val newMusicKey = data["musickey"]?.jsonPrimitive?.contentOrNull ?: return@withContext LegOutcome.Rejected
+                if (newMusicKey.isEmpty()) return@withContext LegOutcome.Rejected
 
                 val cookies = UserSession.profile.cookies.toMutableMap()
                 cookies["musickey"] = newMusicKey
@@ -287,10 +291,14 @@ internal suspend fun LoginApiService.refreshWeChatLoginTokenImpl(
                     avatarUrl = UserSession.profile.avatarUrl,
                     isVip = UserSession.profile.isVip,
                 )
-                true
+                LegOutcome.Success
             }
+        } catch (e: IOException) {
+            ApiLogger.w("LoginApiService", "refreshWeChatLoginToken network error", e)
+            LegOutcome.Transient
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
-            false
+            ApiLogger.w("LoginApiService", "refreshWeChatLoginToken failed", e)
+            LegOutcome.Rejected
         }
     }

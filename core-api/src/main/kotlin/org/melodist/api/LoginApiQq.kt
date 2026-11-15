@@ -3,9 +3,11 @@ package org.melodist.api
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import okhttp3.FormBody
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -337,6 +339,7 @@ internal suspend fun LoginApiService.exchangeOAuthForMusicKeyImpl(cookies: Mutab
                 val musicKey = loginData["musickey"]?.jsonPrimitive?.contentOrNull ?: ""
                 val openid = loginData["openid"]?.jsonPrimitive?.contentOrNull ?: ""
                 val accessToken = loginData["access_token"]?.jsonPrimitive?.contentOrNull ?: ""
+                val refreshToken = loginData["refresh_token"]?.jsonPrimitive?.contentOrNull ?: ""
                 val unionid = loginData["unionid"]?.jsonPrimitive?.contentOrNull ?: ""
 
                 if (musicKey.isNotEmpty()) {
@@ -352,6 +355,13 @@ internal suspend fun LoginApiService.exchangeOAuthForMusicKeyImpl(cookies: Mutab
                     cookies["tmeLoginType"] = "2"
                     if (openid.isNotEmpty()) cookies["psrf_qqopenid"] = openid
                     if (accessToken.isNotEmpty()) cookies["psrf_qqaccess_token"] = accessToken
+                    // QQ 互联扫码下发的 refresh_token 是唯一"数月寿命"的长效票据：
+                    // 不落盘则 QQ 账号永远只能靠 access_token 走 OAuth 换票，一旦服务端要求
+                    // refresh 语义就会掉线。双写通用键与渠道键，续签腿按渠道回退读取。
+                    if (refreshToken.isNotEmpty()) {
+                        cookies["refresh_token"] = refreshToken
+                        cookies["psrf_qqrefresh_token"] = refreshToken
+                    }
                     if (unionid.isNotEmpty()) cookies["psrf_qqunionid"] = unionid
 
                     UserSession.update(
@@ -372,21 +382,75 @@ internal suspend fun LoginApiService.exchangeOAuthForMusicKeyImpl(cookies: Mutab
     }
 
 /**
- * 通过 QQ 互联 openid 与 accessToken 刷新登录态并更新 `musickey`。
+ * 通过 QQ 互联 openid、accessToken 与 refresh_token 刷新登录态并更新 `musickey`。
+ *
+ * 参数与上游 v1.8.0 对齐：`refreshToken` 让本腿走 refresh 语义（有票时 `forceRefreshToken=0`，
+ * 避免每次续签都强制轮换、放大风控暴露）；`musicId`/`musicKey` 一并上送，服务端才能把新
+ * key 绑定到同一账号。
  *
  * @param openid QQ 互联唯一用户标识
  * @param accessToken QQ 互联访问令牌
- * @return 刷新并更新成功返回 `true`；网络失败或凭证无效返回 `false`
+ * @param refreshToken QQ 互联长效刷新令牌；为空时回退到本地已存票据
+ * @param musicId 当前 musicid；为空时回退到会话 uin
+ * @param musicKey 当前 musickey；为空时回退到会话 key
+ * @return 分类后的续签结果
  */
 internal suspend fun LoginApiService.refreshQQLoginTokenImpl(
     openid: String,
     accessToken: String,
+    refreshToken: String = "",
+    musicId: String = "",
+    musicKey: String = "",
 ): LegOutcome =
     withContext(Dispatchers.IO) {
         try {
             val url = "https://u.y.qq.com/cgi-bin/musicu.fcg"
+            val cleanMusicId = musicId.trimStart('o').ifEmpty { UserSession.profile.uin.trimStart('o') }
+            val currentKey = musicKey.ifEmpty { UserSession.profile.musicKey }
+            val currentRefreshToken =
+                refreshToken.ifEmpty {
+                    UserSession.profile.cookies["refresh_token"]
+                        ?: UserSession.profile.cookies["psrf_qqrefresh_token"]
+                        ?: ""
+                }
+
+            val paramObj =
+                buildJsonObject {
+                    put("openid", openid)
+                    put("access_token", accessToken)
+                    if (currentRefreshToken.isNotEmpty()) put("refresh_token", currentRefreshToken)
+                    if (cleanMusicId.isNotEmpty()) {
+                        val numUin = cleanMusicId.toLongOrNull()
+                        if (numUin != null && numUin > 0L) {
+                            put("musicid", numUin)
+                        } else {
+                            put("musicid", cleanMusicId)
+                        }
+                    }
+                    if (currentKey.isNotEmpty()) put("musickey", currentKey)
+                    put("onlyNeedAccessToken", 0)
+                    put("forceRefreshToken", if (currentRefreshToken.isNotEmpty()) 0 else 1)
+                    put("appid", 100497308)
+                }
             val payload =
-                """{"comm":{"ct":19,"cv":1,"tmeLoginType":"1"},"login":{"module":"QQConnectLogin.LoginServer","method":"QQLogin","param":{"onlyNeedAccessToken":0,"forceRefreshToken":1,"appid":100497308,"openid":"$openid","access_token":"$accessToken"}}}"""
+                buildJsonObject {
+                    put(
+                        "comm",
+                        buildJsonObject {
+                            put("ct", 19)
+                            put("cv", 1)
+                            put("tmeLoginType", "1")
+                        },
+                    )
+                    put(
+                        "login",
+                        buildJsonObject {
+                            put("module", "QQConnectLogin.LoginServer")
+                            put("method", "QQLogin")
+                            put("param", paramObj)
+                        },
+                    )
+                }.toString()
 
             val requestBuilder =
                 Request
@@ -421,6 +485,7 @@ internal suspend fun LoginApiService.refreshQQLoginTokenImpl(
                 val musicKey = loginData["musickey"]?.jsonPrimitive?.contentOrNull ?: ""
                 val newOpenid = loginData["openid"]?.jsonPrimitive?.contentOrNull ?: openid
                 val newAccessToken = loginData["access_token"]?.jsonPrimitive?.contentOrNull ?: accessToken
+                val newRefreshToken = loginData["refresh_token"]?.jsonPrimitive?.contentOrNull ?: currentRefreshToken
                 val unionid = loginData["unionid"]?.jsonPrimitive?.contentOrNull ?: ""
 
                 if (musicKey.isEmpty()) return@withContext LegOutcome.Rejected
@@ -456,6 +521,11 @@ internal suspend fun LoginApiService.refreshQQLoginTokenImpl(
                     cookies["psrf_qqaccess_token"] = newAccessToken
                     cookies["access_token"] = newAccessToken
                 }
+                // 服务端每次续签会轮换 refresh_token；只在拿到新票时才覆盖，避免把可用票据写空。
+                if (newRefreshToken.isNotEmpty()) {
+                    cookies["refresh_token"] = newRefreshToken
+                    cookies["psrf_qqrefresh_token"] = newRefreshToken
+                }
                 if (unionid.isNotEmpty()) cookies["psrf_qqunionid"] = unionid
 
                 UserSession.update(
@@ -484,12 +554,54 @@ internal suspend fun LoginApiService.refreshQQPlaybackCredentials(
     creds: PlaybackCredentials,
     openid: String,
     accessToken: String,
+    refreshToken: String = "",
 ): PlaybackCredentials? =
     withContext(Dispatchers.IO) {
         try {
             val url = "https://u.y.qq.com/cgi-bin/musicu.fcg"
+            val cleanMusicId = creds.uin.trimStart('o')
+            val currentKey = creds.musicKey
+            val currentRefreshToken =
+                refreshToken.ifEmpty {
+                    creds.cookies["refresh_token"] ?: creds.cookies["psrf_qqrefresh_token"] ?: ""
+                }
+            val paramObj =
+                buildJsonObject {
+                    put("openid", openid)
+                    put("access_token", accessToken)
+                    if (currentRefreshToken.isNotEmpty()) put("refresh_token", currentRefreshToken)
+                    if (cleanMusicId.isNotEmpty()) {
+                        val numUin = cleanMusicId.toLongOrNull()
+                        if (numUin != null && numUin > 0L) {
+                            put("musicid", numUin)
+                        } else {
+                            put("musicid", cleanMusicId)
+                        }
+                    }
+                    if (currentKey.isNotEmpty()) put("musickey", currentKey)
+                    put("onlyNeedAccessToken", 0)
+                    put("forceRefreshToken", if (currentRefreshToken.isNotEmpty()) 0 else 1)
+                    put("appid", 100497308)
+                }
             val payload =
-                """{"comm":{"ct":19,"cv":1,"tmeLoginType":"1"},"login":{"module":"QQConnectLogin.LoginServer","method":"QQLogin","param":{"onlyNeedAccessToken":0,"forceRefreshToken":1,"appid":100497308,"openid":"$openid","access_token":"$accessToken"}}}"""
+                buildJsonObject {
+                    put(
+                        "comm",
+                        buildJsonObject {
+                            put("ct", 19)
+                            put("cv", 1)
+                            put("tmeLoginType", "1")
+                        },
+                    )
+                    put(
+                        "login",
+                        buildJsonObject {
+                            put("module", "QQConnectLogin.LoginServer")
+                            put("method", "QQLogin")
+                            put("param", paramObj)
+                        },
+                    )
+                }.toString()
 
             val request =
                 Request
@@ -518,6 +630,11 @@ internal suspend fun LoginApiService.refreshQQPlaybackCredentials(
                 updatedCookies["qqmusic_key"] = newMusicKey
                 loginData["openid"]?.jsonPrimitive?.contentOrNull?.let { updatedCookies["psrf_qqopenid"] = it }
                 loginData["access_token"]?.jsonPrimitive?.contentOrNull?.let { updatedCookies["psrf_qqaccess_token"] = it }
+                val rotatedRefreshToken = loginData["refresh_token"]?.jsonPrimitive?.contentOrNull ?: currentRefreshToken
+                if (rotatedRefreshToken.isNotEmpty()) {
+                    updatedCookies["refresh_token"] = rotatedRefreshToken
+                    updatedCookies["psrf_qqrefresh_token"] = rotatedRefreshToken
+                }
 
                 val musicId =
                     loginData["str_musicid"]?.jsonPrimitive?.contentOrNull
