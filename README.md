@@ -4,13 +4,13 @@
 
 ## 下载
 
-见 [Releases](https://github.com/BakInt/melodist/releases)。
+见 [Releases](https://github.com/BakInt/melodist/releases/tag/v1.0)。
 
 | 文件 | 设备 |
 | :--- | :--- |
-| `melodist-mobile-1.7.5-666.apk` | 手机 |
-| `melodist-mobile-originos-1.7.5-666.apk` | 手机（系统媒体控制中心适配版，不能与同包名应用共存） |
-| `melodist-tv-1.7.5-666.apk` | Android TV |
+| `melodist-mobile-1.0.apk` | 手机 |
+| `melodist-mobile-originos-1.0.apk` | 手机（系统媒体控制中心适配版，不能与同包名应用共存） |
+| `melodist-tv-1.0.apk` | Android TV |
 
 ## 截图
 
