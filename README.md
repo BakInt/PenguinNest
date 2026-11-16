@@ -1,29 +1,29 @@
-# QQ 音乐播放器
+# QQ Music Player
 
-一个第三方 QQ 音乐播放器，支持手机与 Android TV。
+A third-party QQ Music player for phones and Android TV.
 
-## 下载
+## Download
 
-见 [Releases](https://github.com/BakInt/melodist/releases/tag/v1.0)。
+See [Releases](https://github.com/BakInt/melodist/releases/tag/v1.0).
 
-| 文件 | 设备 |
+| File | Device |
 | :--- | :--- |
-| `melodist-mobile-1.0.apk` | 手机 |
-| `melodist-mobile-originos-1.0.apk` | 手机（系统媒体控制中心适配版，不能与同包名应用共存） |
+| `melodist-mobile-1.0.apk` | Phone |
+| `melodist-mobile-originos-1.0.apk` | Phone (with system media control center support; cannot coexist with an app of the same package name) |
 | `melodist-tv-1.0.apk` | Android TV |
 
-## 截图
+## Screenshots
 
-| 主页 | 歌单 |
+| Home | Playlists |
 | :---: | :---: |
-| <img src="docs/screenshots/home.jpg" width="320" alt="主页" /> | <img src="docs/screenshots/playlists.jpg" width="320" alt="歌单" /> |
+| <img src="docs/screenshots/home.jpg" width="320" alt="Home" /> | <img src="docs/screenshots/playlists.jpg" width="320" alt="Playlists" /> |
 
-## 说明
+## Notes
 
-- 全部为 debug 签名，仅供个人学习研究。
-- 应用不提供、不存储任何媒体资源。
-- 本项目与官方无关联。
+- All builds are debug-signed and intended for personal study and research only.
+- The app does not provide or store any media content.
+- This project is not affiliated with the official app.
 
-## 开源协议
+## License
 
-基于 [MIT License](LICENSE) 开源。
+Released under the [MIT License](LICENSE).
