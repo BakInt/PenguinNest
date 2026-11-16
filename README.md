@@ -14,9 +14,9 @@
 
 ## 截图
 
-| 主页 | 播放界面 |
+| 主页 | 歌单 |
 | :---: | :---: |
-| <img src="docs/screenshots/home.jpg" width="320" alt="主页" /> | <img src="docs/screenshots/player.jpg" width="320" alt="播放界面" /> |
+| <img src="docs/screenshots/home.jpg" width="320" alt="主页" /> | <img src="docs/screenshots/playlists.jpg" width="320" alt="歌单" /> |
 
 ## 说明
 
