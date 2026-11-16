@@ -14,9 +14,9 @@ See [Releases](https://github.com/BakInt/melodist/releases/tag/v1.0).
 
 ## Screenshots
 
-| Home | Playlists |
+| Home | Now Playing |
 | :---: | :---: |
-| <img src="docs/screenshots/home.jpg" width="320" alt="Home" /> | <img src="docs/screenshots/playlists.jpg" width="320" alt="Playlists" /> |
+| <img src="docs/screenshots/home.jpg" width="320" alt="Home" /> | <img src="docs/screenshots/player.jpg" width="320" alt="Now Playing" /> |
 
 ## Notes
 
