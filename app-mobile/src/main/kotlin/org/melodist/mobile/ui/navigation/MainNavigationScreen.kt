@@ -92,6 +92,7 @@ import org.melodist.mobile.ui.album.AlbumDetailScreen
 import org.melodist.mobile.ui.album.FavoriteAlbumsScreen
 import org.melodist.mobile.ui.artist.ArtistDetailScreen
 import org.melodist.mobile.ui.auth.MobileLoginDialog
+import org.melodist.mobile.ui.components.RotatingCardCoordinator
 import org.melodist.mobile.ui.home.HomeBody
 import org.melodist.mobile.ui.home.HomeFeaturePageScreen
 import org.melodist.mobile.ui.library.LibraryScreen
@@ -127,6 +128,20 @@ fun MainNavigationScreen(modifier: Modifier = Modifier) {
     val screenStack = remember { mutableStateListOf<ScreenDestination>() }
     var isSearching by remember { mutableStateOf(false) }
 
+    fun cleanupDestinationState(destination: ScreenDestination) {
+        when (destination) {
+            is ScreenDestination.PlaylistDetail -> {
+                RotatingCardCoordinator.removeLazyListState("playlist_${destination.playlist.dirId}_${destination.playlist.tid}")
+            }
+
+            is ScreenDestination.AlbumDetail -> {
+                RotatingCardCoordinator.removeLazyListState("album_${destination.albumMid}")
+            }
+
+            else -> {}
+        }
+    }
+
     fun pushDestination(
         destination: ScreenDestination,
         clearStack: Boolean,
@@ -136,6 +151,7 @@ fun MainNavigationScreen(modifier: Modifier = Modifier) {
             isSearching = false
             screenStack.forEachIndexed { index, dest ->
                 saveableStateHolder.removeState("screen_detail_${baseDepth + index + 1}_$dest")
+                cleanupDestinationState(dest)
             }
             screenStack.clear()
             screenStack.add(destination)
@@ -143,6 +159,7 @@ fun MainNavigationScreen(modifier: Modifier = Modifier) {
             while (screenStack.size >= MAX_BACK_DEPTH) {
                 val removed = screenStack.removeAt(0)
                 saveableStateHolder.removeState("screen_detail_${baseDepth + 1}_$removed")
+                cleanupDestinationState(removed)
             }
             screenStack.add(destination)
         }
@@ -199,6 +216,7 @@ fun MainNavigationScreen(modifier: Modifier = Modifier) {
                         val popped = screenStack.removeAt(poppedIndex)
                         val baseDepth = if (isSearching) 1 else 0
                         saveableStateHolder.removeState("screen_detail_${baseDepth + poppedIndex + 1}_$popped")
+                        cleanupDestinationState(popped)
                         true
                     } else if (isSearching) {
                         isSearching = false

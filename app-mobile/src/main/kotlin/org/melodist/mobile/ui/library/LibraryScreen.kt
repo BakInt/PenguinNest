@@ -75,6 +75,7 @@ import org.melodist.api.setPlaylistPrivacy
 import org.melodist.data.UserLibraryCacheManager
 import org.melodist.mobile.ui.components.AlbumArtImage
 import org.melodist.mobile.ui.components.CreatePlaylistDialog
+import org.melodist.mobile.ui.components.RotatingCardCoordinator
 import org.melodist.mobile.ui.library.components.FavoriteAlbumsSection
 import org.melodist.mobile.ui.navigation.LocalAppNavigation
 import org.melodist.model.Playlist
@@ -623,8 +624,13 @@ private fun LibraryPlaylistList(
     trailingContent: (LazyListScope.() -> Unit)? = null,
 ) {
     val hasEmptyPlaceholder = playlists.isEmpty() && emptyText.isNotBlank()
+    val contentListState =
+        remember(headerKey) {
+            RotatingCardCoordinator.getOrCreateLazyListState("library_content_list_$headerKey")
+        }
 
     LazyColumn(
+        state = contentListState,
         modifier = Modifier.fillMaxSize(),
         contentPadding =
             PaddingValues(
