@@ -38,7 +38,11 @@ class PlaybackLifecycleOptimizationTest {
 
         try {
             tracker.start()
-            Thread.sleep(180)
+            // 轮询等待而非固定 sleep：全量测试并行执行时线程池被挤占，固定 180ms 窗口会假失败
+            val deadline = System.currentTimeMillis() + 2_000L
+            while (updateCount.get() < 2 && System.currentTimeMillis() < deadline) {
+                Thread.sleep(20)
+            }
             assertTrue(
                 updateCount.get() >= 2,
                 "Tracker should continuously poll to feed system services (actual: ${updateCount.get()})",
