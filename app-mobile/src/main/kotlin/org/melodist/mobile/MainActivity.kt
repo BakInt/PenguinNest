@@ -3,6 +3,7 @@ package org.melodist.mobile
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
@@ -12,7 +13,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import coil3.SingletonImageLoader
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
@@ -126,6 +129,15 @@ class MainActivity : ComponentActivity() {
         }
         safeInit("AppSettingsManager.init") { org.melodist.data.AppSettingsManager.init(this) }
         safeInit("UserLibraryCacheManager.init") { UserLibraryCacheManager.init(this) }
+        safeInit("UserLibraryCacheManager.eventFlow") {
+            lifecycleScope.launch {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    UserLibraryCacheManager.eventFlow.collect { message ->
+                        Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
         safeInit("PlaybackManager.init") { PlaybackManager.init(this) }
         safeInit("FavoriteArtistsManager.init") { FavoriteArtistsManager.init(this) }
         safeInit("LocalMusicManager.init") { LocalMusicManager.init(this) }
