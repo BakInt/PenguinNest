@@ -1,4 +1,4 @@
-﻿package org.melodist.api
+package org.melodist.api
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -6,11 +6,14 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import org.melodist.model.FavoriteSongsResult
 import org.melodist.model.Playlist
+import org.melodist.model.PlaylistDetailResult
 import org.melodist.model.Song
 
 /**
  * 歌单生命周期与资产管理扩展
  */
+
+private val EXPIRED_AUTH_CODES = setOf(1000, 2000, 104400, 104401)
 
 suspend fun MusicApiService.getFavoriteSongsDetail(
     page: Int = 1,
@@ -48,8 +51,8 @@ suspend fun MusicApiService.getFavoriteSongsDetail(
                     ?.jsonPrimitive
                     ?.intOrNull ?: 0
 
-            if (rootCode == 2000 || favCode == 2000) {
-                ApiLogger.i("MusicApiPlaylist", "getFavoriteSongsDetail: token expired (code 2000), refreshing...")
+            if (rootCode in EXPIRED_AUTH_CODES || favCode in EXPIRED_AUTH_CODES) {
+                ApiLogger.i("MusicApiPlaylist", "getFavoriteSongsDetail: token expired, refreshing...")
                 if (LoginApiService.shared.forceRefreshMusicKey()) {
                     uin = UserSession.profile.uin.ifBlank { "0" }
                     authst = UserSession.profile.musicKey
@@ -128,8 +131,8 @@ suspend fun MusicApiService.getPlaylists(excludeMyFavorite: Boolean = true): Lis
                     ?.jsonPrimitive
                     ?.intOrNull ?: 0
 
-            if (rootCode == 2000 || selfCode == 2000 || favCode == 2000) {
-                ApiLogger.i("MusicApiPlaylist", "getPlaylists: token expired (code 2000), refreshing...")
+            if (rootCode in EXPIRED_AUTH_CODES || selfCode in EXPIRED_AUTH_CODES || favCode in EXPIRED_AUTH_CODES) {
+                ApiLogger.i("MusicApiPlaylist", "getPlaylists: token expired, refreshing...")
                 if (LoginApiService.shared.forceRefreshMusicKey()) {
                     uin = UserSession.profile.uin.ifBlank { "0" }
                     respJson = postGateway(buildPlaylistsPayload(uin))
@@ -174,6 +177,21 @@ suspend fun MusicApiService.getPlaylists(excludeMyFavorite: Boolean = true): Lis
                         obj["dirShow"]?.jsonPrimitive?.intOrNull
                             ?: obj["dir_show"]?.jsonPrimitive?.intOrNull ?: 1
 
+                    val desc =
+                        obj["dirDesc"]?.jsonPrimitive?.contentOrNull
+                            ?: obj["desc"]?.jsonPrimitive?.contentOrNull
+                            ?: obj["description"]?.jsonPrimitive?.contentOrNull.orEmpty()
+
+                    val creator =
+                        obj["creator"]
+                            ?.jsonObject
+                            ?.get("nick")
+                            ?.jsonPrimitive
+                            ?.contentOrNull
+                            ?: obj["nickname"]?.jsonPrimitive?.contentOrNull
+                            ?: obj["host_nick"]?.jsonPrimitive?.contentOrNull
+                            ?: UserSession.profile.nick
+
                     val item =
                         Playlist(
                             dirId = dirId,
@@ -182,7 +200,9 @@ suspend fun MusicApiService.getPlaylists(excludeMyFavorite: Boolean = true): Lis
                             tid = tid,
                             isFav = false,
                             picUrl = pic,
+                            description = desc,
                             dirShow = dirShow,
+                            creator = creator,
                         )
                     if (excludeMyFavorite && item.isMyFavorite) {
                         continue
@@ -218,6 +238,22 @@ suspend fun MusicApiService.getPlaylists(excludeMyFavorite: Boolean = true): Lis
                         obj["logo"]?.jsonPrimitive?.contentOrNull
                             ?: obj["picUrl"]?.jsonPrimitive?.contentOrNull
                             ?: obj["pic"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                    val desc =
+                        obj["desc"]?.jsonPrimitive?.contentOrNull
+                            ?: obj["dirDesc"]?.jsonPrimitive?.contentOrNull
+                            ?: obj["description"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                    val creator =
+                        obj["creator"]
+                            ?.jsonObject
+                            ?.get("nick")
+                            ?.jsonPrimitive
+                            ?.contentOrNull
+                            ?: obj["nickname"]?.jsonPrimitive?.contentOrNull
+                            ?: obj["host_nick"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                    val playCount = obj["listennum"]?.jsonPrimitive?.longOrNull ?: 0L
+                    val favCount =
+                        obj["ordernum"]?.jsonPrimitive?.longOrNull
+                            ?: obj["favnum"]?.jsonPrimitive?.longOrNull ?: 0L
 
                     val item =
                         Playlist(
@@ -227,6 +263,10 @@ suspend fun MusicApiService.getPlaylists(excludeMyFavorite: Boolean = true): Lis
                             tid = tid,
                             isFav = true,
                             picUrl = pic,
+                            description = desc,
+                            creator = creator,
+                            playCount = playCount,
+                            favCount = favCount,
                         )
                     if (excludeMyFavorite && item.isMyFavorite) {
                         continue
@@ -319,7 +359,7 @@ suspend fun MusicApiService.getPlaylistSongs(
                   "req_diss": {
                     "module": "music.srfDissInfo.aiDissInfo",
                     "method": "uniform_get_Dissinfo",
-                    "param": { "disstid": $dissId, "userinfo": 1, "tag": 1, "song_begin": ${(page - 1) * pageSize}, "song_num": $pageSize }
+                    "param": { "disstid": $dissId, "userinfo": 1, "tag": 1, "orderlist": 1, "song_begin": ${(page - 1) * pageSize}, "song_num": $pageSize }
                   }
                 }
                 """.trimIndent()
@@ -339,6 +379,183 @@ suspend fun MusicApiService.getPlaylistSongs(
                 if (e is CancellationException) throw e
                 ApiLogger.w("MusicApiPlaylist", "getPlaylistSongs (uniform) failed: dirId=$dirId, tid=$tid", e)
                 emptyList()
+            }
+        }
+    }
+
+/**
+ * 获取歌单完整详情及元数据（包含歌曲列表、作者、标签、播放量、收藏量及简介）。
+ *
+ * @param dirId 歌单本地目录标识 ID
+ * @param tid 歌单全局唯一 TID
+ * @param isFav 是否属于收藏歌单
+ * @param page 分页页码
+ * @param pageSize 分页大小
+ * @return 包含歌单元数据与单曲列表的 [PlaylistDetailResult]，失败或异常返回 null
+ */
+suspend fun MusicApiService.getPlaylistDetail(
+    dirId: Long,
+    tid: Long,
+    isFav: Boolean = false,
+    page: Int = 1,
+    pageSize: Int = 100,
+): PlaylistDetailResult? =
+    withContext(Dispatchers.IO) {
+        ensureMusicKeySafe()
+
+        val uin = UserSession.profile.uin.ifBlank { "0" }
+        val authst = UserSession.profile.musicKey
+
+        if (!isFav && tid <= 0L) {
+            val payload =
+                """
+                {
+                  "comm": { "uin": "$uin", "format": "json", "ct": 19, "cv": 1, "authst": "" },
+                  "req_songs": {
+                    "module": "music.musicasset.PlaylistDetailRead",
+                    "method": "GetUniformSongDetailInfo",
+                    "param": { "uin": "$uin", "dirid": $dirId, "bPaged": true, "offset": ${(page - 1) * pageSize}, "size": $pageSize }
+                  }
+                }
+                """.trimIndent()
+            try {
+                val respJson = postGateway(payload)
+                val root = Json.parseToJsonElement(respJson).jsonObject
+                val reqSongs = root["req_songs"]?.jsonObject ?: return@withContext null
+                val code = reqSongs["code"]?.jsonPrimitive?.intOrNull ?: -1
+                if (code != 0) {
+                    return@withContext null
+                }
+                val data = reqSongs["data"]?.jsonObject ?: return@withContext null
+                val list = data["list"]?.jsonArray.orEmpty()
+                val songs = list.mapNotNull { MusicApiService.parseSongFromElement(it) }
+                val totalSongNum =
+                    data["total_song_num"]?.jsonPrimitive?.intOrNull
+                        ?: data["total"]?.jsonPrimitive?.intOrNull
+                        ?: data["song_cnt"]?.jsonPrimitive?.intOrNull
+                        ?: songs.size
+                val dirinfo = data["dirinfo"]?.jsonObject
+                val name =
+                    dirinfo?.get("title")?.jsonPrimitive?.contentOrNull
+                        ?: dirinfo?.get("dirname")?.jsonPrimitive?.contentOrNull
+                        .orEmpty()
+                val desc = dirinfo?.get("desc")?.jsonPrimitive?.contentOrNull.orEmpty()
+                val picUrl = dirinfo?.get("picurl")?.jsonPrimitive?.contentOrNull.orEmpty()
+
+                val playlist =
+                    Playlist(
+                        dirId = dirId,
+                        name = name,
+                        songCount = totalSongNum,
+                        tid = tid,
+                        isFav = false,
+                        picUrl = picUrl,
+                        description = desc,
+                    )
+                PlaylistDetailResult(playlist = playlist, songs = songs, totalSongNum = totalSongNum)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                ApiLogger.w("MusicApiPlaylist", "getPlaylistDetail (dirId) failed: dirId=$dirId", e)
+                null
+            }
+        } else {
+            val dissId = if (tid > 0L) tid else dirId
+            val payload =
+                """
+                {
+                  "comm": { "uin": "$uin", "format": "json", "ct": 20, "cv": 1770, "platform": "wk_v17", "authst": "$authst" },
+                  "req_diss": {
+                    "module": "music.srfDissInfo.aiDissInfo",
+                    "method": "uniform_get_Dissinfo",
+                    "param": { "disstid": $dissId, "userinfo": 1, "tag": 1, "orderlist": 1, "song_begin": ${(page - 1) * pageSize}, "song_num": $pageSize }
+                  }
+                }
+                """.trimIndent()
+
+            try {
+                val respJson = postGateway(payload)
+                val root = Json.parseToJsonElement(respJson).jsonObject
+                val reqDiss = root["req_diss"]?.jsonObject ?: return@withContext null
+                val code = reqDiss["code"]?.jsonPrimitive?.intOrNull ?: -1
+                if (code != 0) {
+                    return@withContext null
+                }
+                val reqDissData = reqDiss["data"]?.jsonObject ?: return@withContext null
+                val dirinfo = reqDissData.get("dirinfo")?.jsonObject
+                val title =
+                    dirinfo
+                        ?.get("title")
+                        ?.jsonPrimitive
+                        ?.contentOrNull
+                        .orEmpty()
+                val desc =
+                    dirinfo
+                        ?.get("desc")
+                        ?.jsonPrimitive
+                        ?.contentOrNull
+                        .orEmpty()
+                val picurl =
+                    dirinfo
+                        ?.get("picurl")
+                        ?.jsonPrimitive
+                        ?.contentOrNull
+                        .orEmpty()
+                val creator =
+                    dirinfo
+                        ?.get("creator")
+                        ?.jsonObject
+                        ?.get("nick")
+                        ?.jsonPrimitive
+                        ?.contentOrNull
+                        ?: dirinfo
+                            ?.get("host_nick")
+                            ?.jsonPrimitive
+                            ?.contentOrNull
+                            .orEmpty()
+                val tags =
+                    dirinfo
+                        ?.get("tag")
+                        ?.jsonArray
+                        ?.mapNotNull {
+                            it.jsonObject["name"]?.jsonPrimitive?.contentOrNull
+                        }.orEmpty()
+                val playCount = dirinfo?.get("listennum")?.jsonPrimitive?.longOrNull ?: 0L
+                val favCount = dirinfo?.get("ordernum")?.jsonPrimitive?.longOrNull ?: 0L
+                val totalSongNum =
+                    reqDissData["total_song_num"]?.jsonPrimitive?.intOrNull
+                        ?: dirinfo?.get("songnum")?.jsonPrimitive?.intOrNull
+                        ?: 0
+
+                val songList =
+                    reqDissData["songlist"]
+                        ?.jsonArray
+                        ?.mapNotNull { MusicApiService.parseSongFromElement(it) }
+                        .orEmpty()
+
+                val playlist =
+                    Playlist(
+                        dirId = dirId,
+                        name = title,
+                        songCount = if (totalSongNum > 0) totalSongNum else songList.size,
+                        tid = dissId,
+                        isFav = isFav,
+                        picUrl = picurl,
+                        description = desc,
+                        creator = creator,
+                        tags = tags,
+                        playCount = playCount,
+                        favCount = favCount,
+                    )
+
+                PlaylistDetailResult(
+                    playlist = playlist,
+                    songs = songList,
+                    totalSongNum = totalSongNum,
+                )
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                ApiLogger.w("MusicApiPlaylist", "getPlaylistDetail failed: dirId=$dirId, tid=$tid", e)
+                null
             }
         }
     }
@@ -444,13 +661,17 @@ private suspend fun MusicApiService.deletePlaylistInternal(
                 """.trimIndent()
             } else {
                 val dissId = if (playlist.tid > 0L) playlist.tid else playlist.dirId
+                val uin = UserSession.profile.uin.ifBlank { "0" }
                 """
                 {
                   "comm": $comm,
                   "deleteFavPlayList": {
                     "module": "music.musicasset.PlaylistFavWrite",
                     "method": "CancelFavPlaylist",
-                    "param": { "dirId": $dissId }
+                    "param": {
+                      "uin": "$uin",
+                      "v_playlistId": [$dissId]
+                    }
                   }
                 }
                 """.trimIndent()
@@ -463,13 +684,20 @@ private suspend fun MusicApiService.deletePlaylistInternal(
             val key = if (playlist.isCreated) "deletePlayList" else "deleteFavPlayList"
             val obj = root[key]?.jsonObject
             val code = obj?.get("code")?.jsonPrimitive?.intOrNull ?: rootCode
-            if (code == 0) {
+            val dataObj = obj?.get("data")?.jsonObject
+            val result = dataObj?.get("result")?.jsonPrimitive?.intOrNull ?: 0
+            val dissId = if (playlist.tid > 0L) playlist.tid else playlist.dirId
+            val failedList =
+                dataObj?.get("v_failedPlaylistId")?.jsonArray?.mapNotNull { it.jsonPrimitive.longOrNull } ?: emptyList()
+
+            if (code == 0 && result == 0 && (playlist.isCreated || dissId !in failedList)) {
                 true
-            } else if ((code == 1000 || code == 10000 || code == 80105) && canRetryWithRenew) {
-                ApiLogger.i("MusicApiPlaylist", "deletePlaylist returned auth error $code, refreshing music key")
+            } else if ((code == 1000 || code == 10000 || code == 80105 || result == 1000 || result == 10000 || result == 80105) && canRetryWithRenew) {
+                ApiLogger.i("MusicApiPlaylist", "deletePlaylist returned auth error code=$code, result=$result, refreshing music key")
                 ensureMusicKeySafe(forceRefresh = true)
                 deletePlaylistInternal(playlist, canRetryWithRenew = false)
             } else {
+                ApiLogger.w("MusicApiPlaylist", "deletePlaylist failed: code=$code, result=$result, failedList=$failedList, resp=$respJson")
                 false
             }
         } catch (e: Exception) {
@@ -672,6 +900,7 @@ private suspend fun MusicApiService.collectPlaylistInternal(
         if (!UserSession.isLoggedIn || dissId <= 0L) return@withContext false
         ensureMusicKeySafe()
         val comm = MusicApiService.buildAppCommJson()
+        val uin = UserSession.profile.uin.ifBlank { "0" }
         val payload =
             """
             {
@@ -679,7 +908,10 @@ private suspend fun MusicApiService.collectPlaylistInternal(
               "addFavPlayList": {
                 "module": "music.musicasset.PlaylistFavWrite",
                 "method": "FavPlaylist",
-                "param": { "dirId": $dissId }
+                "param": {
+                  "uin": "$uin",
+                  "v_playlistId": [$dissId]
+                }
               }
             }
             """.trimIndent()
@@ -690,13 +922,19 @@ private suspend fun MusicApiService.collectPlaylistInternal(
             val rootCode = root["code"]?.jsonPrimitive?.intOrNull ?: 0
             val obj = root["addFavPlayList"]?.jsonObject
             val code = obj?.get("code")?.jsonPrimitive?.intOrNull ?: rootCode
-            if (code == 0) {
+            val dataObj = obj?.get("data")?.jsonObject
+            val result = dataObj?.get("result")?.jsonPrimitive?.intOrNull ?: 0
+            val failedList =
+                dataObj?.get("v_failedPlaylistId")?.jsonArray?.mapNotNull { it.jsonPrimitive.longOrNull } ?: emptyList()
+
+            if (code == 0 && result == 0 && dissId !in failedList) {
                 true
-            } else if ((code == 1000 || code == 10000 || code == 80105) && canRetryWithRenew) {
-                ApiLogger.i("MusicApiPlaylist", "collectPlaylist returned auth error $code, refreshing music key")
+            } else if ((code == 1000 || code == 10000 || code == 80105 || result == 1000 || result == 10000 || result == 80105) && canRetryWithRenew) {
+                ApiLogger.i("MusicApiPlaylist", "collectPlaylist returned auth error code=$code, result=$result, refreshing music key")
                 ensureMusicKeySafe(forceRefresh = true)
                 collectPlaylistInternal(dissId, canRetryWithRenew = false)
             } else {
+                ApiLogger.w("MusicApiPlaylist", "collectPlaylist failed: dissId=$dissId, code=$code, result=$result, failedList=$failedList, resp=$respJson")
                 false
             }
         } catch (e: Exception) {

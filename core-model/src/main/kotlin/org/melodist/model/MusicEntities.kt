@@ -62,6 +62,10 @@ data class Playlist(
     val picUrl: String = "",
     val description: String = "",
     val dirShow: Int = 1,
+    val creator: String = "",
+    val tags: List<String> = emptyList(),
+    val playCount: Long = 0L,
+    val favCount: Long = 0L,
 ) {
     val isPrivate: Boolean get() = dirShow == 2
     val isMyFavorite: Boolean get() = dirId == 201L || name == "我喜欢" || name == "我的喜欢"
@@ -79,6 +83,13 @@ data class Playlist(
     val detailCoverCandidates: List<String>
         get() = CoverUrlResolver.getCandidates(picUrl, CoverScenario.DETAIL)
 }
+
+@Serializable
+data class PlaylistDetailResult(
+    val playlist: Playlist,
+    val songs: List<Song> = emptyList(),
+    val totalSongNum: Int = 0,
+)
 
 @Serializable
 data class QualityOption(
@@ -144,3 +155,51 @@ data class CommentPage(
     val hasMore: Boolean = false,
     val lastSeqNo: String = "",
 )
+
+/**
+ * 评论区业务目标实体抽象。
+ */
+sealed interface CommentTarget {
+    val bizType: Int
+    val bizId: Long
+    val id: String get() = bizId.toString()
+    val title: String
+    val subtitle: String
+
+    data class Song(
+        val song: org.melodist.model.Song,
+    ) : CommentTarget {
+        override val bizType: Int get() = 1
+        override val bizId: Long get() = song.songId
+        override val title: String get() = song.name
+        override val subtitle: String get() = song.singer
+    }
+
+    data class Album(
+        val albumId: Long,
+        val albumName: String,
+        val artistName: String = "",
+    ) : CommentTarget {
+        override val bizType: Int get() = 2
+        override val bizId: Long get() = albumId
+        override val title: String get() = albumName
+        override val subtitle: String get() = artistName
+    }
+
+    data class Playlist(
+        val disstid: Long,
+        val playlistName: String,
+        val creatorNick: String = "",
+    ) : CommentTarget {
+        constructor(dissId: String, playlistName: String, creatorName: String = "") : this(
+            disstid = dissId.toLongOrNull() ?: 0L,
+            playlistName = playlistName,
+            creatorNick = creatorName,
+        )
+
+        override val bizType: Int get() = 3
+        override val bizId: Long get() = disstid
+        override val title: String get() = playlistName
+        override val subtitle: String get() = creatorNick
+    }
+}
