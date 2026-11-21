@@ -1,7 +1,9 @@
 package org.melodist.api
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import org.melodist.model.AudioQualityTier
@@ -265,8 +267,18 @@ private suspend fun MusicApiService.probeSongQualitiesInternal(
                 if (hasVipSource && !hasVipUrl) {
                     ApiLogger.i("MusicApiPlayback", "probeSongQualities: VIP track detected without valid URL, attempting token renewal...")
                     when (val outcome = SessionKeeper.keepAlive(force = true)) {
-                        is KeepAliveResult.Success ->
+                        is KeepAliveResult.Success -> {
+                            // 续签成功后会员态可能已经变化（刚续费或刚掉会员），异步重取一次档案，
+                            // 否则界面会继续用旧档案判断可用音质，表现为"续签成功但仍拿不到 VIP 音源"。
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    refreshCurrentUserProfile()
+                                } catch (e: Exception) {
+                                    ApiLogger.w("MusicApiPlayback", "Background profile refresh failed during quality probe", e)
+                                }
+                            }
                             return@withContext probeSongQualitiesInternal(songMid, mediaMid, canRetryWithRenew = false)
+                        }
 
                         is KeepAliveResult.Transient ->
                             // 网络/5xx/超时：凭据本身可能仍然有效，保持可重试状态，
@@ -496,8 +508,17 @@ private suspend fun MusicApiService.getPlayUrlInternal(
             if (canRetryWithRenew && UserSession.isLoggedIn && !PlaybackCredentialsManager.hasCustomCredentials && hasVipSource && !hasVipUrl) {
                 ApiLogger.i("MusicApiPlayback", "getPlayUrl: VIP tracks available but no valid VIP URL obtained, attempting token renewal...")
                 when (val outcome = SessionKeeper.keepAlive(force = true)) {
-                    is KeepAliveResult.Success ->
+                    is KeepAliveResult.Success -> {
+                        // 同 probeSongQualities：续签后立刻刷新档案，避免会员态与可用音质不一致。
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                refreshCurrentUserProfile()
+                            } catch (e: Exception) {
+                                ApiLogger.w("MusicApiPlayback", "Background profile refresh failed during play URL retrieval", e)
+                            }
+                        }
                         return@withContext getPlayUrlInternal(songMid, mediaMid, preferredTier, canRetryWithRenew = false)
+                    }
 
                     is KeepAliveResult.Transient ->
                         // 网络抖动不判定为登录失效，留给上层重试。

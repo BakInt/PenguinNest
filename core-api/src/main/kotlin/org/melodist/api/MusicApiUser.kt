@@ -12,6 +12,14 @@ import kotlinx.serialization.json.*
  */
 
 /**
+ * 鉴权失效类业务码，命中任一即先续签再重试。
+ *
+ * `104400`/`104401` 是服务端在票据被风控或批量下线时返回的码，此前只认 `2000`，
+ * 导致这类响应被当成"数据异常"直接吞掉，界面表现为会员信息突然清空。
+ */
+private val EXPIRED_AUTH_CODES = setOf(1000, 2000, 104400, 104401)
+
+/**
  * 账号档案刷新的互斥锁。
  *
  * 登录成功会同时触发登录对话框与主导航的刷新；两者并发时都是"读当前档案 → 改字段 → 整体写回"，
@@ -85,33 +93,69 @@ private suspend fun MusicApiService.refreshCurrentUserProfileInternal(): Boolean
             var respJson = postGateway(buildProfilePayload(uin, authst, loginType))
             var root = Json.parseToJsonElement(respJson).jsonObject
 
-            val rootCode = root["code"]?.jsonPrimitive?.intOrNull ?: 0
-            val profileCode =
+            var rootCode = root["code"]?.jsonPrimitive?.intOrNull ?: 0
+            var profileCode =
                 root["profile"]
                     ?.jsonObject
                     ?.get("code")
                     ?.jsonPrimitive
                     ?.intOrNull ?: 0
-            val vipCode =
+            var vipCode =
                 root["vip"]
                     ?.jsonObject
                     ?.get("code")
                     ?.jsonPrimitive
                     ?.intOrNull ?: 0
+            var vipData = root["vip"]?.jsonObject?.get("data")?.jsonObject
 
-            if (rootCode == 2000 || profileCode == 2000 || vipCode == 2000) {
-                ApiLogger.i("MusicApiUser", "Detected expired credentials (code 2000), attempting auto refresh...")
+            val isCodeExpired =
+                rootCode in EXPIRED_AUTH_CODES ||
+                    profileCode in EXPIRED_AUTH_CODES ||
+                    vipCode in EXPIRED_AUTH_CODES
+
+            // 服务端在鉴权降级时会返回"空壳 VIP"：level=0、无 overdate、无 HugeVipEnd。
+            // 本地档案本来是会员却收到这种响应，说明票据已经不作数，必须续签后重取，
+            // 否则下面的会员写入逻辑会把"降级响应"当成"会员到期"。
+            val idObj = vipData?.get("identity")?.jsonObject
+            val isGuestVipResponse =
+                (idObj?.get("level")?.jsonPrimitive?.intOrNull ?: 0) == 0 &&
+                    (vipData?.get("userinfo")?.jsonObject?.get("music_level")?.jsonPrimitive?.intOrNull ?: 0) == 0 &&
+                    idObj?.get("overdate")?.jsonPrimitive?.contentOrNull.isNullOrBlank() &&
+                    idObj?.get("HugeVipEnd")?.jsonPrimitive?.contentOrNull.isNullOrBlank()
+            val isSilentDowngrade = UserSession.profile.isVip && isGuestVipResponse
+
+            if (isCodeExpired || isSilentDowngrade) {
+                ApiLogger.i(
+                    "MusicApiUser",
+                    "Detected expired credentials (code=$vipCode, silentDowngrade=$isSilentDowngrade), attempting auto refresh...",
+                )
                 if (LoginApiService.shared.forceRefreshMusicKey()) {
                     uin = UserSession.profile.uin
                     authst = UserSession.profile.musicKey
                     loginType = UserSession.loginType
                     respJson = postGateway(buildProfilePayload(uin, authst, loginType))
                     root = Json.parseToJsonElement(respJson).jsonObject
+                    rootCode = root["code"]?.jsonPrimitive?.intOrNull ?: 0
+                    profileCode =
+                        root["profile"]
+                            ?.jsonObject
+                            ?.get("code")
+                            ?.jsonPrimitive
+                            ?.intOrNull ?: 0
+                    vipCode =
+                        root["vip"]
+                            ?.jsonObject
+                            ?.get("code")
+                            ?.jsonPrimitive
+                            ?.intOrNull ?: 0
+                    vipData = root["vip"]?.jsonObject?.get("data")?.jsonObject
                 }
             }
 
             // 续签后（或首次请求本就返回鉴权错误时）必须复检，否则会把失败响应当成"数据无变化"，
             // 让调用方误判为刷新成功、界面继续停留在"未开通"。
+            // 注意这里只认 2000：1000 也会触发续签重试，但续签后仍返回 1000 多数是参数类错误，
+            // 若一并判定为"需要重新登录"会把用户误踢下线。
             val finalAuthFailed =
                 (root["code"]?.jsonPrimitive?.intOrNull ?: 0) == 2000 ||
                     (root["profile"]?.jsonObject?.get("code")?.jsonPrimitive?.intOrNull ?: 0) == 2000 ||
@@ -166,10 +210,10 @@ private suspend fun MusicApiService.refreshCurrentUserProfileInternal(): Boolean
             }
 
             // VIP 与绿钻信息
-            val vipData = root["vip"]?.jsonObject?.get("data")?.jsonObject
-            if (vipData != null) {
-                val svipRoot = vipData["svip"]?.jsonPrimitive?.intOrNull ?: 0
-                val identity = vipData["identity"]?.jsonObject
+            val vipObj = vipData
+            if (vipObj != null) {
+                val svipRoot = vipObj["svip"]?.jsonPrimitive?.intOrNull ?: 0
+                val identity = vipObj["identity"]?.jsonObject
                 // 判据取"identity 是否完整"而不是"会员标志是否为 0"：后者无法区分
                 // "会员真的到期"与"鉴权降级后服务端返回空壳 identity"。空壳一旦被当成真实状态，
                 // 就会把已有会员信息覆盖成 false，界面显示"未开通会员"。
@@ -193,7 +237,7 @@ private suspend fun MusicApiService.refreshCurrentUserProfileInternal(): Boolean
                         identity["super_vip"]?.jsonPrimitive?.intOrNull
                             ?: identity["iSuperVip"]?.jsonPrimitive?.intOrNull
                             ?: identity["svip_flag"]?.jsonPrimitive?.intOrNull
-                            ?: vipData["super_vip"]?.jsonPrimitive?.intOrNull
+                            ?: vipObj["super_vip"]?.jsonPrimitive?.intOrNull
                             ?: 0
 
                     val hugeEnd = identity["HugeVipEnd"]?.jsonPrimitive?.contentOrNull.orEmpty()
@@ -235,29 +279,40 @@ private suspend fun MusicApiService.refreshCurrentUserProfileInternal(): Boolean
                     val isCpLover = cpLoverFlag > 0
                     val isGroupVip = groupVipFlag > 0
 
-                    newProfile.isVip = isGreen || isHuge || isSvip || isCpLover || isGroupVip
-                    newProfile.isHugeVip = isHuge
-                    newProfile.isSvip = isSvip
-                    newProfile.isYearVip = isYear
-                    newProfile.isCpLover = isCpLover
-                    newProfile.cpLoverExpireAt = cpLoverEnd
-                    newProfile.isGroupVip = isGroupVip
-                    newProfile.groupVipExpireAt = groupVipEnd
-                    newProfile.vipLevel = level
-                    newProfile.nextVipLevel = nextLevel
-                    newProfile.vipUpgradePercent = upgradePct
-                    newProfile.vipUpgradeDays = upgradeDays
-                    newProfile.hugeVipExpireAt = hugeExpire
-                    newProfile.svipExpireAt = svipEnd
-                    newProfile.greenVipExpireAt = greenEnd
-                    newProfile.vipExpireAt =
-                        when {
-                            isSvip && svipEnd.isNotBlank() -> svipEnd
-                            isHuge && hugeExpire.isNotBlank() -> hugeExpire
-                            isGreen && greenEnd.isNotBlank() -> greenEnd
-                            else -> cpLoverEnd.ifBlank { groupVipEnd.ifBlank { overdate } }
-                        }
-                    changed = true
+                    val resolvedIsVip = isGreen || isHuge || isSvip || isCpLover || isGroupVip
+                    // 双重保险：即使走到这里身份字段齐全，只要整份响应仍是"空壳"且本地是会员，
+                    // 就保留上一份成功快照，宁可这次不算变化，也不把会员清零。
+                    val isGuestResult =
+                        !resolvedIsVip &&
+                            level == 0 &&
+                            overdate.isBlank() &&
+                            (vipObj["userinfo"]?.jsonObject?.get("music_level")?.jsonPrimitive?.intOrNull ?: 0) == 0
+
+                    if (!isGuestResult || !UserSession.profile.isVip) {
+                        newProfile.isVip = resolvedIsVip
+                        newProfile.isHugeVip = isHuge
+                        newProfile.isSvip = isSvip
+                        newProfile.isYearVip = isYear
+                        newProfile.isCpLover = isCpLover
+                        newProfile.cpLoverExpireAt = cpLoverEnd
+                        newProfile.isGroupVip = isGroupVip
+                        newProfile.groupVipExpireAt = groupVipEnd
+                        newProfile.vipLevel = level
+                        newProfile.nextVipLevel = nextLevel
+                        newProfile.vipUpgradePercent = upgradePct
+                        newProfile.vipUpgradeDays = upgradeDays
+                        newProfile.hugeVipExpireAt = hugeExpire
+                        newProfile.svipExpireAt = svipEnd
+                        newProfile.greenVipExpireAt = greenEnd
+                        newProfile.vipExpireAt =
+                            when {
+                                isSvip && svipEnd.isNotBlank() -> svipEnd
+                                isHuge && hugeExpire.isNotBlank() -> hugeExpire
+                                isGreen && greenEnd.isNotBlank() -> greenEnd
+                                else -> cpLoverEnd.ifBlank { groupVipEnd.ifBlank { overdate } }
+                            }
+                        changed = true
+                    }
                 } else if (identity != null) {
                     // identity 存在但没有任何会员字段：视为鉴权降级/服务端降级返回，
                     // 保留上一次成功快照，稍后自动重试，不把会员清零。
@@ -265,11 +320,16 @@ private suspend fun MusicApiService.refreshCurrentUserProfileInternal(): Boolean
                     UserSession.setSessionState(SessionState.TransientFailure)
                 }
 
-                val userInfo = vipData["userinfo"]?.jsonObject
+                val userInfo = vipObj["userinfo"]?.jsonObject
                 if (userInfo != null) {
-                    newProfile.musicLevel = userInfo["music_level"]?.jsonPrimitive?.intOrNull ?: 0
-                    newProfile.musicScore = userInfo["score"]?.jsonPrimitive?.intOrNull ?: 0
-                    changed = true
+                    val mLevel = userInfo["music_level"]?.jsonPrimitive?.intOrNull ?: 0
+                    val mScore = userInfo["score"]?.jsonPrimitive?.intOrNull ?: 0
+                    // 会员用户的等级/积分不可能同时归零；同时为 0 视为降级响应，保留旧值。
+                    if (mLevel > 0 || mScore > 0 || !UserSession.profile.isVip) {
+                        newProfile.musicLevel = mLevel
+                        newProfile.musicScore = mScore
+                        changed = true
+                    }
                 }
             }
 
