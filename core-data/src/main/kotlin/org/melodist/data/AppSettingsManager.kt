@@ -175,6 +175,14 @@ data class AppSettings(
     val startupTab: StartupTab = StartupTab.HOME,
     // 底部标签栏是否显示文字，关闭后仅显示图标
     val showTabBarLabels: Boolean = true,
+    // 局域网 MCP 服务（供 AI 客户端通过 JSON-RPC 调用），默认关闭
+    val enableMcpServer: Boolean = false,
+    // 是否允许 AI 客户端执行删除类操作（目前仅取消收藏）
+    val mcpAllowDelete: Boolean = false,
+    // MCP 访问令牌，首次读取设置时自动生成 16 位十六进制
+    val mcpAuthToken: String = "",
+    // MCP 监听端口
+    val mcpServerPort: Int = 8090,
 ) {
     // 向后兼容旧字段引用
     val enableAtmosPassthrough: Boolean get() = enableAudioPassthrough
@@ -231,6 +239,10 @@ object AppSettingsManager {
     private const val KEY_AMOLED_DARK = "amoled_dark"
     private const val KEY_STARTUP_TAB = "startup_tab"
     private const val KEY_SHOW_TAB_BAR_LABELS = "show_tab_bar_labels"
+    private const val KEY_ENABLE_MCP_SERVER = "enable_mcp_server"
+    private const val KEY_MCP_ALLOW_DELETE = "mcp_allow_delete"
+    private const val KEY_MCP_AUTH_TOKEN = "mcp_auth_token"
+    private const val KEY_MCP_SERVER_PORT = "mcp_server_port"
 
     private var prefs: SharedPreferences? = null
     private var appContext: Context? = null
@@ -330,6 +342,14 @@ object AppSettingsManager {
         val startupTabName = p.getString(KEY_STARTUP_TAB, StartupTab.HOME.name) ?: StartupTab.HOME.name
         val startupTab = runCatching { StartupTab.valueOf(startupTabName) }.getOrDefault(StartupTab.HOME)
         val showTabBarLabels = p.getBoolean(KEY_SHOW_TAB_BAR_LABELS, true)
+        val enableMcp = p.getBoolean(KEY_ENABLE_MCP_SERVER, false)
+        val mcpAllowDelete = p.getBoolean(KEY_MCP_ALLOW_DELETE, false)
+        var mcpToken = p.getString(KEY_MCP_AUTH_TOKEN, "") ?: ""
+        if (mcpToken.isBlank()) {
+            mcpToken = generateSecureToken()
+            p.edit().putString(KEY_MCP_AUTH_TOKEN, mcpToken).apply()
+        }
+        val mcpPort = p.getInt(KEY_MCP_SERVER_PORT, 8090)
 
         _settings.value =
             AppSettings(
@@ -360,6 +380,10 @@ object AppSettingsManager {
                 amoledDark = amoledDark,
                 startupTab = startupTab,
                 showTabBarLabels = showTabBarLabels,
+                enableMcpServer = enableMcp,
+                mcpAllowDelete = mcpAllowDelete,
+                mcpAuthToken = mcpToken,
+                mcpServerPort = mcpPort,
             )
     }
 
@@ -587,6 +611,40 @@ object AppSettingsManager {
     }
 
     fun updateStartupTab(tab: StartupTab) = setStartupTab(tab)
+
+    private fun generateSecureToken(): String {
+        val chars = "0123456789abcdef"
+        val secureRandom = java.security.SecureRandom()
+        return (1..16).map { chars[secureRandom.nextInt(chars.length)] }.joinToString("")
+    }
+
+    fun setEnableMcpServer(enable: Boolean) {
+        _settings.value = _settings.value.copy(enableMcpServer = enable)
+        prefs?.edit()?.putBoolean(KEY_ENABLE_MCP_SERVER, enable)?.apply()
+    }
+
+    fun updateEnableMcpServer(enable: Boolean) = setEnableMcpServer(enable)
+
+    fun setMcpAllowDelete(allow: Boolean) {
+        _settings.value = _settings.value.copy(mcpAllowDelete = allow)
+        prefs?.edit()?.putBoolean(KEY_MCP_ALLOW_DELETE, allow)?.apply()
+    }
+
+    fun updateMcpAllowDelete(allow: Boolean) = setMcpAllowDelete(allow)
+
+    fun setMcpServerPort(port: Int) {
+        _settings.value = _settings.value.copy(mcpServerPort = port)
+        prefs?.edit()?.putInt(KEY_MCP_SERVER_PORT, port)?.apply()
+    }
+
+    fun updateMcpServerPort(port: Int) = setMcpServerPort(port)
+
+    fun regenerateMcpAuthToken(): String {
+        val newToken = generateSecureToken()
+        _settings.value = _settings.value.copy(mcpAuthToken = newToken)
+        prefs?.edit()?.putString(KEY_MCP_AUTH_TOKEN, newToken)?.apply()
+        return newToken
+    }
 
     var mediaCacheSizeProvider: (() -> Long)? = null
     var mediaQuotaProvider: (() -> Long)? = null
