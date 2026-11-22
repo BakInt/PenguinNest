@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
         safeInit("RecentPlaybackManager.init") { org.melodist.data.RecentPlaybackManager.init(this) }
         safeInit("SearchKeywordHistoryManager.init") { org.melodist.data.SearchKeywordHistoryManager.init(this) }
         safeInit("MobileConnectManager.init") { org.melodist.mobile.connect.MobileConnectManager.init(this) }
+        safeInit("McpServerManager.init") { org.melodist.mobile.mcp.McpServerManager.init(this) }
 
         // 注册后台登录态保活：12 小时一次，保证长效票据不被"闲置超时"作废。
         safeInit("SessionKeepAliveScheduler.start") { SessionKeepAliveScheduler.start(this) }
