@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -259,6 +260,133 @@ fun AudioQualityPanel(menuRequester: FocusRequester) {
             menuRequester = menuRequester,
             onToggle = {
                 AppSettingsManager.setEnableUsbExclusive(!settings.enableUsbExclusive)
+            },
+        )
+
+        // 播放增强
+        Text(
+            text = "播放增强",
+            fontSize = 17.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+        )
+
+        SettingSwitchCard(
+            title = "无缝播放",
+            subtitle = "自动切歌时声音不间断；少数歌曲因格式差异可能不生效",
+            checked = settings.enableGaplessPlayback,
+            menuRequester = menuRequester,
+            onToggle = {
+                AppSettingsManager.setEnableGaplessPlayback(!settings.enableGaplessPlayback)
+            },
+        )
+
+        SettingSwitchCard(
+            title = "淡入淡出播放",
+            subtitle = "前一首减弱、后一首渐强过渡（与无缝播放互斥）",
+            checked = settings.enableCrossfade,
+            menuRequester = menuRequester,
+            onToggle = {
+                AppSettingsManager.setEnableCrossfade(!settings.enableCrossfade)
+            },
+        )
+
+        if (settings.enableCrossfade) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "淡入淡出时长",
+                    fontSize = 15.sp,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f),
+                )
+                Button(
+                    onClick = {
+                        AppSettingsManager.setCrossfadeSeconds(settings.crossfadeSeconds - 1)
+                    },
+                    enabled = settings.crossfadeSeconds > 1,
+                    shape =
+                        ButtonDefaults.shape(
+                            shape = QQMusicShapes.ButtonCorner,
+                            focusedShape = QQMusicShapes.ButtonCorner,
+                        ),
+                    colors =
+                        ButtonDefaults.colors(
+                            containerColor = Color.White.copy(alpha = 0.05f),
+                            focusedContainerColor = Color.White,
+                            contentColor = Color.White,
+                            focusedContentColor = Color.Black,
+                            disabledContainerColor = Color.White.copy(alpha = 0.02f),
+                            disabledContentColor = Color.White.copy(alpha = 0.35f),
+                        ),
+                    border =
+                        ButtonDefaults.border(
+                            border = Border(border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), shape = QQMusicShapes.ButtonCorner),
+                            focusedBorder = Border(border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal), shape = QQMusicShapes.ButtonCorner),
+                        ),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp),
+                ) {
+                    Text(text = "－", fontSize = 16.sp)
+                }
+
+                Text(
+                    text = "${settings.crossfadeSeconds} 秒",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = QQMusicColors.AccentGreen,
+                )
+
+                Button(
+                    onClick = {
+                        AppSettingsManager.setCrossfadeSeconds(settings.crossfadeSeconds + 1)
+                    },
+                    enabled = settings.crossfadeSeconds < 15,
+                    shape =
+                        ButtonDefaults.shape(
+                            shape = QQMusicShapes.ButtonCorner,
+                            focusedShape = QQMusicShapes.ButtonCorner,
+                        ),
+                    colors =
+                        ButtonDefaults.colors(
+                            containerColor = Color.White.copy(alpha = 0.05f),
+                            focusedContainerColor = Color.White,
+                            contentColor = Color.White,
+                            focusedContentColor = Color.Black,
+                            disabledContainerColor = Color.White.copy(alpha = 0.02f),
+                            disabledContentColor = Color.White.copy(alpha = 0.35f),
+                        ),
+                    border =
+                        ButtonDefaults.border(
+                            border = Border(border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), shape = QQMusicShapes.ButtonCorner),
+                            focusedBorder = Border(border = BorderStroke(2.5.dp, QQMusicColors.FocusTeal), shape = QQMusicShapes.ButtonCorner),
+                        ),
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp),
+                ) {
+                    Text(text = "＋", fontSize = 16.sp)
+                }
+            }
+        }
+
+        SettingSwitchCard(
+            title = "音量平衡",
+            subtitle = "按 ReplayGain 标签统一歌曲音量；仅本地与缓存歌曲可读取标签",
+            checked = settings.enableReplayGain,
+            menuRequester = menuRequester,
+            onToggle = {
+                AppSettingsManager.setEnableReplayGain(!settings.enableReplayGain)
+            },
+        )
+
+        SettingSwitchCard(
+            title = "定时停止时淡出",
+            subtitle = "睡眠定时到达时以 3 秒淡出收尾",
+            checked = settings.enableSleepTimerFadeOut,
+            menuRequester = menuRequester,
+            onToggle = {
+                AppSettingsManager.setEnableSleepTimerFadeOut(!settings.enableSleepTimerFadeOut)
             },
         )
     }
