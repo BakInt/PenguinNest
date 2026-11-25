@@ -14,15 +14,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.StayCurrentPortrait
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,11 +56,13 @@ import org.melodist.mobile.ui.components.SettingsClickableRow
 import org.melodist.mobile.ui.components.SettingsCollapsibleGroup
 import org.melodist.mobile.ui.components.SettingsDivider
 import org.melodist.mobile.ui.components.SettingsGroupCard
+import org.melodist.mobile.ui.components.SettingsSectionSpacing
 import org.melodist.mobile.ui.components.SettingsSwitchRow
 import org.melodist.mobile.ui.components.getQualityTierDetailedLabel
 import org.melodist.mobile.ui.components.rememberSettingsSectionExpandedState
 import org.melodist.model.AudioQualityTier
 import org.melodist.playback.PlaybackManager
+import kotlin.math.roundToInt
 
 @Composable
 fun SettingsPlaybackSection(
@@ -156,7 +162,72 @@ fun SettingsPlaybackSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(SettingsSectionSpacing))
+
+        // 播放增强分组
+        val enhancementExpanded = rememberSettingsSectionExpandedState("settings_section_enhancement")
+        SettingsCollapsibleGroup(
+            title = "播放增强",
+            expanded = enhancementExpanded.value,
+            onExpandedChange = { enhancementExpanded.value = it },
+        ) {
+            SettingsGroupCard {
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.GraphicEq,
+                    title = "无缝播放",
+                    subtitle = "自动切歌时声音不间断；少数歌曲因格式差异可能不生效",
+                    checked = settings.enableGaplessPlayback,
+                    onCheckedChange = { AppSettingsManager.setEnableGaplessPlayback(it) },
+                )
+
+                SettingsDivider()
+
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.SwapHoriz,
+                    title = "淡入淡出播放",
+                    subtitle = "前一首减弱、后一首渐强过渡；开启后无缝播放会关闭",
+                    checked = settings.enableCrossfade,
+                    onCheckedChange = { AppSettingsManager.setEnableCrossfade(it) },
+                )
+
+                if (settings.enableCrossfade) {
+                    SettingsDivider()
+
+                    SettingsCrossfadeDurationRow(
+                        seconds = settings.crossfadeSeconds,
+                        onSecondsChange = { seconds ->
+                            if (seconds <= 0) {
+                                AppSettingsManager.setEnableCrossfade(false)
+                            } else {
+                                AppSettingsManager.setCrossfadeSeconds(seconds)
+                            }
+                        },
+                    )
+                }
+
+                SettingsDivider()
+
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.VolumeUp,
+                    title = "音量平衡",
+                    subtitle = "按 ReplayGain 标签统一歌曲音量；仅本地与缓存歌曲可读取标签",
+                    checked = settings.enableReplayGain,
+                    onCheckedChange = { AppSettingsManager.setEnableReplayGain(it) },
+                )
+
+                SettingsDivider()
+
+                SettingsSwitchRow(
+                    icon = Icons.Rounded.Bedtime,
+                    title = "定时停止时淡出",
+                    subtitle = "睡眠定时到达时以 3 秒淡出收尾，而不是立即停止",
+                    checked = settings.enableSleepTimerFadeOut,
+                    onCheckedChange = { AppSettingsManager.setEnableSleepTimerFadeOut(it) },
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(SettingsSectionSpacing))
 
         // 歌词分组
         SettingsCollapsibleGroup(
@@ -396,6 +467,43 @@ fun SettingsPlaybackSection(
                     Text("完成")
                 }
             },
+        )
+    }
+}
+
+@Composable
+private fun SettingsCrossfadeDurationRow(
+    seconds: Int,
+    onSecondsChange: (Int) -> Unit,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "淡入淡出时长",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = if (seconds <= 0) "已关闭" else "$seconds 秒",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 13.sp,
+            )
+        }
+        Slider(
+            value = seconds.coerceIn(0, 15).toFloat(),
+            onValueChange = { onSecondsChange(it.roundToInt().coerceIn(0, 15)) },
+            valueRange = 0f..15f,
+            steps = 14,
         )
     }
 }
