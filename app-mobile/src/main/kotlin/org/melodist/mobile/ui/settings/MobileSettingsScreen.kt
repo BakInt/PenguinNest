@@ -32,11 +32,12 @@ import androidx.compose.ui.unit.dp
 import org.melodist.api.PlaybackCredentialsManager
 import org.melodist.api.UserSession
 import org.melodist.data.AppSettingsManager
+import org.melodist.mobile.ui.components.SettingsSectionSpacing
 import org.melodist.mobile.ui.settings.sections.SettingsAboutSection
-import org.melodist.mobile.ui.settings.sections.SettingsMcpSection
 import org.melodist.mobile.ui.settings.sections.SettingsAccountCard
 import org.melodist.mobile.ui.settings.sections.SettingsAppearanceSection
 import org.melodist.mobile.ui.settings.sections.SettingsCredentialsDialogs
+import org.melodist.mobile.ui.settings.sections.SettingsMcpSection
 import org.melodist.mobile.ui.settings.sections.SettingsPlaybackSection
 import org.melodist.mobile.ui.settings.sections.SettingsStorageSection
 
@@ -96,8 +97,16 @@ fun MobileSettingsScreen(
                     Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                // 底部留白 32dp：最后一张卡片（「关于」）滑到底时不再贴屏幕边缘，
+                // 顶部仍保持 8dp，避免标题与账号卡之间出现多余空隙（doc/15 §4.4）。
+                contentPadding =
+                    PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 32.dp,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(SettingsSectionSpacing),
             ) {
                 // 账号资料卡片
                 item {

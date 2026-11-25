@@ -36,11 +36,28 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.melodist.model.AudioQualityTier
+
+/**
+ * 设置页分栏之间的统一垂直间距（doc/15 §9）。
+ *
+ * 分栏间距只由页面 `LazyColumn` 的 `verticalArrangement` 提供，各分栏内部
+ * 不再自己追加间隔，避免出现「16dp + 16dp = 32dp」的双倍间距。
+ */
+val SettingsSectionSpacing = 16.dp
+
+/**
+ * 分栏标题的左右内缩量，取值等于 [SettingsGroupCard] 内各行的水平内边距。
+ *
+ * 页面内容区已有 16dp 边距，标题再内缩 16dp 后左缘落在 32dp，
+ * 与卡片内的图标列、账号卡头像列共用同一条竖向基准线（doc/15 §9）。
+ */
+val SettingsSectionHeaderInset = 16.dp
 
 @Composable
 fun SettingsGroupTitle(
@@ -52,7 +69,7 @@ fun SettingsGroupTitle(
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
         fontWeight = FontWeight.SemiBold,
-        modifier = modifier.padding(start = 8.dp, bottom = 6.dp),
+        modifier = modifier.padding(start = SettingsSectionHeaderInset, bottom = 6.dp),
     )
 }
 
@@ -108,8 +125,14 @@ fun SettingsCollapsibleGroup(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable { onExpandedChange(!expanded) }
-                    .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 6.dp),
+                    .padding(
+                        start = SettingsSectionHeaderInset,
+                        end = SettingsSectionHeaderInset,
+                        top = 4.dp,
+                        bottom = 6.dp,
+                    ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

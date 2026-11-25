@@ -73,58 +73,57 @@ fun SettingsMcpSection(
             onExpandedChange = { mcpExpanded.value = it },
         ) {
             SettingsGroupCard {
-            SettingsSwitchRow(
-                icon = Icons.Rounded.Hub,
-                title = "启用局域网 MCP 服务",
-                subtitle = statusSubtitle,
-                checked = settings.enableMcpServer,
-                onCheckedChange = { AppSettingsManager.setEnableMcpServer(it) },
-            )
-
-            if (settings.enableMcpServer) {
-                SettingsClickableRow(
-                    icon = Icons.Rounded.Link,
-                    title = "MCP 连接地址",
-                    subtitle =
-                        if (isRunning) {
-                            "$fullUrl\n(点击查看连接配置指南)"
-                        } else {
-                            "等待连接 Wi-Fi 局域网..."
-                        },
-                    onClick = {
-                        if (isRunning) {
-                            showConnectionGuideDialog = true
-                        } else {
-                            Toast.makeText(context, "服务未运行，暂无连接地址", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                )
-
-                SettingsClickableRow(
-                    icon = Icons.Rounded.VpnKey,
-                    title = "鉴权 Token",
-                    subtitle =
-                        if (settings.mcpAuthToken.isNotBlank()) {
-                            "••••••••${settings.mcpAuthToken.takeLast(4)} (点击重新生成)"
-                        } else {
-                            "未设置 (点击生成)"
-                        },
-                    onClick = {
-                        showRegenerateTokenDialog = true
-                    },
-                )
-
                 SettingsSwitchRow(
-                    icon = Icons.Rounded.DeleteForever,
-                    title = "允许删除内容",
-                    subtitle = "开启后允许通过MCP服务取消收藏歌曲",
-                    checked = settings.mcpAllowDelete,
-                    onCheckedChange = { AppSettingsManager.setMcpAllowDelete(it) },
+                    icon = Icons.Rounded.Hub,
+                    title = "启用局域网 MCP 服务",
+                    subtitle = statusSubtitle,
+                    checked = settings.enableMcpServer,
+                    onCheckedChange = { AppSettingsManager.setEnableMcpServer(it) },
                 )
-            }
+
+                if (settings.enableMcpServer) {
+                    SettingsClickableRow(
+                        icon = Icons.Rounded.Link,
+                        title = "MCP 连接地址",
+                        subtitle =
+                            if (isRunning) {
+                                "$fullUrl\n(点击查看连接配置指南)"
+                            } else {
+                                "等待连接 Wi-Fi 局域网..."
+                            },
+                        onClick = {
+                            if (isRunning) {
+                                showConnectionGuideDialog = true
+                            } else {
+                                Toast.makeText(context, "服务未运行，暂无连接地址", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    )
+
+                    SettingsClickableRow(
+                        icon = Icons.Rounded.VpnKey,
+                        title = "鉴权 Token",
+                        subtitle =
+                            if (settings.mcpAuthToken.isNotBlank()) {
+                                "••••••••${settings.mcpAuthToken.takeLast(4)} (点击重新生成)"
+                            } else {
+                                "未设置 (点击生成)"
+                            },
+                        onClick = {
+                            showRegenerateTokenDialog = true
+                        },
+                    )
+
+                    SettingsSwitchRow(
+                        icon = Icons.Rounded.DeleteForever,
+                        title = "允许删除内容",
+                        subtitle = "开启后允许通过MCP服务取消收藏歌曲",
+                        checked = settings.mcpAllowDelete,
+                        onCheckedChange = { AppSettingsManager.setMcpAllowDelete(it) },
+                    )
+                }
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
     }
 
     if (showConnectionGuideDialog) {

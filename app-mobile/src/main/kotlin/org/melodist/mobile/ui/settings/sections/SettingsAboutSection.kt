@@ -24,7 +24,6 @@ import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.SystemUpdateAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,6 +53,7 @@ import org.melodist.data.update.UpdateChecker
 import org.melodist.data.update.UpdateResult
 import org.melodist.mobile.BuildConfig
 import org.melodist.mobile.ui.components.SettingsCollapsibleGroup
+import org.melodist.mobile.ui.components.SettingsDivider
 import org.melodist.mobile.ui.components.SettingsGroupCard
 import org.melodist.mobile.ui.components.rememberSettingsSectionExpandedState
 
@@ -147,10 +147,7 @@ fun SettingsAboutSection(
                     }
                 }
 
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                )
+                SettingsDivider()
 
                 Row(
                     modifier =
@@ -195,7 +192,7 @@ fun SettingsAboutSection(
                                         }
                                     }
                                 }
-                            }.padding(horizontal = 16.dp, vertical = 14.dp),
+                            }.padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -236,10 +233,7 @@ fun SettingsAboutSection(
                     }
                 }
 
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                )
+                SettingsDivider()
 
                 // 开源仓库链接行
                 Row(
@@ -253,7 +247,7 @@ fun SettingsAboutSection(
                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                     }
                                 context.startActivity(intent)
-                            }.padding(horizontal = 16.dp, vertical = 14.dp),
+                            }.padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -283,10 +277,7 @@ fun SettingsAboutSection(
                     )
                 }
 
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                )
+                SettingsDivider()
 
                 // 诊断日志行：release 包的 proguard 会移除 Log.v/d/i 与 printStackTrace，
                 // 崩溃堆栈和启动降级信息只能靠 CrashGuard 落盘，这里给用户一个免 adb 的自查入口。
@@ -302,7 +293,7 @@ fun SettingsAboutSection(
                                             CrashGuard.readDiagnostics(context) ?: "暂无崩溃或启动降级记录"
                                         }
                                 }
-                            }.padding(horizontal = 16.dp, vertical = 14.dp),
+                            }.padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
