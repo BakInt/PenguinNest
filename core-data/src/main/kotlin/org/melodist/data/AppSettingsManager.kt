@@ -144,6 +144,14 @@ data class AppSettings(
     val cellularQualityTier: AudioQualityTier = AudioQualityTier.HQ,
     val enableAudioPassthrough: Boolean = false,
     val enableUsbExclusive: Boolean = false,
+    // 播放增强：无缝播放 / 淡入淡出 / 音量平衡，默认全部关闭，由用户在设置中自行开启
+    val enableGaplessPlayback: Boolean = false,
+    val enableCrossfade: Boolean = false,
+    // 淡入淡出时长（秒），0 表示关闭；仅在 enableCrossfade 为 true 时生效
+    val crossfadeSeconds: Int = 3,
+    val enableReplayGain: Boolean = false,
+    // 睡眠定时到达时用 3 秒淡出收尾，而不是等到曲尾硬停
+    val enableSleepTimerFadeOut: Boolean = false,
     val enableAutoMatchLyrics: Boolean = true,
     val ignoreEmbeddedLyrics: Boolean = false,
     // 播放与歌词
@@ -215,6 +223,11 @@ object AppSettingsManager {
     private const val KEY_CELLULAR_TIER = "cellular_quality_tier"
     private const val KEY_AUDIO_PASSTHROUGH = "audio_passthrough"
     private const val KEY_USB_EXCLUSIVE = "usb_exclusive"
+    private const val KEY_GAPLESS_PLAYBACK = "gapless_playback"
+    private const val KEY_CROSSFADE = "crossfade_enabled"
+    private const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
+    private const val KEY_REPLAY_GAIN = "replay_gain"
+    private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"
     private const val KEY_ATMOS_PASSTHROUGH = "atmos_passthrough"
     private const val KEY_AUTO_MATCH_LYRICS = "auto_match_lyrics"
     private const val KEY_IGNORE_EMBEDDED_LYRICS = "ignore_embedded_lyrics"
@@ -258,6 +271,9 @@ object AppSettingsManager {
     var onUsbExclusiveChangedListener: ((Boolean) -> Unit)? = null
     var onMediaCacheLimitChangedListener: ((Int) -> Unit)? = null
 
+    /** 播放增强（无缝播放 / 淡入淡出 / 音量平衡）任一设置变化时回调，core-playback 据此刷新运行时配置。 */
+    var onPlaybackEnhancementChangedListener: (() -> Unit)? = null
+
     fun init(context: Context) {
         if (prefs == null) {
             val app = context.applicationContext
@@ -291,6 +307,11 @@ object AppSettingsManager {
                 false
             }
         val autoLyrics = p.getBoolean(KEY_AUTO_MATCH_LYRICS, true)
+        val gapless = p.getBoolean(KEY_GAPLESS_PLAYBACK, false)
+        val crossfadeEnabled = p.getBoolean(KEY_CROSSFADE, false)
+        val crossfadeSeconds = p.getInt(KEY_CROSSFADE_SECONDS, 3).coerceIn(0, 15)
+        val replayGain = p.getBoolean(KEY_REPLAY_GAIN, false)
+        val sleepTimerFadeOut = p.getBoolean(KEY_SLEEP_TIMER_FADE_OUT, false)
         val ignoreEmbedded = p.getBoolean(KEY_IGNORE_EMBEDDED_LYRICS, false)
         val bilingual = p.getBoolean(KEY_BILINGUAL_TRANS, true)
         val wordAnim = p.getBoolean(KEY_WORD_ANIM, true)
@@ -357,6 +378,11 @@ object AppSettingsManager {
                 cellularQualityTier = cellTier,
                 enableAudioPassthrough = passthrough,
                 enableUsbExclusive = usbExclusive,
+                enableGaplessPlayback = gapless,
+                enableCrossfade = crossfadeEnabled,
+                crossfadeSeconds = crossfadeSeconds,
+                enableReplayGain = replayGain,
+                enableSleepTimerFadeOut = sleepTimerFadeOut,
                 enableAutoMatchLyrics = autoLyrics,
                 ignoreEmbeddedLyrics = ignoreEmbedded,
                 showBilingualLyrics = bilingual,
@@ -471,6 +497,90 @@ object AppSettingsManager {
     }
 
     fun updateUsbExclusive(enable: Boolean) = setEnableUsbExclusive(enable)
+
+    /**
+     * 开关无缝播放。
+     *
+     * 与淡入淡出播放互斥：开启无缝播放会同时关闭淡入淡出（QQ 音乐侧同样不允许两者共存）。
+     */
+    fun setEnableGaplessPlayback(enable: Boolean) {
+        val current = _settings.value
+        val next =
+            current.copy(
+                enableGaplessPlayback = enable,
+                enableCrossfade = if (enable) false else current.enableCrossfade,
+            )
+        _settings.value = next
+        prefs
+            ?.edit()
+            ?.putBoolean(KEY_GAPLESS_PLAYBACK, next.enableGaplessPlayback)
+            ?.putBoolean(KEY_CROSSFADE, next.enableCrossfade)
+            ?.apply()
+        onPlaybackEnhancementChangedListener?.invoke()
+    }
+
+    fun updateEnableGaplessPlayback(enable: Boolean) = setEnableGaplessPlayback(enable)
+
+    /**
+     * 开关淡入淡出播放，开启时会关闭无缝播放。
+     *
+     * @param seconds 淡入淡出时长（秒），传 null 表示沿用当前值
+     */
+    fun setEnableCrossfade(
+        enable: Boolean,
+        seconds: Int? = null,
+    ) {
+        val current = _settings.value
+        val secondsValue = (seconds ?: current.crossfadeSeconds).coerceIn(0, 15)
+        val next =
+            current.copy(
+                enableCrossfade = enable,
+                crossfadeSeconds = if (enable && secondsValue == 0) 3 else secondsValue,
+                enableGaplessPlayback = if (enable) false else current.enableGaplessPlayback,
+            )
+        _settings.value = next
+        prefs
+            ?.edit()
+            ?.putBoolean(KEY_CROSSFADE, next.enableCrossfade)
+            ?.putInt(KEY_CROSSFADE_SECONDS, next.crossfadeSeconds)
+            ?.putBoolean(KEY_GAPLESS_PLAYBACK, next.enableGaplessPlayback)
+            ?.apply()
+        onPlaybackEnhancementChangedListener?.invoke()
+    }
+
+    fun updateEnableCrossfade(
+        enable: Boolean,
+        seconds: Int? = null,
+    ) = setEnableCrossfade(enable, seconds)
+
+    /** 调整淡入淡出时长（0~15 秒），0 秒等价于关闭淡入淡出。 */
+    fun setCrossfadeSeconds(seconds: Int) {
+        val clamped = seconds.coerceIn(0, 15)
+        val next = _settings.value.copy(crossfadeSeconds = clamped)
+        _settings.value = next
+        prefs?.edit()?.putInt(KEY_CROSSFADE_SECONDS, clamped)?.apply()
+        onPlaybackEnhancementChangedListener?.invoke()
+    }
+
+    fun updateCrossfadeSeconds(seconds: Int) = setCrossfadeSeconds(seconds)
+
+    /** 开关音量平衡（Replay Gain）。 */
+    fun setEnableReplayGain(enable: Boolean) {
+        _settings.value = _settings.value.copy(enableReplayGain = enable)
+        prefs?.edit()?.putBoolean(KEY_REPLAY_GAIN, enable)?.apply()
+        onPlaybackEnhancementChangedListener?.invoke()
+    }
+
+    fun updateEnableReplayGain(enable: Boolean) = setEnableReplayGain(enable)
+
+    /** 开关睡眠定时到达时的淡出收尾。 */
+    fun setEnableSleepTimerFadeOut(enable: Boolean) {
+        _settings.value = _settings.value.copy(enableSleepTimerFadeOut = enable)
+        prefs?.edit()?.putBoolean(KEY_SLEEP_TIMER_FADE_OUT, enable)?.apply()
+        onPlaybackEnhancementChangedListener?.invoke()
+    }
+
+    fun updateEnableSleepTimerFadeOut(enable: Boolean) = setEnableSleepTimerFadeOut(enable)
 
     fun setEnableAutoMatchLyrics(enable: Boolean) {
         _settings.value = _settings.value.copy(enableAutoMatchLyrics = enable)
