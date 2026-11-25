@@ -17,6 +17,14 @@ data class ParsedAudioMetadata(
     val pictureOffsetInFile: Long? = null,
     val pictureLength: Long? = null,
     val metadataTotalBytes: Long? = null,
+    /** ReplayGain 曲目增益（dB），来自 Vorbis Comment 或 ID3v2 TXXX 标签。 */
+    val replayGainTrackDb: Double? = null,
+    /** ReplayGain 曲目峰值（线性倍数）。 */
+    val replayGainTrackPeak: Double? = null,
+    /** ReplayGain 专辑增益（dB）。 */
+    val replayGainAlbumDb: Double? = null,
+    /** ReplayGain 专辑峰值（线性倍数）。 */
+    val replayGainAlbumPeak: Double? = null,
 ) {
     /**
      * 依据采样率、位深与 MIME 类型推断音频质量级别。
@@ -42,6 +50,8 @@ data class ParsedAudioMetadata(
  * 规避 Android MediaMetadataRetriever 因尾部/大封面截断直接崩溃或报错抛出的问题。
  */
 object AudioMetadataParser {
+    private val REPLAY_GAIN_NUMBER = Regex("[-+]?\\d+(?:[.,]\\d+)?")
+
     /**
      * 从音频二进制流切片中解析内嵌歌词（支持 Vorbis Comment 与 ID3v2 USLT）。
      *
@@ -131,6 +141,10 @@ object AudioMetadataParser {
         var picBytes: ByteArray? = null
         var picOffset: Long? = null
         var picLen: Long? = null
+        var rgTrackDb: Double? = null
+        var rgTrackPeak: Double? = null
+        var rgAlbumDb: Double? = null
+        var rgAlbumPeak: Double? = null
 
         while (offset + 4 <= bytes.size) {
             val b0 = bytes[offset].toInt() and 0xFF
@@ -206,6 +220,22 @@ object AudioMetadataParser {
                                     "LYRICS", "UNSYNCEDLYRICS", "SYNCEDLYRICS" -> {
                                         if (lyrics.isNullOrBlank()) lyrics = value
                                     }
+
+                                    "REPLAYGAIN_TRACK_GAIN" -> {
+                                        if (rgTrackDb == null) rgTrackDb = parseReplayGainValue(value)
+                                    }
+
+                                    "REPLAYGAIN_TRACK_PEAK" -> {
+                                        if (rgTrackPeak == null) rgTrackPeak = parseReplayGainValue(value)
+                                    }
+
+                                    "REPLAYGAIN_ALBUM_GAIN" -> {
+                                        if (rgAlbumDb == null) rgAlbumDb = parseReplayGainValue(value)
+                                    }
+
+                                    "REPLAYGAIN_ALBUM_PEAK" -> {
+                                        if (rgAlbumPeak == null) rgAlbumPeak = parseReplayGainValue(value)
+                                    }
                                 }
                             }
                         }
@@ -252,6 +282,10 @@ object AudioMetadataParser {
             pictureOffsetInFile = picOffset,
             pictureLength = picLen,
             metadataTotalBytes = totalMetaBytes,
+            replayGainTrackDb = rgTrackDb,
+            replayGainTrackPeak = rgTrackPeak,
+            replayGainAlbumDb = rgAlbumDb,
+            replayGainAlbumPeak = rgAlbumPeak,
         )
     }
 
@@ -273,6 +307,10 @@ object AudioMetadataParser {
         var picBytes: ByteArray? = null
         var picOffset: Long? = null
         var picLen: Long? = null
+        var rgTrackDb: Double? = null
+        var rgTrackPeak: Double? = null
+        var rgAlbumDb: Double? = null
+        var rgAlbumPeak: Double? = null
 
         while (pos + 10 <= totalLimit) {
             val frameId = String(bytes, pos, 4, Charsets.ISO_8859_1)
@@ -331,6 +369,44 @@ object AudioMetadataParser {
                         }
                     }
 
+                    "TXXX" -> {
+                        // TXXX: encoding(1) + description\0 + value
+                        if (frameDataLimit - pos > 2) {
+                            val encoding = bytes[pos].toInt() and 0xFF
+                            val charset = getId3Charset(encoding)
+                            val descStart = pos + 1
+                            val cursor = skipId3StringNullTerminator(bytes, descStart, frameDataLimit, encoding)
+                            if (cursor < frameDataLimit) {
+                                val desc =
+                                    String(bytes, descStart, cursor - descStart, charset)
+                                        .trimEnd('\u0000')
+                                        .trim()
+                                        .uppercase()
+                                val value =
+                                    String(bytes, cursor, frameDataLimit - cursor, charset)
+                                        .trimEnd('\u0000')
+                                        .trim()
+                                when (desc) {
+                                    "REPLAYGAIN_TRACK_GAIN" -> {
+                                        if (rgTrackDb == null) rgTrackDb = parseReplayGainValue(value)
+                                    }
+
+                                    "REPLAYGAIN_TRACK_PEAK" -> {
+                                        if (rgTrackPeak == null) rgTrackPeak = parseReplayGainValue(value)
+                                    }
+
+                                    "REPLAYGAIN_ALBUM_GAIN" -> {
+                                        if (rgAlbumDb == null) rgAlbumDb = parseReplayGainValue(value)
+                                    }
+
+                                    "REPLAYGAIN_ALBUM_PEAK" -> {
+                                        if (rgAlbumPeak == null) rgAlbumPeak = parseReplayGainValue(value)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     "APIC" -> {
                         // APIC: encoding(1) + mime\0 + picType(1) + desc\0 + picData
                         var cursor = pos + 1
@@ -367,6 +443,10 @@ object AudioMetadataParser {
             pictureOffsetInFile = picOffset,
             pictureLength = picLen,
             metadataTotalBytes = 10L + tagSize,
+            replayGainTrackDb = rgTrackDb,
+            replayGainTrackPeak = rgTrackPeak,
+            replayGainAlbumDb = rgAlbumDb,
+            replayGainAlbumPeak = rgAlbumPeak,
         )
     }
 
@@ -565,11 +645,64 @@ object AudioMetadataParser {
         }
         val channels = bytes[vIdx + 11].toInt() and 0xFF
         val sampleRate = readInt32LE(bytes, vIdx + 12)
+
+        var rgTrackDb: Double? = null
+        var rgTrackPeak: Double? = null
+        var rgAlbumDb: Double? = null
+        var rgAlbumPeak: Double? = null
+
+        // Vorbis Comment 包头（0x03 + "vorbis"）紧随标识头，携带 REPLAYGAIN_* 标签
+        val commentTag = byteArrayOf(3, 'v'.code.toByte(), 'o'.code.toByte(), 'r'.code.toByte(), 'b'.code.toByte(), 'i'.code.toByte(), 's'.code.toByte())
+        val cIdx = indexOfBytes(bytes, commentTag)
+        if (cIdx != -1 && cIdx + 11 <= bytes.size) {
+            val vendorLen = readInt32LE(bytes, cIdx + 7)
+            var pos = cIdx + 7 + 4 + vendorLen
+            if (pos + 4 <= bytes.size) {
+                val commentCount = readInt32LE(bytes, pos)
+                pos += 4
+                for (i in 0 until commentCount) {
+                    if (pos + 4 > bytes.size) break
+                    val commentLen = readInt32LE(bytes, pos)
+                    pos += 4
+                    if (commentLen <= 0 || pos + commentLen > bytes.size) break
+                    val commentStr = String(bytes, pos, commentLen, Charsets.UTF_8)
+                    pos += commentLen
+                    val eqIdx = commentStr.indexOf('=')
+                    if (eqIdx > 0) {
+                        val key = commentStr.substring(0, eqIdx).trim().uppercase()
+                        val value = commentStr.substring(eqIdx + 1).trim()
+                        when (key) {
+                            "REPLAYGAIN_TRACK_GAIN" -> if (rgTrackDb == null) rgTrackDb = parseReplayGainValue(value)
+                            "REPLAYGAIN_TRACK_PEAK" -> if (rgTrackPeak == null) rgTrackPeak = parseReplayGainValue(value)
+                            "REPLAYGAIN_ALBUM_GAIN" -> if (rgAlbumDb == null) rgAlbumDb = parseReplayGainValue(value)
+                            "REPLAYGAIN_ALBUM_PEAK" -> if (rgAlbumPeak == null) rgAlbumPeak = parseReplayGainValue(value)
+                        }
+                    }
+                }
+            }
+        }
+
         return ParsedAudioMetadata(
             sampleRate = if (sampleRate > 0) sampleRate else null,
             bitsPerSample = 16,
             channels = if (channels > 0) channels else null,
+            replayGainTrackDb = rgTrackDb,
+            replayGainTrackPeak = rgTrackPeak,
+            replayGainAlbumDb = rgAlbumDb,
+            replayGainAlbumPeak = rgAlbumPeak,
         )
+    }
+
+    /**
+     * 从 ReplayGain 标签文本中提取数值，兼容 `-7.23 dB`、`+1.5`、`-3,2 dB` 等写法。
+     *
+     * @param value 标签原始文本
+     * @return 解析出的数值，无法解析返回 null
+     */
+    private fun parseReplayGainValue(value: String?): Double? {
+        if (value.isNullOrBlank()) return null
+        val match = REPLAY_GAIN_NUMBER.find(value) ?: return null
+        return match.value.replace(',', '.').toDoubleOrNull()
     }
 
     private fun indexOfBytes(
