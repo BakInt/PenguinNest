@@ -32,6 +32,8 @@ class PlaybackProgressTracker(
     private val onSongActivePlaybackQualified: ((Song) -> Unit)? = null,
     private val onContextActivePlaybackQualified: (() -> Unit)? = null,
     private val onSongPlaybackSessionFinished: ((song: Song, playedDurationMs: Long) -> Unit)? = null,
+    /** 播放中每 60ms 回调一次当前进度与总时长，用于无缝播放/淡入淡出的临界触发。 */
+    private val onPlaybackTick: ((positionMs: Long, durationMs: Long) -> Unit)? = null,
 ) {
     private var progressJob: Job? = null
     private var trackedSong: Song? = null
@@ -126,6 +128,7 @@ class PlaybackProgressTracker(
                             val pos = player.currentPosition.coerceAtLeast(0L)
                             val dur = player.duration
                             onPositionUpdated(pos)
+                            onPlaybackTick?.invoke(pos, dur)
                             if (dur > 0L) {
                                 onDurationUpdated(dur)
                                 if (!mid.isNullOrBlank()) {

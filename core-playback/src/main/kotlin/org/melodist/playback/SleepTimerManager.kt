@@ -29,6 +29,15 @@ object SleepTimerManager {
     private val _isWaitingForSongEnd = MutableStateFlow(false)
     val isWaitingForSongEnd: StateFlow<Boolean> = _isWaitingForSongEnd.asStateFlow()
 
+    /**
+     * 倒计时到点且正在播放时的回调。
+     *
+     * 由 [PlaybackManager] 注入，用于“淡出后再停止”的收尾；回调返回 true 表示它已接管
+     * 本次停止（内部负责淡出结束后暂停播放并调用 [cancelTimer]）。返回 false 或未注入时，
+     * 退回“播完当前歌曲再停”的旧行为。
+     */
+    var onTimerExpiredListener: (() -> Boolean)? = null
+
     fun startTimer(minutes: Int) {
         if (minutes <= 0) {
             cancelTimer()
@@ -49,6 +58,11 @@ object SleepTimerManager {
                     val diff = targetTimestampMs - now
                     if (diff <= 0L) {
                         _remainingSeconds.value = 0L
+                        val fadeOutOnce = onTimerExpiredListener
+                        if (fadeOutOnce != null && PlaybackManager.isPlaying.value && fadeOutOnce()) {
+                            // 已交给淡出收尾逻辑：它会在淡出完成后暂停播放并取消定时器
+                            break
+                        }
                         _isWaitingForSongEnd.value = true
                         if (!PlaybackManager.isPlaying.value) {
                             cancelTimer()

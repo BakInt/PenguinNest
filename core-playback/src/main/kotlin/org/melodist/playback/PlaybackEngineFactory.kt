@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -20,7 +21,10 @@ import org.melodist.data.AppSettingsManager
 object PlaybackEngineFactory {
     private const val TAG = "PlaybackEngineFactory"
 
-    fun createRenderersFactory(context: Context): DefaultRenderersFactory {
+    fun createRenderersFactory(
+        context: Context,
+        gainController: PlaybackGainController? = null,
+    ): DefaultRenderersFactory {
         return object : DefaultRenderersFactory(context.applicationContext) {
             override fun buildAudioSink(
                 context: Context,
@@ -47,7 +51,7 @@ object PlaybackEngineFactory {
                     DefaultAudioSink
                         .Builder(context)
                         .setAudioCapabilities(audioCapabilities)
-                        .setAudioProcessors(emptyArray())
+                        .setAudioProcessors(buildAudioProcessors(isPassthrough, gainController))
                         .setEnableFloatOutput(shouldEnableFloat)
                         .setEnableAudioTrackPlaybackParams(if (isExclusive) false else enableAudioTrackPlaybackParams)
                 return builder.build()
@@ -55,6 +59,25 @@ object PlaybackEngineFactory {
         }.apply {
             setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
         }
+    }
+
+    /**
+     * 构造音频处理器链。
+     *
+     * 直通/独占模式下音频数据由硬件直接输出，处理器链必须为空；
+     * 其余模式常驻一个 [androidx.media3.common.audio.GainProcessor]，由
+     * [PlaybackGainController] 在运行期调整增益（音量平衡）与斜坡（淡入淡出），
+     * 这样开关设置时不需要重建播放器。
+     *
+     * @param isPassthrough 是否处于音频直通/独占输出
+     * @param gainController 增益控制器，为空时不挂载处理器
+     */
+    private fun buildAudioProcessors(
+        isPassthrough: Boolean,
+        gainController: PlaybackGainController?,
+    ): Array<AudioProcessor> {
+        if (isPassthrough || gainController == null) return emptyArray()
+        return arrayOf(androidx.media3.common.audio.GainProcessor(gainController))
     }
 
     /**
@@ -78,6 +101,8 @@ object PlaybackEngineFactory {
         context: Context,
         listener: Player.Listener,
         analyticsListener: AnalyticsListener? = null,
+        gainController: PlaybackGainController? = null,
+        handleAudioFocus: Boolean = true,
     ): ExoPlayer {
         val audioAttributes =
             AudioAttributes
@@ -117,10 +142,10 @@ object PlaybackEngineFactory {
                 .build()
 
         return ExoPlayer
-            .Builder(context.applicationContext, createRenderersFactory(context))
+            .Builder(context.applicationContext, createRenderersFactory(context, gainController))
             .setMediaSourceFactory(mediaSourceFactory)
             .setLoadControl(loadControl)
-            .setAudioAttributes(audioAttributes, true)
+            .setAudioAttributes(audioAttributes, handleAudioFocus)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()

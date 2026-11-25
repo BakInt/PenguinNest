@@ -131,6 +131,18 @@ class PlaybackService : MediaSessionService() {
         mediaSession = session
         addSession(session)
 
+        // 淡入淡出交接后活动播放器实例变化，需要把会话重新绑到新的播放器上
+        PlaybackManager.onActivePlayerSwappedListener = {
+            try {
+                val newPlayer = PlaybackManager.getOrCreatePlayer(this)
+                val newForwarding = QQMusicForwardingPlayer(newPlayer)
+                forwardingPlayer = newForwarding
+                mediaSession?.player = newForwarding
+            } catch (e: Exception) {
+                android.util.Log.w("QQMusicPlayback", "Failed to rebind media session player", e)
+            }
+        }
+
         serviceScope.launch {
             combine(PlaybackManager.currentSong, PlaybackManager.favoriteSongMids) { song, favs ->
                 song != null && favs.contains(song.songMid)
@@ -294,6 +306,7 @@ class PlaybackService : MediaSessionService() {
         updateWakeLock(false)
         serviceScope.cancel()
         forwardingPlayer = null
+        PlaybackManager.onActivePlayerSwappedListener = null
         mediaSession?.run {
             removeSession(this)
             release()

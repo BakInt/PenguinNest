@@ -133,6 +133,28 @@ class PlaybackQueueManager(
     }
 
     /**
+     * 无缝播放/淡入淡出自动过渡时，仅把队列指针推进到指定曲目，不触发起播。
+     *
+     * 与 [playNext] 的区别在于：播放器已经在播这首（预入队或另一播放器已起播），
+     * 此处只同步队列索引、随机序列与分页预取，避免再次走音源解析导致断点。
+     *
+     * @param songMid 已开始播放的曲目 mid
+     * @return 队列中对应的曲目，未在队列中找到返回 null
+     */
+    fun advanceIndexForAutoTransition(songMid: String): Song? {
+        val list = _playlist.value
+        val index = list.indexOfFirst { it.songMid == songMid }
+        if (index == -1) return null
+        pendingNextSongMid = null
+        _currentIndex.value = index
+        if (_loopMode.value == PlaybackLoopMode.Shuffle) {
+            shuffleQueue.syncTo(index, list.size, list)
+        }
+        checkPrefetchQueueNextPage()
+        return list[index]
+    }
+
+    /**
      * 全量重置并配置播放列表。
      *
      * @param songs 目标歌曲列表

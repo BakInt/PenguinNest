@@ -28,6 +28,7 @@ import org.melodist.api.SessionState
 import org.melodist.api.UserSession
 import org.melodist.api.getPlayUrl
 import org.melodist.api.getSongVisualMid
+import org.melodist.data.AppSettingsManager
 import org.melodist.data.LyricCacheManager
 import org.melodist.data.download.DownloadManager
 import org.melodist.model.AudioQualityTier
@@ -559,6 +560,24 @@ object PlaybackManager {
         )
     }
 
+    // ==================== 播放增强（无缝播放 / 淡入淡出 / 音量平衡） ====================
+
+    /** 新活动播放器就绪后的回调，供 [PlaybackService] 重建 MediaSession。 */
+    var onActivePlayerSwappedListener: (() -> Unit)? = null
+
+    /** 已解析（并可能已入队）的下一首。 */
+    private data class PreparedNextTrack(
+        val song: Song,
+        val target: PlaybackTargetResult,
+        val gain: Float,
+    )
+
+    private var gaplessPrepared: PreparedNextTrack? = null
+    private var gaplessPrepareJob: Job? = null
+    private var crossfadePrepared: PreparedNextTrack? = null
+    private var crossfadeJob: Job? = null
+    private var crossfadeActive = false
+
     private val playerListener =
         object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
@@ -603,6 +622,15 @@ object PlaybackManager {
                 mediaItem: androidx.media3.common.MediaItem?,
                 reason: Int,
             ) {
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                    // 无缝播放：预先入队的下一首由 ExoPlayer 自动续播，这里只做状态同步
+                    val prepared = gaplessPrepared
+                    if (prepared != null && mediaItem?.mediaId == prepared.song.songMid) {
+                        gaplessPrepared = null
+                        onAutoAdvancedToSong(prepared)
+                        return
+                    }
+                }
                 if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
                     exoPlayer?.repeatMode = Player.REPEAT_MODE_OFF
                     if (queueManager.loopMode.value != PlaybackLoopMode.SingleRepeat) {
@@ -790,6 +818,7 @@ object PlaybackManager {
             onSongActivePlaybackQualified = { song -> analyticsReporter.onSongActivePlaybackQualified(song) },
             onContextActivePlaybackQualified = { analyticsReporter.onContextActivePlaybackQualified() },
             onSongPlaybackSessionFinished = { song, playedMs -> analyticsReporter.onSongPlaybackSessionFinished(song, playedMs) },
+            onPlaybackTick = { pos, dur -> onPlaybackProgressTick(pos, dur) },
         )
 
     private fun buildExoPlayer(context: Context): ExoPlayer = playerPipeline.buildExoPlayer(context)
@@ -891,6 +920,9 @@ object PlaybackManager {
             }
         }
         safeInit("usbRouter.register") { usbRouter.register(context) }
+        safeInit("sleepTimerFadeOutListener") {
+            SleepTimerManager.onTimerExpiredListener = { onSleepTimerExpired() }
+        }
         safeInit("onUsbExclusiveChangedListener") {
             org.melodist.data.AppSettingsManager.onUsbExclusiveChangedListener = {
                 resetPlayerPipeline()
@@ -1235,6 +1267,7 @@ object PlaybackManager {
         retryJob?.cancel()
         switchQualityJob?.cancel()
         _isSwitchingQuality.value = false
+        cancelEnhancementTransitions()
 
         var effectiveSong = song
         val coverFile =
@@ -1377,6 +1410,13 @@ object PlaybackManager {
                 player.clearMediaItems()
 
                 val target = resolveTargetDeferred.await()
+
+                // 音量平衡：按曲目 ReplayGain 设置本曲增益（无标签/在线流保持 1.0）
+                val enhancementGain = resolveReplayGainGain(target)
+                playerPipeline.gainController?.apply {
+                    reset()
+                    setBaseGain(enhancementGain)
+                }
 
                 PlaybackPlayerBinder.bindAndPlay(
                     player = player,
@@ -1541,6 +1581,7 @@ object PlaybackManager {
         retryJob?.cancel()
         switchQualityJob?.cancel()
         _isSwitchingQuality.value = false
+        cancelEnhancementTransitions()
 
         _currentSong.value = song
         _isTransitioning.value = true
@@ -2041,6 +2082,355 @@ object PlaybackManager {
                 playNext()
             }
         }
+    }
+
+    // ==================== 播放增强（无缝播放 / 淡入淡出 / 音量平衡） ====================
+
+    private fun enhancementEnvironment(hasNextSong: Boolean): PlaybackEnhancementEnvironment {
+        val settings = AppSettingsManager.settings.value
+        return PlaybackEnhancementEnvironment(
+            passthroughActive = settings.enableAudioPassthrough || settings.enableUsbExclusive,
+            usbExclusive = settings.enableUsbExclusive,
+            remoteActive = remoteStateHolder.isRemoteActive.value,
+            listenTogetherActive = ListenTogetherManager.isInRoom,
+            radioMode = queueManager.isRadioMode.value,
+            singleRepeat = queueManager.loopMode.value == PlaybackLoopMode.SingleRepeat,
+            qualitySwitching = _isSwitchingQuality.value || _isTransitioning.value,
+            sleepTimerWaitingForSongEnd = SleepTimerManager.isWaitingForSongEnd.value,
+            hasNextSong = hasNextSong,
+        )
+    }
+
+    /**
+     * 当前环境下真正生效的播放增强能力。
+     *
+     * 供 UI 提示“当前场景不支持无缝/淡入淡出”等降级信息，也可用于排查问题。
+     */
+    fun enhancementState(): PlaybackEnhancementState =
+        PlaybackEnhancementPolicy.resolve(
+            PlaybackEnhancementConfig.current(),
+            enhancementEnvironment(getNextSong() != null),
+        )
+
+    /**
+     * 播放进度 tick，用于在临近曲尾时触发无缝预入队或淡入淡出交接。
+     *
+     * @param positionMs 当前播放位置
+     * @param durationMs 当前曲目总时长
+     */
+    private fun onPlaybackProgressTick(
+        positionMs: Long,
+        durationMs: Long,
+    ) {
+        if (remoteStateHolder.isRemoteActive.value) return
+        if (playJob?.isActive == true) return
+        val state = enhancementState()
+        when {
+            state.crossfade -> maybeStartCrossfade(positionMs, durationMs)
+            state.gapless -> maybePrepareGaplessNext(positionMs, durationMs)
+        }
+    }
+
+    private fun resolveTargetTierFor(song: Song): AudioQualityTier {
+        val rawTier = _preferredTier.value
+        val cellularTier = clampCellularTier(rawTier, song)
+        val clampedTier = PlaybackSourceResolver.clampCodecSupportedTier(cellularTier, song)
+        val policyTier = policyCoordinator.resolveInitialTier(song, clampedTier)
+        return PlaybackSourceResolver.clampCodecSupportedTier(policyTier ?: clampedTier, song)
+    }
+
+    /**
+     * 解析下一首的播放目标（与主播放链路共用同一套音质/缓存判定）。
+     *
+     * @param song 目标曲目
+     * @return 解析结果，失败返回 null
+     */
+    private suspend fun resolveNextTrack(song: Song): PreparedNextTrack? {
+        val ctx = appContext ?: return null
+        val targetTier = resolveTargetTierFor(song)
+        val forceTrial = policyCoordinator.isForceTrial(song)
+        val bypassPrefetch = policyCoordinator.shouldBypassPrefetch(song)
+        val prefetched = if (bypassPrefetch) null else preloadCoordinator.prefetchedUrlInfo?.takeIf { it.first == song.songMid }
+        val target =
+            withContext(Dispatchers.IO) {
+                PlaybackMediaLoader.resolveTarget(
+                    context = ctx,
+                    song = song,
+                    targetTier = targetTier,
+                    apiService = apiService,
+                    isSongFavorite = { isSongFavorite(it) },
+                    metadataBuilder = { buildMediaMetadata(it) },
+                    prefetchedUrlInfo = prefetched,
+                    forceTrial = forceTrial,
+                )
+            }
+        if (target is PlaybackTargetResult.Failure) {
+            Log.w("QQMusicPlayback", "Enhancement: skip ${song.name}, resolve failed: ${target.message}")
+            return null
+        }
+        return PreparedNextTrack(song = song, target = target, gain = resolveReplayGainGain(target))
+    }
+
+    /**
+     * 计算某一播放目标应使用的 ReplayGain 线性增益。
+     *
+     * 只有本地/缓存文件才带 REPLAYGAIN 标签；在线流统一返回 1.0。
+     */
+    private suspend fun resolveReplayGainGain(target: PlaybackTargetResult): Float {
+        if (!enhancementState().replayGain) return 1f
+        return when (target) {
+            is PlaybackTargetResult.LocalFile ->
+                withContext(Dispatchers.IO) { ReplayGainRepository.gainFactorForFile(target.localFile.absolutePath) }
+
+            else -> 1f
+        }
+    }
+
+    private fun actualTierOf(target: PlaybackTargetResult): AudioQualityTier? =
+        when (target) {
+            is PlaybackTargetResult.LocalFile -> target.actualTier
+            is PlaybackTargetResult.LocalStream -> target.actualTier
+            is PlaybackTargetResult.Online -> target.actualTier
+            is PlaybackTargetResult.Failure -> null
+        }
+
+    // ---------- 无缝播放 ----------
+
+    private fun maybePrepareGaplessNext(
+        positionMs: Long,
+        durationMs: Long,
+    ) {
+        if (gaplessPrepared != null) return
+        if (gaplessPrepareJob?.isActive == true) return
+        // 定时停止/一起听等需要"播完即停"的场景不预入队，否则 ExoPlayer 会自动续播
+        if (SleepTimerManager.isTimerActive.value) return
+        if (!PlaybackEnhancementPolicy.isInPreloadWindow(positionMs, durationMs)) return
+        val current = _currentSong.value ?: return
+        val next = getNextSong() ?: return
+        if (next.songMid == current.songMid) return
+        gaplessPrepareJob =
+            scope.launch {
+                try {
+                    val prepared = resolveNextTrack(next) ?: return@launch
+                    val player = exoPlayer ?: return@launch
+                    if (gaplessPrepared != null) return@launch
+                    enqueuePrepared(player, prepared)
+                    gaplessPrepared = prepared
+                    Log.i("QQMusicPlayback", "Gapless: pre-enqueued ${prepared.song.name}")
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    Log.w("QQMusicPlayback", "Gapless prepare failed", e)
+                }
+            }
+    }
+
+    private fun enqueuePrepared(
+        player: ExoPlayer,
+        prepared: PreparedNextTrack,
+    ) {
+        when (val target = prepared.target) {
+            is PlaybackTargetResult.LocalFile -> player.addMediaItem(target.mediaItem)
+            is PlaybackTargetResult.LocalStream -> player.addMediaSource(target.mediaSource)
+            is PlaybackTargetResult.Online -> player.addMediaSource(target.mediaSource)
+            is PlaybackTargetResult.Failure -> Unit
+        }
+    }
+
+    /**
+     * 播放器自动过渡到下一首（无缝播放或淡入淡出交接）后的状态同步。
+     *
+     * 与 [playSong] 不同：媒体源已经在播放，这里只补齐曲目状态、队列索引、歌词与增益，
+     * 避免重新走音源解析造成断点。
+     *
+     * @param prepared 已开始播放的曲目及其解析结果
+     */
+    private fun onAutoAdvancedToSong(prepared: PreparedNextTrack) {
+        if (SleepTimerManager.onSongEnded()) {
+            _isTransitioning.value = false
+            exoPlayer?.seekTo(0L)
+            _currentPositionMs.value = 0L
+            pause()
+            return
+        }
+        val song = prepared.song
+        progressTracker.flushActivePlaybackSession()
+        queueManager.advanceIndexForAutoTransition(song.songMid)
+        QQMusicCacheManager.onNewSongStarted(song.songMid)
+        preloadCoordinator.onSongChanged(song.songMid)
+        _currentSong.value = song
+        actualTierOf(prepared.target)?.let { _currentTier.value = it }
+        when (val target = prepared.target) {
+            is PlaybackTargetResult.LocalFile -> {
+                _isCurrentTrackFromCache.value = true
+                _fileCacheFraction.value = 1f
+            }
+
+            is PlaybackTargetResult.Online -> {
+                _isCurrentTrackFromCache.value = target.isDirectCached
+                _fileCacheFraction.value = target.fileCacheFraction
+            }
+
+            else -> {
+                _isCurrentTrackFromCache.value = false
+                _fileCacheFraction.value = 0f
+            }
+        }
+        _currentPositionMs.value = 0L
+        _bufferedPositionMs.value = 0L
+        _durationMs.value = policyCoordinator.resolveDurationMs(song)
+        _isLoading.value = false
+        _isTransitioning.value = false
+        _lyrics.value = emptyList()
+        playerPipeline.gainController?.apply {
+            reset()
+            setBaseGain(prepared.gain)
+        }
+        updateCurrentMediaMetadata(song)
+        org.melodist.data.RecentPlaybackManager.recordSong(song)
+        loadLyricsForSong(song)
+        savePlaybackState()
+        prefetchAdjacentCoversAndMetadata()
+        appContext?.let { ctx ->
+            CoverMemoryManager.trimMemoryWindow(ctx, getPreviousSong(), song, getNextSong())
+        }
+        playbackEventListeners.forEach { it.onSongPlay(song) }
+    }
+
+    // ---------- 淡入淡出 ----------
+
+    private fun maybeStartCrossfade(
+        positionMs: Long,
+        durationMs: Long,
+    ) {
+        if (crossfadeActive || crossfadeJob?.isActive == true) return
+        if (SleepTimerManager.isTimerActive.value) return
+        if (durationMs <= 0L) return
+        val fadeMs = PlaybackEnhancementConfig.current().crossfadeDurationMs
+        if (fadeMs <= 0L) return
+        val remaining = durationMs - positionMs
+        if (remaining <= PlaybackEnhancementPolicy.CROSSFADE_SAFETY_MARGIN_MS) return
+        if (remaining > fadeMs) return
+        val current = _currentSong.value ?: return
+        val next = getNextSong() ?: return
+        if (next.songMid == current.songMid) return
+
+        crossfadeActive = true
+        crossfadeJob =
+            scope.launch {
+                try {
+                    val ctx = appContext ?: return@launch
+                    val prepared = resolveNextTrack(next) ?: return@launch
+                    val slot = playerPipeline.ensureStandbyPlayer(ctx)
+                    crossfadePrepared = prepared
+                    slot.gain.reset()
+                    slot.gain.setBaseGain(0f)
+                    PlaybackPlayerBinder.bindAndPlay(
+                        player = slot.player,
+                        target = prepared.target,
+                        seekToMs = 0L,
+                        isMuted = _isMuted.value,
+                        targetVolume = targetVolume,
+                        onPlaybackStarted = { _, _, _ -> },
+                        onLocalFilePostAction = {},
+                        onFailure = { message, _ ->
+                            Log.w("QQMusicPlayback", "Crossfade standby failed: $message")
+                            playerPipeline.releaseStandbyPlayer()
+                            crossfadePrepared = null
+                            crossfadeActive = false
+                        },
+                    )
+                    playerPipeline.gainController?.rampTo(
+                        targetGain = 0f,
+                        durationMs = fadeMs,
+                        curve = PlaybackGainController.Curve.EQUAL_POWER_OUT,
+                    )
+                    slot.gain.rampTo(
+                        targetGain = prepared.gain,
+                        durationMs = fadeMs,
+                        curve = PlaybackGainController.Curve.EQUAL_POWER_IN,
+                    )
+                    Log.i("QQMusicPlayback", "Crossfade started (${fadeMs}ms) -> ${prepared.song.name}")
+                    delay(fadeMs + 150L)
+                    commitCrossfade()
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    Log.w("QQMusicPlayback", "Crossfade aborted", e)
+                    crossfadePrepared = null
+                    crossfadeActive = false
+                    playerPipeline.releaseStandbyPlayer()
+                }
+            }
+    }
+
+    /**
+     * 淡入淡出收尾：停掉淡出的旧播放器，把已经起播的备用播放器转为活动播放器。
+     */
+    private fun commitCrossfade() {
+        val prepared = crossfadePrepared
+        crossfadePrepared = null
+        crossfadeActive = false
+        if (prepared == null) {
+            playerPipeline.releaseStandbyPlayer()
+            return
+        }
+        val old = exoPlayer
+        try {
+            old?.stop()
+            old?.clearMediaItems()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+        }
+        playerPipeline.gainController?.reset()
+        if (!playerPipeline.swapActiveAndStandby()) {
+            playerPipeline.releaseStandbyPlayer()
+            return
+        }
+        playerPipeline.gainController?.finishRamp()
+        // MediaSession 绑定的播放器实例已更换，需要重建会话
+        onActivePlayerSwappedListener?.invoke()
+        playerPipeline.releaseStandbyPlayer()
+        onAutoAdvancedToSong(prepared)
+    }
+
+    /**
+     * 取消所有待完成的无缝/淡入淡出过渡（手动切歌、暂停或设置变更时调用）。
+     */
+    private fun cancelEnhancementTransitions() {
+        gaplessPrepareJob?.cancel()
+        gaplessPrepareJob = null
+        gaplessPrepared = null
+        crossfadeJob?.cancel()
+        crossfadeJob = null
+        crossfadePrepared = null
+        crossfadeActive = false
+        playerPipeline.releaseStandbyPlayer()
+        playerPipeline.gainController?.reset()
+    }
+
+    // ---------- 定时停止的淡出收尾 ----------
+
+    /**
+     * 睡眠定时到达时的处理：开启淡出收尾则先淡出再暂停。
+     *
+     * @return true 表示已接管本次停止（[SleepTimerManager] 不再进入"播完当前歌曲"等待态）
+     */
+    private fun onSleepTimerExpired(): Boolean {
+        if (!AppSettingsManager.settings.value.enableSleepTimerFadeOut) return false
+        scope.launch {
+            val controller = playerPipeline.gainController
+            if (controller != null && exoPlayer?.isPlaying == true) {
+                controller.rampTo(
+                    targetGain = 0f,
+                    durationMs = 3_000L,
+                    curve = PlaybackGainController.Curve.LINEAR,
+                )
+                delay(3_000L + 150L)
+            }
+            pause()
+            SleepTimerManager.cancelTimer()
+            controller?.reset()
+        }
+        return true
     }
 
     /**
