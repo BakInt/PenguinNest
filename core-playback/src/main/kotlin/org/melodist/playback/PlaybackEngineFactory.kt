@@ -1,6 +1,7 @@
 package org.melodist.playback
 
 import android.content.Context
+import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -77,7 +78,29 @@ object PlaybackEngineFactory {
         gainController: PlaybackGainController?,
     ): Array<AudioProcessor> {
         if (isPassthrough || gainController == null) return emptyArray()
-        return arrayOf(androidx.media3.common.audio.GainProcessor(gainController))
+        if (!needsGainProcessor()) return emptyArray()
+        // GainProcessor 只接受 16bit 整型或 float PCM，24bit/32bit 整型源会配置失败；
+        // 前面垫一层 ToInt16 兜底（输入本来就是 16bit 时它自己会保持 inactive）。
+        val processors: Array<AudioProcessor> =
+            arrayOf(
+                androidx.media3.common.audio.ToInt16PcmAudioProcessor(),
+                androidx.media3.common.audio.GainProcessor(gainController),
+            )
+        Log.i(TAG, "audio processors: ${processors.joinToString { it.javaClass.simpleName }}")
+        return processors
+    }
+
+    /**
+     * 当前设置是否真的需要增益处理器（音量平衡、淡入淡出、定时停止淡出任一开启）。
+     *
+     * 默认设置下返回 false，音频链与未引入播放增强前完全一致，
+     * 既避免无谓的 24bit→16bit 转换，也把回归风险降到零。
+     */
+    fun needsGainProcessor(): Boolean {
+        val config = PlaybackEnhancementConfig.current()
+        return config.crossfadeEnabled ||
+            config.replayGainEnabled ||
+            AppSettingsManager.settings.value.enableSleepTimerFadeOut
     }
 
     /**

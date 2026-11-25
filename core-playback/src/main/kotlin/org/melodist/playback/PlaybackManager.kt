@@ -565,6 +565,9 @@ object PlaybackManager {
     /** 新活动播放器就绪后的回调，供 [PlaybackService] 重建 MediaSession。 */
     var onActivePlayerSwappedListener: (() -> Unit)? = null
 
+    /** 上一次建播放器时“是否需要增益处理器”的取值，用于判断设置变化后要不要重建播放器。 */
+    private var lastGainProcessorNeeded: Boolean = false
+
     /** 已解析（并可能已入队）的下一首。 */
     private data class PreparedNextTrack(
         val song: Song,
@@ -928,6 +931,17 @@ object PlaybackManager {
                 resetPlayerPipeline()
             }
         }
+        safeInit("onPlaybackEnhancementChangedListener") {
+            lastGainProcessorNeeded = PlaybackEngineFactory.needsGainProcessor()
+            org.melodist.data.AppSettingsManager.onPlaybackEnhancementChangedListener = {
+                val needed = PlaybackEngineFactory.needsGainProcessor()
+                if (needed != lastGainProcessorNeeded) {
+                    lastGainProcessorNeeded = needed
+                    // 处理器链在播放器创建时固化，只能重建播放器才能生效。
+                    resetPlayerPipeline()
+                }
+            }
+        }
         safeInit("buildExoPlayer") {
             if (exoPlayer == null) {
                 playerPipeline.buildExoPlayer(context)
@@ -958,7 +972,11 @@ object PlaybackManager {
         }
     }
 
-    fun resetPlayerPipeline(restoreMediaItem: Boolean = true) = playerPipeline.resetPlayerPipeline(restoreMediaItem)
+    fun resetPlayerPipeline(restoreMediaItem: Boolean = true) {
+        playerPipeline.resetPlayerPipeline(restoreMediaItem)
+        // 播放器实例换了，MediaSession 必须重新绑到新播放器，否则通知栏/遥控会操作已释放的实例。
+        onActivePlayerSwappedListener?.invoke()
+    }
 
     fun reloadAudioPipeline() = playerPipeline.reloadAudioPipeline()
 
@@ -2443,6 +2461,9 @@ object PlaybackManager {
         playJob?.cancel()
         preloadCoordinator.release()
         playerPipeline.release()
+        if (org.melodist.data.AppSettingsManager.onPlaybackEnhancementChangedListener != null) {
+            org.melodist.data.AppSettingsManager.onPlaybackEnhancementChangedListener = null
+        }
         _isPlaying.value = false
         _isLoading.value = false
         _isSwitchingQuality.value = false

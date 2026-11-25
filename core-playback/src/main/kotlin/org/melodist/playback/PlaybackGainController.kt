@@ -135,7 +135,7 @@ class PlaybackGainController : GainProcessor.GainProvider {
     override fun isUnityUntil(
         samplePosition: Long,
         sampleRate: Int,
-    ): Long = if (rampDurationMs <= 0L && baseGain == 1f) Long.MAX_VALUE else samplePosition
+    ): Long = if (rampDurationMs <= 0L && baseGain == 1f) UNITY_FOREVER else samplePosition
 
     private fun sanitizeGain(gain: Float): Float =
         if (gain.isNaN() || gain.isInfinite()) 1f else gain.coerceIn(0f, MAX_GAIN)
@@ -146,6 +146,16 @@ class PlaybackGainController : GainProcessor.GainProvider {
 
         /** 增益下限（约 -20dB）。 */
         const val MIN_GAIN = 0.1f
+
+        /**
+         * [GainProcessor.isUnityUntil] 约定的“整段都是原始音量”哨兵值。
+         *
+         * Media3 用 `Long.MIN_VALUE` 表示该区域没有增益变化，此时处理器直接整块拷贝；
+         * 若返回其它极值（如 [Long.MAX_VALUE]），`GainProcessor.queueInput` 会把
+         * `(unityUntil - readFrames) * bytesPerFrame` 算成负数并调用 `ByteBuffer.limit(负数)`，
+         * 音频线程抛异常导致每首歌一起播就失败（表现为不断跳下一首且没有声音）。
+         */
+        const val UNITY_FOREVER = Long.MIN_VALUE
 
         /** 主播放器使用的控制器。 */
         val primary = PlaybackGainController()
