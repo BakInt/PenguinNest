@@ -379,15 +379,5 @@ fun AudioQualityPanel(menuRequester: FocusRequester) {
                 AppSettingsManager.setEnableReplayGain(!settings.enableReplayGain)
             },
         )
-
-        SettingSwitchCard(
-            title = "定时停止时淡出",
-            subtitle = "睡眠定时到达时以 3 秒淡出收尾",
-            checked = settings.enableSleepTimerFadeOut,
-            menuRequester = menuRequester,
-            onToggle = {
-                AppSettingsManager.setEnableSleepTimerFadeOut(!settings.enableSleepTimerFadeOut)
-            },
-        )
     }
 }
