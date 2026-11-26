@@ -150,8 +150,6 @@ data class AppSettings(
     // 淡入淡出时长（秒），0 表示关闭；仅在 enableCrossfade 为 true 时生效
     val crossfadeSeconds: Int = 3,
     val enableReplayGain: Boolean = false,
-    // 睡眠定时到达时用 3 秒淡出收尾，而不是等到曲尾硬停
-    val enableSleepTimerFadeOut: Boolean = false,
     val enableAutoMatchLyrics: Boolean = true,
     val ignoreEmbeddedLyrics: Boolean = false,
     // 播放与歌词
@@ -227,7 +225,6 @@ object AppSettingsManager {
     private const val KEY_CROSSFADE = "crossfade_enabled"
     private const val KEY_CROSSFADE_SECONDS = "crossfade_seconds"
     private const val KEY_REPLAY_GAIN = "replay_gain"
-    private const val KEY_SLEEP_TIMER_FADE_OUT = "sleep_timer_fade_out"
     private const val KEY_ATMOS_PASSTHROUGH = "atmos_passthrough"
     private const val KEY_AUTO_MATCH_LYRICS = "auto_match_lyrics"
     private const val KEY_IGNORE_EMBEDDED_LYRICS = "ignore_embedded_lyrics"
@@ -311,7 +308,6 @@ object AppSettingsManager {
         val crossfadeEnabled = p.getBoolean(KEY_CROSSFADE, false)
         val crossfadeSeconds = p.getInt(KEY_CROSSFADE_SECONDS, 3).coerceIn(0, 15)
         val replayGain = p.getBoolean(KEY_REPLAY_GAIN, false)
-        val sleepTimerFadeOut = p.getBoolean(KEY_SLEEP_TIMER_FADE_OUT, false)
         val ignoreEmbedded = p.getBoolean(KEY_IGNORE_EMBEDDED_LYRICS, false)
         val bilingual = p.getBoolean(KEY_BILINGUAL_TRANS, true)
         val wordAnim = p.getBoolean(KEY_WORD_ANIM, true)
@@ -382,7 +378,6 @@ object AppSettingsManager {
                 enableCrossfade = crossfadeEnabled,
                 crossfadeSeconds = crossfadeSeconds,
                 enableReplayGain = replayGain,
-                enableSleepTimerFadeOut = sleepTimerFadeOut,
                 enableAutoMatchLyrics = autoLyrics,
                 ignoreEmbeddedLyrics = ignoreEmbedded,
                 showBilingualLyrics = bilingual,
@@ -572,15 +567,6 @@ object AppSettingsManager {
     }
 
     fun updateEnableReplayGain(enable: Boolean) = setEnableReplayGain(enable)
-
-    /** 开关睡眠定时到达时的淡出收尾。 */
-    fun setEnableSleepTimerFadeOut(enable: Boolean) {
-        _settings.value = _settings.value.copy(enableSleepTimerFadeOut = enable)
-        prefs?.edit()?.putBoolean(KEY_SLEEP_TIMER_FADE_OUT, enable)?.apply()
-        onPlaybackEnhancementChangedListener?.invoke()
-    }
-
-    fun updateEnableSleepTimerFadeOut(enable: Boolean) = setEnableSleepTimerFadeOut(enable)
 
     fun setEnableAutoMatchLyrics(enable: Boolean) {
         _settings.value = _settings.value.copy(enableAutoMatchLyrics = enable)
