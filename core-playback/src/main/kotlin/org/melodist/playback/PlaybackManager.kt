@@ -98,6 +98,13 @@ object PlaybackManager {
     }
 
     val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    /** 睡眠定时到点的淡出总时长。 */
+    private const val SLEEP_TIMER_FADE_MS = 3_000L
+
+    /** 睡眠定时淡出的分档数（每档 100ms）。 */
+    private const val SLEEP_TIMER_FADE_STEPS = 30
+
     private val apiService = MusicApiService()
     private var appContext: Context? = null
 
@@ -111,6 +118,9 @@ object PlaybackManager {
     private var playJob: Job? = null
     private var lyricLoadJob: Job? = null
     private var retryJob: Job? = null
+
+    /** 睡眠定时到点的淡出任务。 */
+    private var sleepFadeJob: Job? = null
 
     private val remoteStateHolder = PlaybackRemoteStateHolder()
     val isRemoteActive: StateFlow<Boolean> = remoteStateHolder.isRemoteActive
@@ -2414,6 +2424,8 @@ object PlaybackManager {
      * 取消所有待完成的无缝/淡入淡出过渡（手动切歌、暂停或设置变更时调用）。
      */
     private fun cancelEnhancementTransitions() {
+        sleepFadeJob?.cancel()
+        sleepFadeJob = null
         gaplessPrepareJob?.cancel()
         gaplessPrepareJob = null
         gaplessPrepared = null
@@ -2428,26 +2440,38 @@ object PlaybackManager {
     // ---------- 定时停止的淡出收尾 ----------
 
     /**
-     * 睡眠定时到达时的处理：开启淡出收尾则先淡出再暂停。
+     * 睡眠定时到达时的处理：恒定以 3 秒音量斜坡淡出后暂停。
+     *
+     * 淡出走 [ExoPlayer.setVolume] 的 100ms 步进，不依赖音频处理器链，
+     * 因此默认设置下依然是一个处理器都不挂（任何格式都有效）。
      *
      * @return true 表示已接管本次停止（[SleepTimerManager] 不再进入"播完当前歌曲"等待态）
      */
     private fun onSleepTimerExpired(): Boolean {
-        if (!AppSettingsManager.settings.value.enableSleepTimerFadeOut) return false
-        scope.launch {
-            val controller = playerPipeline.gainController
-            if (controller != null && exoPlayer?.isPlaying == true) {
-                controller.rampTo(
-                    targetGain = 0f,
-                    durationMs = 3_000L,
-                    curve = PlaybackGainController.Curve.LINEAR,
-                )
-                delay(3_000L + 150L)
-            }
-            pause()
+        val player = exoPlayer
+        if (player == null || !player.isPlaying) {
             SleepTimerManager.cancelTimer()
-            controller?.reset()
+            return true
         }
+        sleepFadeJob?.cancel()
+        sleepFadeJob =
+            scope.launch {
+                val restoreVolume = targetVolume
+                val startVolume = if (_isMuted.value) 0f else player.volume.coerceIn(0f, 1f)
+                try {
+                    if (startVolume <= 0f) return@launch
+                    for (step in 1..SLEEP_TIMER_FADE_STEPS) {
+                        if (exoPlayer !== player || !player.isPlaying) break
+                        player.volume = startVolume * (1f - step / SLEEP_TIMER_FADE_STEPS.toFloat())
+                        delay(SLEEP_TIMER_FADE_MS / SLEEP_TIMER_FADE_STEPS)
+                    }
+                    pause()
+                } finally {
+                    SleepTimerManager.cancelTimer()
+                    if (exoPlayer === player) player.volume = restoreVolume
+                    sleepFadeJob = null
+                }
+            }
         return true
     }
 
@@ -2459,6 +2483,8 @@ object PlaybackManager {
         savePlaybackState()
         progressTracker.stop()
         playJob?.cancel()
+        sleepFadeJob?.cancel()
+        sleepFadeJob = null
         preloadCoordinator.release()
         playerPipeline.release()
         if (org.melodist.data.AppSettingsManager.onPlaybackEnhancementChangedListener != null) {

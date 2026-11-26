@@ -91,17 +91,14 @@ object PlaybackEngineFactory {
     }
 
     /**
-     * 当前设置是否真的需要增益处理器（音量平衡、淡入淡出、定时停止淡出任一开启）。
+     * 当前设置是否真的需要增益处理器（音量平衡或淡入淡出至少开一个）。
      *
      * 默认设置下返回 false，音频链与未引入播放增强前完全一致，
      * 既避免无谓的 24bit→16bit 转换，也把回归风险降到零。
+     * 睡眠定时到点的淡出走 `player.volume` 斜坡，不依赖处理器链。
      */
-    fun needsGainProcessor(): Boolean {
-        val config = PlaybackEnhancementConfig.current()
-        return config.crossfadeEnabled ||
-            config.replayGainEnabled ||
-            AppSettingsManager.settings.value.enableSleepTimerFadeOut
-    }
+    fun needsGainProcessor(): Boolean =
+        PlaybackEnhancementConfig.current().let { it.crossfadeEnabled || it.replayGainEnabled }
 
     /**
      * 构造装配了容错同步与帧对齐能力的全局 ExtractorsFactory。
