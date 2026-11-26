@@ -14,7 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.BatteryChargingFull
-import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.MusicNote
@@ -213,16 +212,6 @@ fun SettingsPlaybackSection(
                     subtitle = "按 ReplayGain 标签统一歌曲音量；仅本地与缓存歌曲可读取标签",
                     checked = settings.enableReplayGain,
                     onCheckedChange = { AppSettingsManager.setEnableReplayGain(it) },
-                )
-
-                SettingsDivider()
-
-                SettingsSwitchRow(
-                    icon = Icons.Rounded.Bedtime,
-                    title = "定时停止时淡出",
-                    subtitle = "睡眠定时到达时以 3 秒淡出收尾，而不是立即停止",
-                    checked = settings.enableSleepTimerFadeOut,
-                    onCheckedChange = { AppSettingsManager.setEnableSleepTimerFadeOut(it) },
                 )
             }
         }
